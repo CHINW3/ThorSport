@@ -2,6 +2,14 @@
 
 Live sports for the **AYN Thor bottom screen** (1240×1080). Everything is drawn to fill the screen exactly.
 
+| Two-screen mode | Board next to the TV |
+|---|---|
+| ![Two-screen mode](screenshots/two-screen-scores.webp) | ![Board](screenshots/board-with-tv.webp) |
+
+## Download
+
+**[ThorSport.apk — latest release](https://github.com/CHINW3/ThorSport/releases/latest)** · copy it to the Thor and install it. If it opens on the top screen: long-press the icon → Screen Launch → Bottom Screen.
+
 ## Leagues
 ★ MY TEAMS · NHL · PWHL · NBA · NFL · MLB · WNBA · F1 · League of Legends · Premier League · MLS · Champions League · La Liga · Bundesliga · Serie A · Ligue 1
 
