@@ -7,11 +7,22 @@ android {
         applicationId 'com.gregoire.thorstandings'
         minSdk 30
         targetSdk 34
-        versionCode 17
-        versionName '3.5'
+        versionCode 18
+        versionName '3.6'
+    }
+    // One fixed key for every build (Android Studio or GitHub), so new versions
+    // install over old ones instead of failing with "App not installed".
+    signingConfigs {
+        thor {
+            storeFile file('thorsport.keystore')
+            storePassword 'thorsport'
+            keyAlias 'thorsport'
+            keyPassword 'thorsport'
+        }
     }
     buildTypes {
-        release { minifyEnabled false; signingConfig signingConfigs.debug }
+        debug { signingConfig signingConfigs.thor }
+        release { minifyEnabled false; signingConfig signingConfigs.thor }
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
