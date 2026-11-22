@@ -1,4 +1,4 @@
-# ThorSport 3.4
+# ThorSport 3.5
 
 Live sports for the **AYN Thor bottom screen** (1240×1080). Everything is drawn to fill the screen exactly.
 
@@ -33,7 +33,7 @@ The mode is remembered next time you open the app.
   Settings → Football field demo shows it with a sample drive.
 - **BOARD for NHL**: live shot map on an ice rink: every shot and goal where it was taken (NHL play-by-play),
   goals as glowing pucks with the scorer, newest shot animated, power play / empty net banner, shots on goal.
-  Settings → Hockey rink demo.
+  Turn it on or off in Settings → NHL shot map. Settings → Hockey rink demo shows it with a sample game.
 - **F1**: the race weekend (FP1…Race) with local times, countdown, ✓ / LIVE, last race top 10 with team colors and
   gaps, drivers' and constructors' championships (data: Jolpica). No free live timing exists, so no lap-by-lap order.
 - **League of Legends**: matches from every league (lolesports.com feed), series score, and during a live game:
