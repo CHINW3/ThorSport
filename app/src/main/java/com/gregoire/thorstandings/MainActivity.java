@@ -73,6 +73,8 @@ public class MainActivity extends Activity implements ThorView.Listener {
     private boolean running, sound, myTeamsOnly, lastFailed, ledsOn, autoBoard;
     private int delaySec, hornVol, ledBri;
     private boolean celebrations, keepOn, nightMode, hideFinal, shotMap;
+    private BroadcastReceiver updateReceiver;
+    private volatile int updatePct = -2;   // -2 idle, -1 downloading (size unknown), 0..100 downloading
     private long resetArmedAt;
     private static final float[] HORN_VOLS = {0.35f, 0.7f, 1f};
     private static final float[] LED_BRIS = {0.3f, 0.7f, 1f};
@@ -209,6 +211,12 @@ public class MainActivity extends Activity implements ThorView.Listener {
 
         registerReceiver(batteryReceiver, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
         registerReceiver(screenOnReceiver, new IntentFilter(Intent.ACTION_SCREEN_ON));
+        updateReceiver = Updater.statusReceiver(this, msg -> runOnUiThread(() -> {
+            updatePct = -2;
+            Toast.makeText(this, t("Update failed: ", "Mise à jour échouée : ") + msg, Toast.LENGTH_LONG).show();
+            pushSettings();
+        }));
+        if (System.currentTimeMillis() - prefs.getLong("updCheck", 0) > 6 * 3600_000L) checkUpdate(false);
         all(v -> v.setLeagueLogos(leagueLogoUrls.clone()));
         loadLeagueLogos();
         running = true;
@@ -378,6 +386,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         if (!running) return;
         try { unregisterReceiver(batteryReceiver); } catch (Exception ignored) { }
         try { unregisterReceiver(screenOnReceiver); } catch (Exception ignored) { }
+        try { if (updateReceiver != null) unregisterReceiver(updateReceiver); } catch (Exception ignored) { }
         if (ledsAvailable) Leds.restore(this);
         if (TopActivity.current != null) TopActivity.current.finish();
         if (instance == this) instance = null;
@@ -668,6 +677,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         it.add(item(t("Football field demo", "Démo terrain de football"), "▶", ThorView.SET_DEMO_NFL, false));
         it.add(item(t("NHL shot map (rink)", "Carte des tirs LNH (patinoire)"), onOff(shotMap), ThorView.SET_SHOT_MAP, false));
         it.add(item(t("Hockey rink demo", "Démo patinoire"), "▶", ThorView.SET_DEMO_NHL, false));
+        it.add(item(t("App update", "Mise à jour"), updateLabel(), ThorView.SET_UPDATE, false));
         it.add(item(t("Help / tips", "Aide / astuces"), "?", ThorView.SET_HELP, false));
         boolean armed = System.currentTimeMillis() - resetArmedAt < 4000;
         it.add(item(t("Clear MY TEAMS", "Vider MES ÉQUIPES") + " (" + favKeys.size() + ")", armed ? t("TAP AGAIN", "TOUCHEZ ENCORE") : t("CLEAR", "VIDER"), ThorView.SET_RESET, false));
@@ -678,6 +688,54 @@ public class MainActivity extends Activity implements ThorView.Listener {
 
     private static String[] item(String label, String value, int id, boolean stepper) {
         return new String[]{label, value, String.valueOf(id), stepper ? "1" : "0"};
+    }
+
+    // ------------------------------------------------------------------ in-app update (GitHub releases)
+    private String updateLabel() {
+        if (updatePct >= 0) return updatePct + "%";
+        if (updatePct == -1) return t("DOWNLOADING…", "TÉLÉCHARGEMENT…");
+        if (Updater.newVersion != null) return t("INSTALL ", "INSTALLER ") + Updater.newVersion + "  ›";
+        return "v" + Updater.currentVersion(this) + " · " + t("CHECK", "VÉRIFIER");
+    }
+
+    private void checkUpdate(boolean manual) {
+        new Thread(() -> {
+            try {
+                boolean found = Updater.check(this);
+                prefs.edit().putLong("updCheck", System.currentTimeMillis()).apply();
+                runOnUiThread(() -> {
+                    if (found) all(v -> v.banner(t("UPDATE ", "MISE À JOUR ") + Updater.newVersion + t(" AVAILABLE · Settings → App update", " DISPONIBLE · Réglages → Mise à jour"), 0xFF34C759));
+                    else if (manual) Toast.makeText(this, t("ThorSport is up to date", "ThorSport est à jour"), Toast.LENGTH_SHORT).show();
+                    pushSettings();
+                });
+            } catch (Exception ex) {
+                if (manual) runOnUiThread(() -> Toast.makeText(this, t("Can't reach GitHub", "GitHub injoignable"), Toast.LENGTH_SHORT).show());
+            }
+        }).start();
+    }
+
+    private void onUpdateTap() {
+        if (updatePct != -2) return;                       // already downloading
+        if (Updater.newVersion == null) { checkUpdate(true); return; }
+        if (!Updater.canInstall(this)) {
+            Toast.makeText(this, t("Allow ThorSport to install apps, then tap App update again", "Autorisez ThorSport à installer des applis, puis touchez Mise à jour"), Toast.LENGTH_LONG).show();
+            Updater.askInstallPermission(this);
+            return;
+        }
+        updatePct = -1;
+        pushSettings();
+        new Thread(() -> {
+            try {
+                Updater.install(this, pct -> { updatePct = pct; runOnUiThread(this::pushSettings); });
+                runOnUiThread(() -> { updatePct = -2; pushSettings(); });
+            } catch (Exception ex) {
+                runOnUiThread(() -> {
+                    updatePct = -2;
+                    Toast.makeText(this, t("Download failed", "Téléchargement échoué"), Toast.LENGTH_SHORT).show();
+                    pushSettings();
+                });
+            }
+        }).start();
     }
 
     @Override public void onSetting(int id, int dir) {
@@ -838,6 +896,8 @@ public class MainActivity extends Activity implements ThorView.Listener {
             }
             case ThorView.SET_HELP:
                 view.showHelp(); break;
+            case ThorView.SET_UPDATE:
+                onUpdateTap(); break;
             case ThorView.SET_RESET:
                 if (System.currentTimeMillis() - resetArmedAt < 4000) {
                     favKeys.clear();
