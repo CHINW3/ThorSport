@@ -1,0 +1,4 @@
+<resources>
+    <!-- The name shown under the icon on the Thor. Change it here. -->
+    <string name="app_name">ThorSport</string>
+</resources>
