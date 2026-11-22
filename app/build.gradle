@@ -1,0 +1,83 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'com.gregoire.thorstandings'
+    compileSdk 34
+    defaultConfig {
+        applicationId 'com.gregoire.thorstandings'
+        minSdk 30
+        targetSdk 34
+        versionCode 16
+        versionName '3.4'
+    }
+    buildTypes {
+        release { minifyEnabled false; signingConfig signingConfigs.debug }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Downloads every team logo (NHL, NBA, NFL, MLB, Premier League) from ESPN
+// into src/main/assets/logos so they are packed inside the APK.
+// Runs automatically before the first build; afterwards it is skipped.
+// Delete the app/src/main/assets/logos folder to download them again.
+// ---------------------------------------------------------------------------
+
+def logoLeagues = ['hockey/nhl', 'basketball/nba', 'football/nfl', 'baseball/mlb', 'soccer/eng.1']
+def logoDir = file('src/main/assets/logos')
+
+// ESPN URL ".../i/teamlogos/nhl/500-dark/mtl.png" -> assets/logos/teamlogos/nhl/500-dark/mtl.png
+// Returns true when the file is there (already or just downloaded).
+def saveLogo(String href, File logoDir) {
+    if (href == null) return true
+    int i = href.indexOf('/i/')
+    if (i < 0) return true
+    String rel = href.substring(i + 3).split('[?&]')[0]
+    File out = new File(logoDir, rel)
+    if (out.exists() && out.length() > 0) return true
+    out.parentFile.mkdirs()
+    try {
+        new URL(href).withInputStream { ins -> out.bytes = ins.bytes }
+        return true
+    } catch (Exception e) {
+        return false
+    }
+}
+
+tasks.register('downloadLogos') {
+    group = 'thor'
+    description = 'Download all team logos from ESPN into the app assets.'
+    onlyIf { !new File(logoDir, '.done').exists() }
+    doLast {
+        int ok = 0, failed = 0
+        boolean allLeagues = true
+        logoLeagues.each { path ->
+            try {
+                def json = new groovy.json.JsonSlurper().parse(new URL("https://site.api.espn.com/apis/site/v2/sports/${path}/teams"))
+                def teams = json.sports[0].leagues[0].teams*.team
+                teams.each { t ->
+                    def logos = t.logos ?: []
+                    // Prefer the version made for dark backgrounds; keep the normal one as backup.
+                    def dark = logos.find { it.rel?.contains('dark') }
+                    def norm = logos.find { it.rel?.contains('default') } ?: (logos ? logos[0] : null)
+                    [dark, norm].findAll { it != null }.each { l ->
+                        if (saveLogo(l.href as String, logoDir)) ok++ else failed++
+                    }
+                }
+                // League logo (shown in the top-left chip)
+                def sb = new groovy.json.JsonSlurper().parse(new URL("https://site.api.espn.com/apis/site/v2/sports/${path}/scoreboard"))
+                (sb.leagues?.getAt(0)?.logos ?: []).each { l -> if (saveLogo(l.href as String, logoDir)) ok++ else failed++ }
+                println "Logos: ${path} → ${teams.size()} teams"
+            } catch (Exception e) {
+                allLeagues = false
+                println "Logos: could not read ${path} (${e.message}) — the app will download those at runtime instead."
+            }
+        }
+        if (allLeagues && failed == 0) new File(logoDir, '.done').text = 'ok'
+        println "Logos: ${ok} ready, ${failed} failed → ${logoDir}"
+    }
+}
+tasks.named('preBuild') { dependsOn 'downloadLogos' }
