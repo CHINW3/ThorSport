@@ -9,6 +9,8 @@ permissions:
 
 jobs:
   build:
+    # Builds only when asked: a commit whose message contains [release], or "Run workflow" on GitHub.
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[release]')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,7 +37,11 @@ jobs:
         if: github.ref == 'refs/heads/main'
         run: |
           cp app/build/outputs/apk/debug/app-debug.apk ThorSport.apk
-          echo "VERSION=$(grep -oP "versionName\s+'\K[^']+" app/build.gradle)" >> $GITHUB_ENV
+          V=$(grep -oP "versionName\s+'\K[^']+" app/build.gradle)
+          echo "VERSION=$V" >> $GITHUB_ENV
+          # release notes = this version's section of CHANGELOG.md + install tip
+          awk -v v="## $V" '$0==v{f=1;next} /^## /{f=0} f' CHANGELOG.md > notes.md
+          printf '\n**Install:** copy ThorSport.apk to your AYN Thor and open it. If it opens on the top screen: long-press the icon → Screen Launch → Bottom Screen. From 3.6 on, update from Settings → App update.\n' >> notes.md
 
       - name: Latest release
         if: github.ref == 'refs/heads/main'
@@ -43,6 +49,6 @@ jobs:
         with:
           tag_name: v${{ env.VERSION }}
           name: ThorSport ${{ env.VERSION }}
-          body: Install ThorSport.apk on your AYN Thor (bottom screen). If it opens on the top screen, long-press the icon, Screen Launch, Bottom Screen.
+          body_path: notes.md
           files: ThorSport.apk
           make_latest: true
