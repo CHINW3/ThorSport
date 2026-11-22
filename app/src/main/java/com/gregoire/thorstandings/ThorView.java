@@ -152,6 +152,7 @@ public class ThorView extends View {
     private float fx = -1, fy = -1;                       // centre of the highlighted item
     private long lastStick;
     private final List<RectF> focusables = new ArrayList<>();
+    private final Map<String, List<Float>> oddsHist = new HashMap<>();   // gameId -> away win chance over time (two-screen companion)
     private final Map<String, Long> popAt = new HashMap<>();   // "gameId:away"/"gameId:home" -> when score changed
     private int page, dateOffset;
     private String leagueLogo;
@@ -248,6 +249,9 @@ public class ThorView extends View {
                 if (celebrating()) { celebGame = null; invalidate(); return true; }
         if (helpOpen) { helpOpen = false; invalidate(); return true; }
         if (settingsOpen) {
+    for (int i = 0; i < sectionRects.size(); i++) {
+        if (sectionRects.get(i).contains(x, y)) { settingsSection = i; selSetting = 0; invalidate(); return true; }
+    }
     for (int i = 0; i < settingRects.size(); i++) {
         if (settingRects.get(i).contains(x, y)) {
             int[] act = settingActs.get(i);
@@ -364,11 +368,8 @@ public class ThorView extends View {
             return true;
         }
         if (settingsOpen) {
-            int n = settingItems.size(), rows = (n + 1) / 2;
-            String[] it = sel2(settingItems, selSetting);
-            if (dx != 0 && it != null && "1".equals(it[3])) listener.onSetting(Integer.parseInt(it[2]), dx);   // stepper
-            else if (dx != 0) selSetting = clamp(selSetting + dx * rows, n);
-            else selSetting = clamp(selSetting + dy, n);
+            if (dx != 0) { settingsSection = clamp(settingsSection + dx, SECTIONS.length); selSetting = 0; }   // ← → sections
+            else selSetting = clamp(selSetting + dy, visibleSettings().size());
         } else if (pickerOpen) {
             int n = leagueLabels.length, rows = n > 8 ? (n + 1) / 2 : n;
             selPicker = clamp(selPicker + (dx != 0 ? dx * rows : dy), n);
@@ -428,7 +429,8 @@ public class ThorView extends View {
         Model.Game g = boardGame();
         int i = order.indexOf(g);
         if (g == null || i < 0) return;
-        String s = "‹   " + g.away.abbr + " @ " + g.home.abbr + "  ·  " + (i + 1) + "/" + order.size() + "   ›";
+        String who = "racing".equals(g.sport) ? (g.away.abbr.equals("LAST") ? tr("Last race", "Dernière course") : g.away.name) : g.away.abbr + " @ " + g.home.abbr;
+        String s = "‹   " + who + "  ·  " + (i + 1) + "/" + order.size() + "   ›";
         float ts = w * 0.022f, th = ts * 2f;
         float a = t < 1300 ? 1f : 1f - (t - 1300) / 300f;
         p.setTypeface(tfCond);
@@ -459,7 +461,7 @@ public class ThorView extends View {
         wakeCursor();
         performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
         if (settingsOpen) {
-            String[] it = sel2(settingItems, selSetting);
+            String[] it = sel2(visibleSettings(), selSetting);
             if (it != null) listener.onSetting(Integer.parseInt(it[2]), 1);
         } else if (pickerOpen) {
             pickerOpen = false;
@@ -563,6 +565,13 @@ public class ThorView extends View {
                 if (!og.away.score.equals(ng.away.score) && !ng.away.score.isEmpty()) popAt.put(ng.id + ":away", now);
                 if (!og.home.score.equals(ng.home.score) && !ng.home.score.isEmpty()) popAt.put(ng.id + ":home", now);
             }
+        }
+        for (Model.Game ng : g) {
+            if (!ng.isLive() || ng.away.odds < 0) continue;
+            List<Float> hist = oddsHist.get(ng.id);
+            if (hist == null) { hist = new ArrayList<>(); oddsHist.put(ng.id, hist); }
+            if (hist.isEmpty() || Math.abs(hist.get(hist.size() - 1) - ng.away.odds) > 0.004f) hist.add(ng.away.odds);
+            if (hist.size() > 240) hist.remove(0);
         }
         games = g;
         if (page >= pageCount()) page = 0;
@@ -831,7 +840,10 @@ public class ThorView extends View {
                     : leagueInfo != null && leagueInfo.mine() && favorites.isEmpty() ? tr("Long-press any team in any league to add it here", "Appuyez longuement sur une équipe pour l'ajouter ici")
                     : myTeamsOnly || leagueInfo != null && leagueInfo.mine() ? tr("No games for your teams", "Aucun match pour vos équipes") : tr("No games", "Aucun match");
                 drawEmpty(c, w, bodyTop, h, m);
-            } else drawScores(c, w, h, bodyTop);
+            } else if (dualBottom()) drawWall(c, w, h, bodyTop);
+            else drawScores(c, w, h, bodyTop);
+        } else if (tab == TAB_BOARD && dualBottom() && demoGame == null && boardGame() != null && !"racing".equals(boardGame().sport)) {
+            drawCompanion(c, boardGame(), w, h, top);
         } else if (tab == TAB_BOARD) {
             Model.Game g = demoGame != null ? demoGame : boardGame();
             if (g == null) drawEmpty(c, w, top, h, message != null ? message : "No games today");
@@ -897,12 +909,14 @@ public class ThorView extends View {
         p.setTextSize(ls);
         float lw = Math.min(p.measureText(leagueShown), w * 0.16f);
         float chipH = hh * 0.66f;
-        float logoW = leagueLogo != null ? chipH * 0.78f : 0;
+        String chipLogo = leagueLogo != null ? leagueLogo : leagueIndex >= 0 && leagueIndex < leagueLogos.length ? leagueLogos[leagueIndex] : null;
+        if (chipLogo != null && chipLogo.startsWith("mine")) chipLogo = null;
+        float logoW = chipLogo != null ? chipH * 0.78f : 0;
         leagueRect.set(pad, cy - chipH / 2, pad + logoW + lw + chipH * 1.25f, cy + chipH / 2);
         p.setStyle(Paint.Style.FILL);
         p.setColor(0xFF161920);
         c.drawRoundRect(leagueRect, chipH / 2, chipH / 2, p);
-        if (leagueLogo != null) logo(c, leagueLogo, "", 0x00000000, leagueRect.left + chipH * 0.3f + logoW / 2, cy, chipH * 0.66f);
+        if (chipLogo != null) logo(c, chipLogo, "", 0x00000000, leagueRect.left + chipH * 0.3f + logoW / 2, cy, chipH * 0.66f);
         text(c, leagueShown, leagueRect.left + chipH * 0.4f + logoW, cy, ls, tfBlack, TEXT, Paint.Align.LEFT, w * 0.16f);
         float chx = leagueRect.right - chipH * 0.42f, s = chipH * 0.12f;
         p.setStyle(Paint.Style.STROKE);
@@ -958,7 +972,9 @@ public class ThorView extends View {
         r1.set(segRight - segW, cy - segH / 2, segRight, cy + segH / 2);
         p.setColor(0xFF161920);
         c.drawRoundRect(r1, segH / 2, segH / 2, p);
-        String[] labels = {tr("SCORES", "SCORES"), tr("BOARD", "TABLEAU"), tr("STANDINGS", "CLASSEMENT")};
+        String[] labels = dualBottom()
+            ? new String[]{tr("LIVE", "EN DIRECT"), tr("GAME", "MATCH"), tr("STANDINGS", "CLASSEMENT")}
+            : new String[]{tr("SCORES", "SCORES"), tr("BOARD", "TABLEAU"), tr("STANDINGS", "CLASSEMENT")};
         float inset = segH * 0.09f;
         float segEach = segW / 3f;
         float segLeft = r1.left, segTop = r1.top, segBottom = r1.bottom;
@@ -987,6 +1003,264 @@ public class ThorView extends View {
 
         p.setColor(HAIRLINE);
         c.drawRect(0, hh - 1, w, hh, p);
+    }
+
+    /** Bottom screen while the top screen shows the Board. */
+    private boolean dualBottom() { return dual && !topMode; }
+
+    private String status(Model.Game g) {
+        if (g.isLive()) return g.detail.isEmpty() ? "LIVE" : g.detail.toUpperCase();
+        if (g.isFinal()) return g.detail.isEmpty() ? "FINAL" : g.detail.toUpperCase();
+        return g.startMs > 0 ? (DateUtils.isToday(g.startMs) ? "" : DateFormat.format("EEE ", g.startMs).toString().toUpperCase()) + fmtTime(g.startMs) : g.detail;
+    }
+
+    // ------------------------------------------------------------------ two-screen: LIVE wall (bottom)
+    /** Every game of the league as compact tiles; the one on the top screen is outlined. Tap = show it on top. */
+    private void drawWall(Canvas c, int w, int h, float top) {
+        List<Model.Game> list = shownGames();
+        float gap = w * 0.014f;
+        int cols = 3;
+        int rowsN = Math.max(3, Math.min(5, (list.size() + cols - 1) / cols));   // fewer games = bigger tiles
+        float tileH = (h - top - gap) / rowsN;
+        int perPage = cols * rowsN, pages = Math.max(1, (list.size() + perPage - 1) / perPage);
+        int pg = Math.min(page, pages - 1);
+        float tw = (w - gap * (cols + 1)) / cols;
+        Model.Game onTop = boardGame();
+        long now = System.currentTimeMillis();
+        for (int k = 0; k < perPage && pg * perPage + k < list.size(); k++) {
+            Model.Game g = list.get(pg * perPage + k);
+            float x = gap + (k % cols) * (tw + gap), y = top + (k / cols) * tileH;
+            RectF r = new RectF(x, y + gap * 0.3f, x + tw, y + tileH - gap * 0.3f);
+            float rad = r.height() * 0.16f;
+            p.setShader(new LinearGradient(r.left, 0, r.right, 0, alpha(g.away.color, g.isLive() ? 0x55 : 0x2A), alpha(g.home.color, g.isLive() ? 0x55 : 0x2A), Shader.TileMode.CLAMP));
+            c.drawRoundRect(r, rad, rad, p);
+            p.setShader(null);
+            p.setColor(0xC0101218);
+            c.drawRoundRect(r, rad, rad, p);
+            boolean isTop = onTop != null && g.id.equals(onTop.id);
+            if (isTop || g.isLive()) {
+                p.setStyle(Paint.Style.STROKE);
+                p.setStrokeWidth(Math.max(2f, r.height() * 0.025f));
+                p.setColor(isTop ? ACCENT : alpha(LIVE, 0x99));
+                c.drawRoundRect(r, rad, rad, p);
+                p.setStyle(Paint.Style.FILL);
+            }
+            cardRects.add(r);
+            cardIds.add(g.id);
+            float rh = r.height(), ls = Math.min(rh * 0.22f, tw * 0.13f), padX = Math.min(rh, tw) * 0.1f;
+            boolean pre = "pre".equals(g.state);
+            for (int sd = 0; sd < 2; sd++) {
+                Model.Side s2 = sd == 0 ? g.away : g.home;
+                float cy = r.top + rh * (sd == 0 ? 0.3f : 0.58f);
+                logo(c, s2.logo, s2.abbr, s2.color, r.left + padX + ls / 2, cy, ls);
+                boolean lost = g.isFinal() && !s2.winner && (g.away.winner || g.home.winner);
+                text(c, star(s2.abbr), r.left + padX * 1.6f + ls, cy, ls * 0.62f, tfBlack, lost ? MUTED : TEXT, Paint.Align.LEFT, tw * 0.5f);
+                if (!pre) {
+                    Long pa = popAt.get(g.id + ":" + (sd == 0 ? "away" : "home"));
+                    boolean pop = pa != null && now - pa < 20000;
+                    text(c, s2.score.isEmpty() ? "0" : s2.score, r.right - padX, cy, ls * 0.95f, tfBlack, pop ? AMBER : lost ? MUTED : TEXT, Paint.Align.RIGHT, tw * 0.3f);
+                    if (pop) postInvalidateDelayed(1000);
+                }
+            }
+            String st = isTop ? tr("ON TOP  ·  ", "EN HAUT  ·  ") + status(g) : status(g);
+            text(c, st, r.left + padX, r.top + rh * 0.84f, ls * 0.48f, tfCond, isTop ? ACCENT : g.isLive() ? 0xFFFF6B5E : MUTED, Paint.Align.LEFT, tw - padX * 2);
+        }
+        if (pages > 1) text(c, (pg + 1) + " / " + pages, w / 2f, h - gap * 0.6f, gap * 0.9f, tfCond, DIM, Paint.Align.CENTER, w);
+    }
+
+    // ------------------------------------------------------------------ two-screen: GAME companion (bottom)
+    /** Extra info for the game shown on the top screen: score strip, win chance over time, timeline, stats. */
+    private void drawCompanion(Canvas c, Model.Game g, int w, int h, float top) {
+        float gap = w * 0.016f, H = h - top;
+        // --- score strip
+        RectF strip = new RectF(gap, top, w - gap, top + H * 0.17f);
+        float sr = strip.height() * 0.22f;
+        p.setShader(new LinearGradient(strip.left, 0, strip.right, 0, alpha(g.away.color, 0x80), alpha(g.home.color, 0x80), Shader.TileMode.CLAMP));
+        c.drawRoundRect(strip, sr, sr, p);
+        p.setShader(null);
+        p.setColor(0x99000000);
+        c.drawRoundRect(strip, sr, sr, p);
+        float sh = strip.height(), ls = sh * 0.62f;
+        for (int sd = 0; sd < 2; sd++) {
+            Model.Side s2 = sd == 0 ? g.away : g.home;
+            boolean left = sd == 0;
+            float lx = left ? strip.left + sh * 0.2f + ls / 2 : strip.right - sh * 0.2f - ls / 2;
+            logo(c, s2.logo, s2.abbr, s2.color, lx, strip.centerY(), ls);
+            float nx = left ? lx + ls * 0.7f : lx - ls * 0.7f;
+            text(c, star(s2.abbr), nx, strip.top + sh * 0.38f, sh * 0.24f, tfBlack, favorites.contains(s2.abbr) ? ACCENT : TEXT, left ? Paint.Align.LEFT : Paint.Align.RIGHT, w * 0.16f);
+            text(c, s2.record, nx, strip.top + sh * 0.68f, sh * 0.15f, tfMed, MUTED, left ? Paint.Align.LEFT : Paint.Align.RIGHT, w * 0.16f);
+            if (!"pre".equals(g.state))
+                text(c, s2.score.isEmpty() ? "0" : s2.score, left ? strip.centerX() - sh * 0.75f : strip.centerX() + sh * 0.75f, strip.centerY(), sh * 0.56f, tfBlack, TEXT,
+                    left ? Paint.Align.RIGHT : Paint.Align.LEFT, w * 0.12f);
+        }
+        text(c, status(g), strip.centerX(), strip.centerY(), sh * 0.16f, tfCond, g.isLive() ? 0xFFFF6B5E : MUTED, Paint.Align.CENTER, sh * 1.3f);
+
+        float by = strip.bottom + gap, bb = h - gap;
+        float splitX = w * 0.54f;
+
+        // --- left: timeline
+        RectF lp = new RectF(gap, by, splitX - gap * 0.5f, bb);
+        p.setColor(0xFF121419);
+        c.drawRoundRect(lp, sr, sr, p);
+        text(c, tr("TIMELINE", "DÉROULEMENT"), lp.left + gap, lp.top + gap * 1.3f, H * 0.026f, tfCond, MUTED, Paint.Align.LEFT, lp.width());
+        float ty = lp.top + gap * 2.6f;
+        List<Model.Goal> goals = new ArrayList<>(g.goals);
+        java.util.Collections.reverse(goals);   // newest first
+        boolean hasLines = !g.away.lines.isEmpty();
+        float lineTableH = hasLines ? H * 0.17f : 0;
+        float evH = H * 0.085f;
+        int maxEv = (int) ((lp.bottom - lineTableH - ty - gap) / evH);
+        if (goals.isEmpty()) {
+            String msg = !g.lastPlay.isEmpty() ? g.lastPlay : !g.headline.isEmpty() ? g.headline : "pre".equals(g.state) ? tr("Starts ", "Début ") + status(g) : tr("No scoring yet", "Aucun point pour l'instant");
+            if (!g.lastPlay.isEmpty()) text(c, tr("LAST PLAY", "DERNIER JEU"), lp.left + gap, ty + evH * 0.3f, H * 0.022f, tfCond, AMBER, Paint.Align.LEFT, lp.width());
+            wrapText(c, msg, lp.left + gap, ty + evH * 0.8f, lp.width() - gap * 2, H * 0.032f, TEXT, 4);
+        }
+        for (int i = 0; i < Math.min(maxEv, goals.size()); i++) {
+            Model.Goal gl = goals.get(i);
+            Model.Side s2 = gl.home ? g.home : g.away;
+            RectF ev = new RectF(lp.left + gap * 0.6f, ty + i * evH, lp.right - gap * 0.6f, ty + (i + 1) * evH - evH * 0.12f);
+            p.setColor(i == 0 ? alpha(s2.color, 0x40) : 0xFF181B21);
+            c.drawRoundRect(ev, ev.height() * 0.22f, ev.height() * 0.22f, p);
+            p.setColor(gl.red ? LIVE : s2.color | 0xFF000000);
+            c.drawRoundRect(new RectF(ev.left, ev.top, ev.left + ev.height() * 0.09f, ev.bottom), 3, 3, p);
+            float eh = ev.height();
+            logo(c, s2.logo, s2.abbr, s2.color, ev.left + eh * 0.6f, ev.centerY(), eh * 0.62f);
+            text(c, (gl.red ? tr("RED CARD · ", "CARTON ROUGE · ") : "") + gl.who, ev.left + eh * 1.05f, ev.top + eh * 0.36f, eh * 0.3f, tfBlack, TEXT, Paint.Align.LEFT, ev.width() * 0.62f);
+            if (!gl.extra.isEmpty()) text(c, gl.extra, ev.left + eh * 1.05f, ev.top + eh * 0.72f, eh * 0.2f, tfReg, MUTED, Paint.Align.LEFT, ev.width() * 0.62f);
+            text(c, gl.time, ev.right - eh * 0.25f, ev.centerY(), eh * 0.24f, tfCond, MUTED, Paint.Align.RIGHT, ev.width() * 0.3f);
+        }
+        if (hasLines) drawLineTable(c, g, new RectF(lp.left + gap * 0.6f, lp.bottom - lineTableH, lp.right - gap * 0.6f, lp.bottom - gap * 0.6f));
+
+        // --- right: win chance + stats
+        RectF rp = new RectF(splitX + gap * 0.5f, by, w - gap, bb);
+        p.setColor(0xFF121419);
+        c.drawRoundRect(rp, sr, sr, p);
+        float ry = rp.top + gap * 1.3f;
+        boolean hockeyMap = "hockey".equals(g.sport) && !g.shots.isEmpty() && shotMap;
+        List<Float> hist = oddsHist.get(g.id);
+        if (hockeyMap) {
+            text(c, tr("SHOT MAP", "CARTE DES TIRS"), rp.left + gap, ry, H * 0.026f, tfCond, MUTED, Paint.Align.LEFT, rp.width());
+            float rw = rp.width() - gap * 2, rh = rw * 85f / 200f;
+            RectF rink = new RectF(rp.left + gap, ry + gap * 2.4f, rp.left + gap + rw, ry + gap * 2.4f + rh);
+            drawRink(c, g, rink);
+            ry = rink.bottom + gap * 1.4f;
+        } else if (g.away.odds >= 0) {
+            text(c, tr("WIN CHANCE", "CHANCES DE VICTOIRE") + (g.oddsSource.isEmpty() ? "" : "  ·  " + g.oddsSource), rp.left + gap, ry, H * 0.026f, tfCond, MUTED, Paint.Align.LEFT, rp.width());
+            RectF gr = new RectF(rp.left + gap, ry + gap * 1.4f, rp.right - gap, ry + gap * 1.4f + H * 0.26f);
+            drawOddsGraph(c, g, gr, hist);
+            ry = gr.bottom + gap * 1.4f;
+        }
+        text(c, tr("MATCHUP", "DUEL"), rp.left + gap, ry, H * 0.026f, tfCond, MUTED, Paint.Align.LEFT, rp.width());
+        ry += gap * 1.2f;
+        List<String[]> rows = new ArrayList<>();
+        if (g.away.odds >= 0) rows.add(new String[]{tr("Win chance", "Victoire"), Math.round(g.away.odds * 100) + "%", Math.round(g.home.odds * 100) + "%", String.valueOf(g.away.odds), String.valueOf(g.home.odds)});
+        if (g.away.shots >= 0) rows.add(new String[]{tr("Shots", "Tirs"), "" + g.away.shots, "" + g.home.shots, "" + g.away.shots, "" + g.home.shots});
+        if (g.away.saves >= 0) rows.add(new String[]{tr("Saves", "Arrêts"), "" + g.away.saves, "" + g.home.saves, "" + g.away.saves, "" + g.home.saves});
+        if (g.awayTimeouts >= 0) rows.add(new String[]{tr("Timeouts", "Temps morts"), "" + g.awayTimeouts, "" + g.homeTimeouts, "" + g.awayTimeouts, "" + g.homeTimeouts});
+        if (!g.away.record.isEmpty()) rows.add(new String[]{tr("Record", "Fiche"), g.away.record, g.home.record, "", ""});
+        float rowH = Math.min(H * 0.075f, (rp.bottom - ry - gap) / Math.max(1, rows.size() + (g.away.leader.isEmpty() ? 0 : 2)));
+        for (String[] r : rows) {
+            float cy = ry + rowH * 0.5f;
+            text(c, r[1], rp.left + gap, cy, rowH * 0.42f, tfBlack, TEXT, Paint.Align.LEFT, rp.width() * 0.25f);
+            text(c, r[2], rp.right - gap, cy, rowH * 0.42f, tfBlack, TEXT, Paint.Align.RIGHT, rp.width() * 0.25f);
+            text(c, r[0], rp.centerX(), cy - rowH * 0.14f, rowH * 0.26f, tfCond, MUTED, Paint.Align.CENTER, rp.width() * 0.4f);
+            try {
+                float a = Float.parseFloat(r[3]), b = Float.parseFloat(r[4]);
+                if (a + b > 0) {
+                    float bw = rp.width() * 0.4f, bx = rp.centerX() - bw / 2, bh = rowH * 0.12f, byy = cy + rowH * 0.18f;
+                    p.setColor(Leds.vivid(g.away.color));
+                    c.drawRoundRect(new RectF(bx, byy, bx + bw * a / (a + b), byy + bh), bh / 2, bh / 2, p);
+                    p.setColor(Leds.vivid(g.home.color));
+                    c.drawRoundRect(new RectF(bx + bw * a / (a + b) + 2, byy, bx + bw, byy + bh), bh / 2, bh / 2, p);
+                }
+            } catch (Exception ignored) { }
+            ry += rowH;
+        }
+        if (!g.away.leader.isEmpty() || !g.home.leader.isEmpty()) {
+            text(c, tr("TOP PLAYERS", "MEILLEURS JOUEURS"), rp.left + gap, ry + rowH * 0.3f, H * 0.024f, tfCond, MUTED, Paint.Align.LEFT, rp.width());
+            text(c, g.away.abbr + "  " + g.away.leader, rp.left + gap, ry + rowH * 0.95f, rowH * 0.3f, tfMed, TEXT, Paint.Align.LEFT, rp.width() - gap * 2);
+            text(c, g.home.abbr + "  " + g.home.leader, rp.left + gap, ry + rowH * 1.55f, rowH * 0.3f, tfMed, TEXT, Paint.Align.LEFT, rp.width() - gap * 2);
+        }
+    }
+
+    /** Win chance over the game: away team's chance as a line, area shaded in the leading team's color. */
+    private void drawOddsGraph(Canvas c, Model.Game g, RectF r, List<Float> hist) {
+        p.setColor(0xFF0B0C10);
+        c.drawRoundRect(r, r.height() * 0.08f, r.height() * 0.08f, p);
+        p.setColor(HAIRLINE);
+        c.drawRect(r.left, r.centerY(), r.right, r.centerY() + 1, p);
+        List<Float> pts = new ArrayList<>();
+        if (hist != null) pts.addAll(hist);
+        if (pts.isEmpty()) pts.add(g.away.odds);
+        if (pts.size() == 1) pts.add(pts.get(0));
+        int n = pts.size();
+        Path line = new Path(), area = new Path();
+        float pad = r.height() * 0.08f;
+        for (int i = 0; i < n; i++) {
+            float x = r.left + pad + (r.width() - pad * 2) * i / (n - 1f);
+            float y = r.bottom - pad - (r.height() - pad * 2) * pts.get(i);
+            if (i == 0) { line.moveTo(x, y); area.moveTo(x, r.centerY()); area.lineTo(x, y); }
+            else { line.lineTo(x, y); area.lineTo(x, y); }
+        }
+        area.lineTo(r.right - pad, r.centerY());
+        area.close();
+        c.save();
+        c.clipRect(r.left, r.top, r.right, r.centerY());
+        p.setColor(alpha(Leds.vivid(g.away.color), 0x55));
+        c.drawPath(area, p);
+        c.restore();
+        c.save();
+        c.clipRect(r.left, r.centerY(), r.right, r.bottom);
+        p.setColor(alpha(Leds.vivid(g.home.color), 0x55));
+        c.drawPath(area, p);
+        c.restore();
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(Math.max(2f, r.height() * 0.018f));
+        p.setStrokeJoin(Paint.Join.ROUND);
+        p.setColor(TEXT);
+        c.drawPath(line, p);
+        p.setStrokeJoin(Paint.Join.MITER);
+        p.setStyle(Paint.Style.FILL);
+        float last = pts.get(n - 1);
+        text(c, g.away.abbr + " " + Math.round(last * 100) + "%", r.left + pad * 1.5f, r.top + pad * 2.2f, r.height() * 0.12f, tfBlack, TEXT, Paint.Align.LEFT, r.width() * 0.5f);
+        text(c, g.home.abbr + " " + Math.round((1 - last) * 100) + "%", r.left + pad * 1.5f, r.bottom - pad * 2.2f, r.height() * 0.12f, tfBlack, MUTED, Paint.Align.LEFT, r.width() * 0.5f);
+    }
+
+    /** Score by period. */
+    private void drawLineTable(Canvas c, Model.Game g, RectF r) {
+        int n = Math.max(g.away.lines.size(), g.home.lines.size());
+        if (n == 0) return;
+        float nameW = r.width() * 0.2f, totW = r.width() * 0.13f, colW = (r.width() - nameW - totW) / n, rh = r.height() / 3f;
+        for (int i = 0; i < n; i++)
+            text(c, String.valueOf(i + 1), r.left + nameW + colW * (i + 0.5f), r.top + rh * 0.5f, rh * 0.36f, tfCond, DIM, Paint.Align.CENTER, colW);
+        text(c, "T", r.right - totW / 2, r.top + rh * 0.5f, rh * 0.36f, tfCond, DIM, Paint.Align.CENTER, totW);
+        for (int sd = 0; sd < 2; sd++) {
+            Model.Side s2 = sd == 0 ? g.away : g.home;
+            float cy = r.top + rh * (1.5f + sd);
+            text(c, s2.abbr, r.left, cy, rh * 0.42f, tfBlack, MUTED, Paint.Align.LEFT, nameW);
+            for (int i = 0; i < n; i++)
+                text(c, i < s2.lines.size() ? s2.lines.get(i) : "·", r.left + nameW + colW * (i + 0.5f), cy, rh * 0.42f, tfMed, TEXT, Paint.Align.CENTER, colW);
+            text(c, s2.score.isEmpty() ? "0" : s2.score, r.right - totW / 2, cy, rh * 0.46f, tfBlack, TEXT, Paint.Align.CENTER, totW);
+        }
+    }
+
+    /** Simple word wrap. */
+    private void wrapText(Canvas c, String s, float x, float y, float maxW, float size, int col, int maxLines) {
+        p.setTypeface(tfMed);
+        p.setTextSize(size);
+        String[] words = s.split("\\s+");
+        StringBuilder line = new StringBuilder();
+        int lines = 0;
+        for (String wd : words) {
+            String tryL = line.length() == 0 ? wd : line + " " + wd;
+            if (p.measureText(tryL) > maxW && line.length() > 0) {
+                text(c, line.toString(), x, y + lines * size * 1.35f, size, tfMed, col, Paint.Align.LEFT, maxW);
+                lines++;
+                if (lines >= maxLines) return;
+                line = new StringBuilder(wd);
+            } else line = new StringBuilder(tryL);
+        }
+        if (line.length() > 0) text(c, line.toString(), x, y + lines * size * 1.35f, size, tfMed, col, Paint.Align.LEFT, maxW);
     }
 
     private void drawEmpty(Canvas c, int w, float top, int h, String msg) {
@@ -1120,61 +1394,161 @@ public class ThorView extends View {
     }
 
     // ------------------------------------------------------------------ settings panel
+    private static final String[][] SECTIONS = {
+        {"General", "Général"}, {"Goals & alerts", "Buts & alertes"}, {"Stick lights", "Lumières"},
+        {"Scores & Board", "Scores & tableau"}, {"App", "Appli"}};
+    private int settingsSection;
+    private String appVersion = "";
+    private final List<RectF> sectionRects = new ArrayList<>();
+
+    public void setAppVersion(String v) { appVersion = v == null ? "" : v; }
+
+    /** Items of the section on screen. */
+    private List<String[]> visibleSettings() {
+        List<String[]> out = new ArrayList<>();
+        for (String[] it : settingItems) if (it.length > 4 && Integer.parseInt(it[4]) == settingsSection) out.add(it);
+        return out;
+    }
+
+    /** Full-screen settings: sections on the left, big rows on the right. */
     private void drawSettings(Canvas c, int w, int h) {
         settingRects.clear();
         settingActs.clear();
         settingCells.clear();
-        p.setColor(0xD9000000);
+        sectionRects.clear();
+        settingsPanel.set(0, 0, w, h);
+        p.setShader(new LinearGradient(0, 0, 0, h, 0xFF14171E, 0xFF0B0C10, Shader.TileMode.CLAMP));
         c.drawRect(0, 0, w, h, p);
-        int n = settingItems.size(), rows = (n + 1) / 2;
-        float gap = w * 0.02f;
-        float headH = h * 0.1f;
-        float rowH = Math.min(h * 0.1f, (h - headH - gap * 3) / Math.max(1, rows));
-        settingsPanel.set(gap, gap, w - gap, gap * 2 + headH + rowH * rows);
-        p.setColor(0xFF15171D);
-        c.drawRoundRect(settingsPanel, rowH * 0.3f, rowH * 0.3f, p);
-        text(c, tr("SETTINGS", "RÉGLAGES"), settingsPanel.left + gap * 1.5f, settingsPanel.top + headH / 2, headH * 0.36f, tfBlack, TEXT, Paint.Align.LEFT, w * 0.4f);
-        text(c, "ThorSport 3.4", settingsPanel.left + gap * 1.5f + w * 0.2f, settingsPanel.top + headH / 2, headH * 0.24f, tfReg, DIM, Paint.Align.LEFT, w * 0.3f);
-        RectF done = new RectF(settingsPanel.right - gap - headH * 1.8f, settingsPanel.top + headH * 0.2f, settingsPanel.right - gap, settingsPanel.top + headH * 0.8f);
-        p.setColor(TEXT);
+        p.setShader(null);
+        float gap = w * 0.02f, headH = h * 0.12f;
+
+        // header
+        text(c, tr("Settings", "Réglages"), gap * 1.5f, headH * 0.55f, headH * 0.4f, tfBlack, TEXT, Paint.Align.LEFT, w * 0.4f);
+        p.setTypeface(tfBlack);
+        p.setTextSize(headH * 0.4f);
+        float titleW = p.measureText(tr("Settings", "Réglages"));
+        text(c, "ThorSport " + appVersion, gap * 2.4f + titleW, headH * 0.58f, headH * 0.2f, tfMed, DIM, Paint.Align.LEFT, w * 0.3f);
+        RectF done = new RectF(w - gap * 1.5f - headH * 1.9f, headH * 0.22f, w - gap * 1.5f, headH * 0.88f);
+        p.setColor(ACCENT);
         c.drawRoundRect(done, done.height() / 2, done.height() / 2, p);
-        text(c, tr("DONE", "OK"), done.centerX(), done.centerY(), headH * 0.26f, tfCond, 0xFF000000, Paint.Align.CENTER, done.width());
+        text(c, tr("DONE", "OK"), done.centerX(), done.centerY(), headH * 0.24f, tfBlack, 0xFF000000, Paint.Align.CENTER, done.width());
         settingRects.add(done); settingActs.add(new int[]{-1, 0});
 
-        float colW = (settingsPanel.width() - gap * 3) / 2f;
-        for (int i = 0; i < n; i++) {
-            String[] it = settingItems.get(i);
-            float x = settingsPanel.left + gap + (i / rows) * (colW + gap);
-            float y = settingsPanel.top + headH + gap * 0.5f + (i % rows) * rowH;
-            RectF cell = new RectF(x, y, x + colW, y + rowH);
+        // sections (left)
+        float sideW = w * 0.3f, top = headH + gap * 0.4f, bottom = h - gap;
+        float sh = Math.min(h * 0.12f, (bottom - top) / SECTIONS.length);
+        for (int i = 0; i < SECTIONS.length; i++) {
+            RectF r = new RectF(gap, top + i * sh + sh * 0.08f, gap + sideW, top + (i + 1) * sh - sh * 0.08f);
+            boolean on = i == settingsSection;
+            p.setColor(on ? ACCENT : 0xFF171A21);
+            c.drawRoundRect(r, r.height() * 0.28f, r.height() * 0.28f, p);
+            drawSectionIcon(c, i, r.left + r.height() * 0.55f, r.centerY(), r.height() * 0.42f, on ? 0xFF000000 : MUTED);
+            text(c, tr(SECTIONS[i][0], SECTIONS[i][1]), r.left + r.height() * 1.0f, r.centerY(), r.height() * 0.27f, tfBlack,
+                on ? 0xFF000000 : TEXT, Paint.Align.LEFT, r.width() - r.height() * 1.2f);
+            sectionRects.add(r);
+        }
+
+        // rows (right)
+        List<String[]> vis = visibleSettings();
+        float x0 = gap * 2 + sideW, x1 = w - gap;
+        float rowH = Math.min(h * 0.105f, (bottom - top) / Math.max(1, vis.size()));
+        RectF card = new RectF(x0, top + sh * 0.08f, x1, top + sh * 0.08f + rowH * vis.size());
+        p.setColor(0xFF171A21);
+        c.drawRoundRect(card, rowH * 0.3f, rowH * 0.3f, p);
+        for (int i = 0; i < vis.size(); i++) {
+            String[] it = vis.get(i);
+            RectF cell = new RectF(x0, card.top + i * rowH, x1, card.top + (i + 1) * rowH);
             settingCells.add(cell);
-            settingCell(c, cell, rowH, it[0], it[1], Integer.parseInt(it[2]), "1".equals(it[3]));
+            settingCell(c, cell, rowH, it[0], it[1], Integer.parseInt(it[2]), i < vis.size() - 1);
         }
     }
 
-    private void settingCell(Canvas c, RectF cell, float rowH, String label, String value, int id, boolean stepper) {
-        float pad = rowH * 0.25f;
-        text(c, label, cell.left + pad, cell.centerY(), rowH * 0.3f, tfMed, TEXT, Paint.Align.LEFT, cell.width() * 0.55f);
-        float bh = rowH * 0.66f, right = cell.right - pad;
-        if (stepper) {
-            RectF plus = new RectF(right - bh, cell.centerY() - bh / 2, right, cell.centerY() + bh / 2);
-            RectF minus = new RectF(right - bh * 3.3f, plus.top, right - bh * 2.3f, plus.bottom);
-            for (RectF b : new RectF[]{minus, plus}) { p.setColor(0xFF22252D); c.drawRoundRect(b, bh / 2, bh / 2, p); }
-            text(c, "–", minus.centerX(), minus.centerY(), rowH * 0.42f, tfMed, TEXT, Paint.Align.CENTER, bh);
-            text(c, "+", plus.centerX(), plus.centerY(), rowH * 0.42f, tfMed, TEXT, Paint.Align.CENTER, bh);
-            text(c, value, (minus.right + plus.left) / 2, cell.centerY(), rowH * 0.3f, tfBlack, AMBER, Paint.Align.CENTER, bh * 1.3f);
-            settingRects.add(minus); settingActs.add(new int[]{id, -1});
-            settingRects.add(plus); settingActs.add(new int[]{id, 1});
-        } else {
-            RectF b = new RectF(right - bh * 3.3f, cell.centerY() - bh / 2, right, cell.centerY() + bh / 2);
-            int bg = "ON".equals(value) ? alpha(GREEN, 0xCC) : value.startsWith("TAP") ? LIVE : value.equals("▶") || value.equals("?") ? ACCENT : 0xFF22252D;
+    /** Simple drawn icons for the sections (no emoji). */
+    private void drawSectionIcon(Canvas c, int i, float cx, float cy, float s, int col) {
+        p.setColor(col);
+        p.setStrokeWidth(Math.max(2f, s * 0.12f));
+        p.setStrokeCap(Paint.Cap.ROUND);
+        switch (i) {
+            case 0: {   // sliders
+                p.setStyle(Paint.Style.STROKE);
+                for (int k = -1; k <= 1; k++) c.drawLine(cx - s * 0.45f, cy + k * s * 0.32f, cx + s * 0.45f, cy + k * s * 0.32f, p);
+                p.setStyle(Paint.Style.FILL);
+                float[] kx = {0.2f, -0.2f, 0.1f};
+                for (int k = -1; k <= 1; k++) c.drawCircle(cx + kx[k + 1] * s, cy + k * s * 0.32f, s * 0.13f, p);
+                break;
+            }
+            case 1: {   // horn / bell
+                Path b = new Path();
+                b.moveTo(cx - s * 0.45f, cy - s * 0.15f);
+                b.lineTo(cx - s * 0.1f, cy - s * 0.15f);
+                b.lineTo(cx + s * 0.4f, cy - s * 0.45f);
+                b.lineTo(cx + s * 0.4f, cy + s * 0.45f);
+                b.lineTo(cx - s * 0.1f, cy + s * 0.15f);
+                b.lineTo(cx - s * 0.45f, cy + s * 0.15f);
+                b.close();
+                p.setStyle(Paint.Style.FILL);
+                c.drawPath(b, p);
+                break;
+            }
+            case 2: {   // stick ring
+                p.setStyle(Paint.Style.STROKE);
+                c.drawCircle(cx, cy, s * 0.42f, p);
+                p.setStyle(Paint.Style.FILL);
+                c.drawCircle(cx, cy, s * 0.2f, p);
+                break;
+            }
+            case 3: {   // scoreboard
+                p.setStyle(Paint.Style.STROKE);
+                c.drawRoundRect(new RectF(cx - s * 0.48f, cy - s * 0.32f, cx + s * 0.48f, cy + s * 0.32f), s * 0.1f, s * 0.1f, p);
+                c.drawLine(cx, cy - s * 0.32f, cx, cy + s * 0.32f, p);
+                p.setStyle(Paint.Style.FILL);
+                break;
+            }
+            default: {  // info "i"
+                p.setStyle(Paint.Style.STROKE);
+                c.drawCircle(cx, cy, s * 0.44f, p);
+                p.setStyle(Paint.Style.FILL);
+                c.drawCircle(cx, cy - s * 0.2f, s * 0.07f, p);
+                c.drawRect(cx - s * 0.05f, cy - s * 0.05f, cx + s * 0.05f, cy + s * 0.25f, p);
+            }
+        }
+        p.setStrokeCap(Paint.Cap.BUTT);
+        p.setStyle(Paint.Style.FILL);
+    }
+
+    private void settingCell(Canvas c, RectF cell, float rowH, String label, String value, int id, boolean divider) {
+        float pad = rowH * 0.35f;
+        text(c, label, cell.left + pad, cell.centerY(), rowH * 0.3f, tfMed, TEXT, Paint.Align.LEFT, cell.width() * 0.56f);
+        float bh = rowH * 0.56f, right = cell.right - pad;
+        boolean on = "ON".equals(value), off = !on && ("OFF".equals(value) || "N/A".equals(value));
+        RectF hit;
+        if (on || off) {   // switch
+            float sw = bh * 1.75f;
+            RectF track = new RectF(right - sw, cell.centerY() - bh / 2, right, cell.centerY() + bh / 2);
+            p.setColor(on ? GREEN : 0xFF2C303A);
+            c.drawRoundRect(track, bh / 2, bh / 2, p);
+            p.setColor("N/A".equals(value) ? DIM : 0xFFFFFFFF);
+            float kr = bh * 0.4f;
+            c.drawCircle(on ? track.right - bh / 2 : track.left + bh / 2, track.centerY(), kr, p);
+            if ("N/A".equals(value)) text(c, "N/A", track.left - pad * 0.5f, cell.centerY(), rowH * 0.24f, tfCond, DIM, Paint.Align.RIGHT, bh * 3);
+            hit = new RectF(cell);
+        } else {           // value pill
+            p.setTypeface(tfCond);
+            p.setTextSize(rowH * 0.26f);
+            float pw = Math.min(cell.width() * 0.4f, Math.max(bh * 2.2f, p.measureText(value) + bh));
+            RectF b = new RectF(right - pw, cell.centerY() - bh / 2, right, cell.centerY() + bh / 2);
+            boolean action = value.equals("▶") || value.equals("?") || value.endsWith("›") || value.startsWith("INSTALL") || value.startsWith("INSTALLER");
+            int bg = value.startsWith("TAP") || value.startsWith("TOUCHEZ") ? LIVE : action ? ACCENT : 0xFF2C303A;
             p.setColor(bg);
             c.drawRoundRect(b, bh / 2, bh / 2, p);
-            text(c, value, b.centerX(), b.centerY(), rowH * 0.28f, tfCond, TEXT, Paint.Align.CENTER, b.width() * 0.9f);
-            settingRects.add(b); settingActs.add(new int[]{id, 1});
+            text(c, value, b.centerX(), b.centerY(), rowH * 0.26f, tfCond, action ? 0xFF000000 : TEXT, Paint.Align.CENTER, b.width() * 0.9f);
+            hit = new RectF(cell);
         }
-        p.setColor(HAIRLINE);
-        c.drawRect(cell.left + pad, cell.bottom - 1, cell.right - pad, cell.bottom, p);
+        settingRects.add(hit); settingActs.add(new int[]{id, 1});
+        if (divider) {
+            p.setColor(HAIRLINE);
+            c.drawRect(cell.left + pad, cell.bottom - 1, cell.right - pad, cell.bottom, p);
+        }
     }
 
     // ------------------------------------------------------------------ spoiler delay
@@ -1443,7 +1817,7 @@ public class ThorView extends View {
 
             float sy = y + ch * 0.77f;
             if (g.isLive()) {
-                float ts = ch * 0.1f;
+                float ts = Math.min(ch * 0.1f, centerW * 0.1f);
                 p.setTypeface(tfCond);
                 p.setTextSize(ts);
                 String d = fit(g.detail, centerW * 0.8f);
@@ -1471,15 +1845,15 @@ public class ThorView extends View {
                     }
                 }
                 // last scorer
-                if (!g.goals.isEmpty()) {
+                if (!g.goals.isEmpty() && !("football".equals(g.sport) && g.ballYard >= 0)) {
                     Model.Goal lg2 = null;
                     for (Model.Goal gl : g.goals) if (!gl.red) lg2 = gl;
                     if (lg2 != null) text(c, (lg2.home ? g.home.abbr : g.away.abbr) + " · " + lg2.who, cx, y + ch * 0.88f, ch * 0.07f, tfReg, MUTED, Paint.Align.CENTER, centerW);
                 }
 
                 if ("football".equals(g.sport) && g.ballYard >= 0) {
-                    float inset = rad * 0.9f, fh2 = ch * 0.06f;
-                    RectF fr = new RectF(r.left + inset, r.bottom - fh2 - ch * 0.035f, r.right - inset, r.bottom - ch * 0.035f);
+                    float fh2 = ch * 0.07f, fpad = centerW * 0.04f;   // centre column only: the team records stay visible
+                    RectF fr = new RectF(r.left + sideW + fpad, y + ch * 0.86f, r.right - sideW - fpad, y + ch * 0.86f + fh2);
                     p.setColor(0xFF143A22);
                     c.drawRoundRect(fr, fh2 * 0.3f, fh2 * 0.3f, p);
                     float ez = fr.width() / 12f;
@@ -1539,60 +1913,107 @@ public class ThorView extends View {
         return DateUtils.isToday(g.startMs) ? "TODAY " + t : DateFormat.format("EEE d MMM", g.startMs).toString().toUpperCase() + " · " + t;
     }
 
+    private static final int F1_RED = 0xFFE10600;
+
+    /** Drawn check mark (fonts on some devices miss ✓). */
+    private void check(Canvas c, float cx, float cy, float s, int col) {
+        Path k = new Path();
+        k.moveTo(cx - s * 0.45f, cy);
+        k.lineTo(cx - s * 0.12f, cy + s * 0.32f);
+        k.lineTo(cx + s * 0.45f, cy - s * 0.35f);
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(Math.max(2f, s * 0.18f));
+        p.setStrokeCap(Paint.Cap.ROUND);
+        p.setStrokeJoin(Paint.Join.ROUND);
+        p.setColor(col);
+        c.drawPath(k, p);
+        p.setStrokeCap(Paint.Cap.BUTT);
+        p.setStrokeJoin(Paint.Join.MITER);
+        p.setStyle(Paint.Style.FILL);
+    }
+
+    private static String raceDay(Model.Game g) {
+        return g.startMs <= 0 ? "" : DateFormat.format("EEE", g.startMs).toString().toUpperCase();
+    }
+
+    /** Short countdown: "2d 4h", "3h 05m", "12:40". */
+    private static String countdown(long ms) {
+        if (ms < 0) ms = 0;
+        long d = ms / 86_400_000L, hh = (ms / 3_600_000L) % 24, mm = (ms / 60000) % 60, ss = (ms / 1000) % 60;
+        return d > 0 ? d + "d " + hh + "h" : hh > 0 ? hh + "h " + String.format(Locale.US, "%02d", mm) + "m" : String.format(Locale.US, "%d:%02d", mm, ss);
+    }
+
+    /** Status pill used on cards and the weekend list. */
+    private void raceStatus(Canvas c, Model.Game s, float right, float cy, float hgt) {
+        if (s.isFinal()) {
+            RectF b = new RectF(right - hgt, cy - hgt / 2, right, cy + hgt / 2);
+            p.setColor(alpha(GREEN, 0x2E));
+            c.drawRoundRect(b, hgt / 2, hgt / 2, p);
+            check(c, b.centerX(), b.centerY(), hgt * 0.5f, GREEN);
+            return;
+        }
+        String t = s.isLive() ? "LIVE" : countdown(s.startMs - System.currentTimeMillis());
+        p.setTypeface(tfBlack);
+        p.setTextSize(hgt * 0.5f);
+        float tw = p.measureText(t) + hgt * 0.8f;
+        RectF b = new RectF(right - tw, cy - hgt / 2, right, cy + hgt / 2);
+        p.setColor(s.isLive() ? LIVE : 0xFF262A33);
+        c.drawRoundRect(b, hgt / 2, hgt / 2, p);
+        text(c, t, b.centerX(), b.centerY(), hgt * 0.5f, tfBlack, s.isLive() ? 0xFFFFFFFF : TEXT, Paint.Align.CENTER, tw);
+        if (s.isLive()) postInvalidateDelayed(1000);
+    }
+
+    /** Scores grid card: one session of the weekend (or last race with its podium). */
     private void drawRaceCard(Canvas c, Model.Game g, float x, float y, float cw, float ch) {
         RectF r = new RectF(x, y, x + cw, y + ch);
         float rad = Math.min(cw, ch) * 0.1f;
-        p.setColor(CARD);
-        c.drawRoundRect(r, rad, rad, p);
-        p.setShader(new LinearGradient(r.left, 0, r.left + cw * 0.55f, 0, alpha(0xFFE10600, g.isLive() ? 0x80 : 0x50), 0x00000000, Shader.TileMode.CLAMP));
+        p.setShader(new LinearGradient(r.left, r.top, r.left, r.bottom, 0xFF1A1C23, 0xFF111217, Shader.TileMode.CLAMP));
         c.drawRoundRect(r, rad, rad, p);
         p.setShader(null);
-        p.setStyle(Paint.Style.STROKE);
-        p.setStrokeWidth(g.isLive() ? Math.max(2f, ch * 0.012f) : 1.5f);
-        p.setColor(g.isLive() ? alpha(LIVE, 0xCC) : HAIRLINE);
-        c.drawRoundRect(r, rad, rad, p);
-        p.setStyle(Paint.Style.FILL);
+        // red speed stripe on the left
+        c.save();
+        Path clip = new Path();
+        clip.addRoundRect(r, rad, rad, Path.Direction.CW);
+        c.clipPath(clip);
+        p.setColor(g.isFinal() ? 0xFF3A3D46 : F1_RED);
+        c.drawRect(r.left, r.top, r.left + ch * 0.06f, r.bottom, p);
+        c.restore();
+        if (g.isLive()) {
+            p.setStyle(Paint.Style.STROKE);
+            p.setStrokeWidth(Math.max(2f, ch * 0.014f));
+            p.setColor(LIVE);
+            c.drawRoundRect(r, rad, rad, p);
+            p.setStyle(Paint.Style.FILL);
+        }
         cardRects.add(r);
         cardIds.add(g.id);
 
-        // session badge
-        float bw = cw * 0.22f;
-        RectF badge = new RectF(r.left + rad, r.top + ch * 0.2f, r.left + rad + bw, r.bottom - ch * 0.2f);
-        p.setColor(g.isFinal() ? 0xFF2A2E38 : 0xFFE10600);
-        c.drawRoundRect(badge, rad * 0.6f, rad * 0.6f, p);
-        text(c, g.away.abbr, badge.centerX(), badge.centerY() - ch * 0.04f, Math.min(ch * 0.2f, bw * 0.32f), tfBlack, TEXT, Paint.Align.CENTER, bw * 0.9f);
-        if (g.isFinal()) text(c, "✓", badge.centerX(), badge.bottom - ch * 0.1f, ch * 0.1f, tfBlack, GREEN, Paint.Align.CENTER, bw);
-
-        float tx = badge.right + rad;
-        float tw = r.right - rad - tx;
+        float lx = r.left + ch * 0.16f;
         boolean podium = !g.results.isEmpty();
-        float infoW = podium ? tw * 0.5f : tw;
-        text(c, g.away.name, tx, y + ch * 0.25f, ch * 0.12f, tfBlack, TEXT, Paint.Align.LEFT, infoW);
-        text(c, g.event, tx, y + ch * 0.44f, ch * 0.09f, tfCond, MUTED, Paint.Align.LEFT, infoW);
-        String when;
-        int col;
-        if (g.isLive()) { when = "● LIVE  " + g.detail; col = LIVE; postInvalidateDelayed(30_000); }
-        else if (g.isFinal()) { when = g.startMs > 0 ? DateFormat.format("EEE d MMM", g.startMs).toString().toUpperCase() : tr("FINISHED", "TERMINÉ"); col = DIM; }
+        float infoW = (podium ? cw * 0.48f : cw * 0.62f) - ch * 0.16f;
+        // session code + name
+        text(c, g.away.abbr.equals("LAST") ? tr("LAST RACE", "DERNIÈRE COURSE") : g.away.name.toUpperCase(), lx, r.top + ch * 0.2f, ch * 0.095f, tfCond,
+            g.isFinal() ? MUTED : 0xFFFF6B5E, Paint.Align.LEFT, infoW);
+        text(c, g.event, lx, r.top + ch * 0.42f, ch * 0.15f, tfBlack, TEXT, Paint.Align.LEFT, infoW);
+        text(c, g.isFinal() ? (g.startMs > 0 ? DateFormat.format("EEE d MMM", g.startMs).toString().toUpperCase() : "") : raceWhen(g),
+            lx, r.top + ch * 0.64f, ch * 0.085f, tfMed, MUTED, Paint.Align.LEFT, infoW);
+        if (!podium) raceStatus(c, g, r.right - ch * 0.12f, r.top + ch * 0.82f, ch * 0.15f);
         else {
-            long mins = (g.startMs - System.currentTimeMillis()) / 60000;
-            when = mins >= 0 && mins < 60 ? tr("IN ", "DANS ") + mins + " MIN"
-                : mins >= 0 && mins < 24 * 60 ? tr("IN ", "DANS ") + (mins / 60) + "H " + (mins % 60) + "M" : raceWhen(g);
-            col = AMBER;
-        }
-        text(c, when, tx, y + ch * 0.66f, ch * 0.1f, tfCond, col, Paint.Align.LEFT, infoW);
-        if (!g.isFinal() && mStartsSoon(g)) text(c, raceWhen(g), tx, y + ch * 0.84f, ch * 0.075f, tfReg, DIM, Paint.Align.LEFT, infoW);
-
-        if (podium) {
-            float px = tx + infoW + rad * 0.3f, pw = r.right - rad - px;
+            float px = r.left + cw * 0.5f, pw = r.right - ch * 0.12f - px;
             for (int i = 0; i < Math.min(3, g.results.size()); i++) {
-                float py = y + ch * (0.27f + i * 0.23f);
+                float py = r.top + ch * (0.24f + i * 0.24f);
+                RectF pos = new RectF(px, py - ch * 0.08f, px + ch * 0.16f, py + ch * 0.08f);
+                p.setColor(i == 0 ? AMBER : i == 1 ? 0xFFC0C6CF : 0xFFCD7F32);
+                c.drawRoundRect(pos, ch * 0.03f, ch * 0.03f, p);
+                text(c, String.valueOf(i + 1), pos.centerX(), pos.centerY(), ch * 0.1f, tfBlack, 0xFF000000, Paint.Align.CENTER, pos.width());
                 int tc = i < g.resultColors.size() ? g.resultColors.get(i) : MUTED;
                 p.setColor(tc);
-                c.drawRoundRect(new RectF(px, py - ch * 0.07f, px + ch * 0.035f, py + ch * 0.07f), 3, 3, p);
-                text(c, "P" + (i + 1), px + ch * 0.08f, py, ch * 0.1f, tfBlack, i == 0 ? AMBER : MUTED, Paint.Align.LEFT, pw);
-                text(c, g.results.get(i), px + ch * 0.32f, py, ch * 0.1f, tfMed, TEXT, Paint.Align.LEFT, pw - ch * 0.34f);
+                c.drawRect(pos.right + ch * 0.04f, pos.top, pos.right + ch * 0.06f, pos.bottom, p);
+                String code = g.results.get(i).split("\\s+")[0];
+                text(c, code, pos.right + ch * 0.1f, py, ch * 0.12f, tfBlack, TEXT, Paint.Align.LEFT, pw - ch * 0.3f);
             }
         }
+        text(c, g.isFinal() ? "" : g.note.toUpperCase(), lx, r.top + ch * 0.82f, ch * 0.075f, tfCond, DIM, Paint.Align.LEFT, infoW);
     }
 
     private static boolean mStartsSoon(Model.Game g) {
@@ -1600,92 +2021,123 @@ public class ThorView extends View {
         return mins >= 0 && mins < 24 * 60;
     }
 
+    /** F1 Board: Grand Prix header with countdown, the weekend on the left, a timing tower on the right. */
     private void drawRaceBoard(Canvas c, Model.Game g, int w, int h, float top) {
         float H = h - top, gap = w * 0.016f;
-        RectF hero = new RectF(gap, top, w - gap, top + H * 0.3f);
-        p.setShader(new LinearGradient(hero.left, 0, hero.right, 0, alpha(0xFFE10600, 0x90), alpha(0xFFE10600, 0x10), Shader.TileMode.CLAMP));
-        c.drawRoundRect(hero, H * 0.03f, H * 0.03f, p);
-        p.setShader(null);
-        float lx = hero.left + gap * 2, lw = hero.width() * 0.6f;
-        text(c, (g.note.isEmpty() ? "" : g.note.toUpperCase() + "  ·  ") + g.away.name.toUpperCase(), lx, hero.top + hero.height() * 0.2f, H * 0.035f, tfCond, AMBER, Paint.Align.LEFT, lw);
-        text(c, g.event.toUpperCase(), lx, hero.top + hero.height() * 0.47f, H * 0.075f, tfBlack, TEXT, Paint.Align.LEFT, lw);
-        if (!g.venue.isEmpty()) text(c, g.venue, lx, hero.top + hero.height() * 0.76f, H * 0.03f, tfReg, MUTED, Paint.Align.LEFT, lw);
 
-        // status / countdown box
-        RectF box = new RectF(hero.right - hero.width() * 0.34f, hero.top + hero.height() * 0.12f, hero.right - gap, hero.bottom - hero.height() * 0.12f);
-        p.setColor(0xFF06070A);
-        c.drawRoundRect(box, box.height() * 0.15f, box.height() * 0.15f, p);
-        String big, small;
-        int col = AMBER;
-        if (g.isLive()) { big = "LIVE"; small = g.detail; col = LIVE; postInvalidateDelayed(1000); }
-        else if (g.isFinal()) { big = tr("FINAL", "FINAL"); small = g.startMs > 0 ? DateFormat.format("EEE d MMM", g.startMs).toString().toUpperCase() : ""; col = TEXT; }
-        else {
-            long ms = g.startMs - System.currentTimeMillis();
-            long d = ms / 86_400_000L, hh = (ms / 3_600_000L) % 24, mm = (ms / 60000) % 60, ss = (ms / 1000) % 60;
-            big = d > 0 ? d + "d " + hh + "h" : hh > 0 ? hh + "h " + String.format(Locale.US, "%02d", mm) + "m" : String.format(Locale.US, "%d:%02d", mm, ss);
-            small = raceWhen(g);
+        // ---------- header
+        RectF hero = new RectF(gap, top, w - gap, top + H * 0.27f);
+        float hr = H * 0.03f;
+        p.setShader(new LinearGradient(hero.left, 0, hero.right, 0, 0xFF1D1F27, 0xFF121318, Shader.TileMode.CLAMP));
+        c.drawRoundRect(hero, hr, hr, p);
+        p.setShader(null);
+        c.save();
+        Path hclip = new Path();
+        hclip.addRoundRect(hero, hr, hr, Path.Direction.CW);
+        c.clipPath(hclip);
+        // diagonal red speed stripes
+        p.setColor(F1_RED);
+        Path stripe = new Path();
+        float sx = hero.left, sw = hero.height() * 0.09f;
+        stripe.moveTo(sx, hero.top); stripe.lineTo(sx + sw * 2, hero.top); stripe.lineTo(sx + sw * 2 - hero.height() * 0.25f, hero.bottom); stripe.lineTo(sx, hero.bottom); stripe.close();
+        c.drawPath(stripe, p);
+        p.setColor(alpha(F1_RED, 0x55));
+        Path stripe2 = new Path();
+        float s2 = sx + sw * 2.6f;
+        stripe2.moveTo(s2, hero.top); stripe2.lineTo(s2 + sw * 0.7f, hero.top); stripe2.lineTo(s2 + sw * 0.7f - hero.height() * 0.25f, hero.bottom); stripe2.lineTo(s2 - hero.height() * 0.25f, hero.bottom); stripe2.close();
+        c.drawPath(stripe2, p);
+        c.restore();
+
+        float lx = hero.left + sw * 4.2f, lw = hero.width() * 0.56f;
+        String kicker = (g.note.isEmpty() ? "" : g.note.toUpperCase() + "   ") + (g.away.abbr.equals("LAST") ? tr("LAST RACE", "DERNIÈRE COURSE") : g.away.name.toUpperCase());
+        text(c, kicker, lx, hero.top + hero.height() * 0.22f, H * 0.03f, tfCond, 0xFFFF6B5E, Paint.Align.LEFT, lw);
+        text(c, g.event.toUpperCase(), lx, hero.top + hero.height() * 0.5f, H * 0.07f, tfBlack, TEXT, Paint.Align.LEFT, lw);
+        if (!g.venue.isEmpty()) text(c, g.venue, lx, hero.top + hero.height() * 0.78f, H * 0.028f, tfReg, MUTED, Paint.Align.LEFT, lw);
+
+        // countdown / status (segmented)
+        RectF box = new RectF(hero.right - hero.width() * 0.36f, hero.top + hero.height() * 0.16f, hero.right - gap, hero.bottom - hero.height() * 0.16f);
+        if (g.isLive() || g.isFinal()) {
+            p.setColor(g.isLive() ? LIVE : 0xFF262A33);
+            c.drawRoundRect(box, box.height() * 0.2f, box.height() * 0.2f, p);
+            text(c, g.isLive() ? "LIVE" : tr("FINISHED", "TERMINÉ"), box.centerX(), box.top + box.height() * 0.42f, box.height() * 0.36f, tfBlack, 0xFFFFFFFF, Paint.Align.CENTER, box.width() * 0.9f);
+            String sub = g.isLive() ? g.detail : g.startMs > 0 ? DateFormat.format("EEE d MMM", g.startMs).toString().toUpperCase() : "";
+            text(c, sub, box.centerX(), box.top + box.height() * 0.78f, box.height() * 0.14f, tfCond, g.isLive() ? 0xFFFFFFFF : MUTED, Paint.Align.CENTER, box.width() * 0.9f);
+            if (g.isLive()) postInvalidateDelayed(1000);
+        } else {
+            long ms = Math.max(0, g.startMs - System.currentTimeMillis());
+            long[] v = {ms / 86_400_000L, (ms / 3_600_000L) % 24, (ms / 60000) % 60, (ms / 1000) % 60};
+            String[] lab = {tr("DAYS", "JOURS"), tr("HRS", "H"), "MIN", tr("SEC", "S")};
+            float segGap = box.width() * 0.03f, segW = (box.width() - segGap * 3) / 4f;
+            for (int i = 0; i < 4; i++) {
+                RectF sg = new RectF(box.left + i * (segW + segGap), box.top, box.left + i * (segW + segGap) + segW, box.bottom);
+                p.setColor(0xFF0A0B0E);
+                c.drawRoundRect(sg, segW * 0.14f, segW * 0.14f, p);
+                text(c, String.format(Locale.US, "%02d", v[i]), sg.centerX(), sg.top + sg.height() * 0.42f, Math.min(sg.height() * 0.42f, segW * 0.55f), tfBlack, i == 3 ? 0xFFFF6B5E : TEXT, Paint.Align.CENTER, segW * 0.95f);
+                text(c, lab[i], sg.centerX(), sg.top + sg.height() * 0.8f, sg.height() * 0.13f, tfCond, MUTED, Paint.Align.CENTER, segW);
+            }
             postInvalidateDelayed(1000);
         }
-        p.setShadowLayer(box.height() * 0.06f, 0, 0, alpha(col, 0x99));
-        p.setTypeface(tfBlack);
-        float bs = box.height() * 0.36f;
-        p.setTextSize(bs);
-        float bwid = p.measureText(big);
-        if (bwid > box.width() * 0.85f) bs *= box.width() * 0.85f / bwid;
-        text(c, big, box.centerX(), box.top + box.height() * 0.42f, bs, tfBlack, col, Paint.Align.CENTER, box.width());
-        p.clearShadowLayer();
-        text(c, small, box.centerX(), box.top + box.height() * 0.78f, box.height() * 0.11f, tfCond, MUTED, Paint.Align.CENTER, box.width() * 0.9f);
 
-        float ry = hero.bottom + gap * 1.2f;
-        if (!g.results.isEmpty()) {   // ----- results: top 10 with team colors and gaps
-            int n = g.results.size(), rows = 5;
-            float rowH = (h - gap - ry) / rows;
-            float colW = (w - gap * 3) / 2f;
-            for (int i = 0; i < n; i++) {
-                float x = gap + (i / rows) * (colW + gap), y = ry + (i % rows) * rowH;
-                RectF row = new RectF(x, y + rowH * 0.06f, x + colW, y + rowH * 0.94f);
-                p.setColor(i < 3 ? alpha(i == 0 ? AMBER : i == 1 ? 0xFFC0C6CF : 0xFFCD7F32, 0x26) : 0xFF101218);
-                c.drawRoundRect(row, rowH * 0.2f, rowH * 0.2f, p);
-                int tc = i < g.resultColors.size() ? g.resultColors.get(i) : MUTED;
-                p.setColor(tc);
-                c.drawRoundRect(new RectF(row.left, row.top + rowH * 0.15f, row.left + rowH * 0.09f, row.bottom - rowH * 0.15f), 4, 4, p);
-                text(c, "P" + (i + 1), row.left + rowH * 0.3f, row.centerY(), rowH * 0.34f, tfBlack, i < 3 ? AMBER : MUTED, Paint.Align.LEFT, rowH);
-                String[] info = i < g.resultInfo.size() ? g.resultInfo.get(i).split("\\|", -1) : new String[]{"", ""};
-                text(c, g.results.get(i), row.left + rowH * 1.15f, row.top + row.height() * 0.36f, rowH * 0.3f, tfBlack, TEXT, Paint.Align.LEFT, colW * 0.62f);
-                text(c, info[0], row.left + rowH * 1.15f, row.top + row.height() * 0.74f, rowH * 0.22f, tfReg, MUTED, Paint.Align.LEFT, colW * 0.5f);
-                if (info.length > 1) text(c, info[1], row.right - rowH * 0.3f, row.centerY(), rowH * 0.28f, tfMed, i == 0 ? TEXT : 0xFFC9CDD3, Paint.Align.RIGHT, colW * 0.36f);
-            }
-            return;
-        }
-        // ----- weekend schedule (all sessions of this Grand Prix)
+        // ---------- body: weekend (left) + timing tower (right)
+        float by = hero.bottom + gap * 1.1f, bb = h - gap;
+        Model.Game res = !g.results.isEmpty() ? g : null;
+        if (res == null) for (Model.Game s : games) if (!s.results.isEmpty()) { res = s; break; }
         List<Model.Game> wk = new ArrayList<>();
         for (Model.Game s : games) if (s.event.equals(g.event) && !"LAST".equals(s.away.abbr)) wk.add(s);
-        wk.sort((a, b) -> Long.compare(a.startMs, b.startMs));
-        text(c, tr("RACE WEEKEND", "WEEK-END DE COURSE"), gap * 1.5f, ry + gap * 0.3f, H * 0.03f, tfCond, AMBER, Paint.Align.LEFT, w);
-        ry += H * 0.05f;
-        float rowH = Math.min(H * 0.09f, (h - gap - ry) / Math.max(1, wk.size()));
-        for (int i = 0; i < wk.size(); i++) {
-            Model.Game s = wk.get(i);
-            RectF row = new RectF(gap, ry + i * rowH + rowH * 0.06f, w - gap, ry + (i + 1) * rowH - rowH * 0.06f);
-            boolean cur = s.id.equals(g.id);
-            p.setColor(cur ? alpha(0xFFE10600, 0x33) : 0xFF101218);
-            c.drawRoundRect(row, rowH * 0.2f, rowH * 0.2f, p);
-            RectF bdg = new RectF(row.left + rowH * 0.2f, row.top + row.height() * 0.18f, row.left + rowH * 1.5f, row.bottom - row.height() * 0.18f);
-            p.setColor(s.isFinal() ? 0xFF2A2E38 : 0xFFE10600);
-            c.drawRoundRect(bdg, bdg.height() * 0.3f, bdg.height() * 0.3f, p);
-            text(c, s.away.abbr, bdg.centerX(), bdg.centerY(), row.height() * 0.36f, tfBlack, TEXT, Paint.Align.CENTER, bdg.width());
-            text(c, s.away.name, bdg.right + rowH * 0.3f, row.centerY(), row.height() * 0.4f, tfBlack, TEXT, Paint.Align.LEFT, w * 0.35f);
-            text(c, raceWhen(s), w * 0.58f, row.centerY(), row.height() * 0.34f, tfMed, MUTED, Paint.Align.CENTER, w * 0.3f);
-            String st;
-            int stc;
-            if (s.isLive()) { st = "● LIVE"; stc = LIVE; }
-            else if (s.isFinal()) { st = "✓"; stc = GREEN; }
-            else {
-                long mins = (s.startMs - System.currentTimeMillis()) / 60000;
-                st = mins < 60 ? mins + " min" : mins < 24 * 60 ? (mins / 60) + "h " + (mins % 60) + "m" : (mins / 1440) + tr(" days", " jours");
-                stc = AMBER;
+        wk.sort((a, b2) -> Long.compare(a.startMs, b2.startMs));
+        boolean twoCols = res != null && !wk.isEmpty();
+        float leftR = twoCols ? w * 0.5f : w - gap;
+
+        if (!wk.isEmpty()) {
+            text(c, tr("RACE WEEKEND", "WEEK-END DE COURSE"), gap * 1.4f, by + H * 0.02f, H * 0.028f, tfCond, MUTED, Paint.Align.LEFT, w);
+            float ly = by + H * 0.05f;
+            float rowH = Math.min(H * 0.1f, (bb - ly) / wk.size());
+            for (int i = 0; i < wk.size(); i++) {
+                Model.Game s = wk.get(i);
+                RectF row = new RectF(gap, ly + i * rowH + rowH * 0.07f, leftR, ly + (i + 1) * rowH - rowH * 0.07f);
+                boolean cur = s.id.equals(g.id);
+                p.setColor(cur ? 0xFF22252E : 0xFF14161B);
+                c.drawRoundRect(row, row.height() * 0.22f, row.height() * 0.22f, p);
+                if (cur) { p.setColor(F1_RED); c.drawRoundRect(new RectF(row.left, row.top, row.left + row.height() * 0.1f, row.bottom), 3, 3, p); }
+                float rh = row.height();
+                text(c, raceDay(s), row.left + rh * 0.35f, row.top + rh * 0.36f, rh * 0.26f, tfBlack, s.isFinal() ? DIM : TEXT, Paint.Align.LEFT, rh * 1.4f);
+                text(c, s.startMs > 0 ? fmtTime(s.startMs) : "", row.left + rh * 0.35f, row.top + rh * 0.7f, rh * 0.22f, tfMed, MUTED, Paint.Align.LEFT, rh * 1.6f);
+                text(c, s.away.name, row.left + rh * 2.0f, row.centerY(), rh * 0.34f, tfBlack, s.isFinal() ? MUTED : TEXT, Paint.Align.LEFT, row.width() - rh * 4.4f);
+                raceStatus(c, s, row.right - rh * 0.25f, row.centerY(), rh * 0.48f);
             }
-            text(c, st, row.right - rowH * 0.3f, row.centerY(), row.height() * 0.38f, tfBlack, stc, Paint.Align.RIGHT, w * 0.2f);
+        }
+
+        if (res != null) {
+            float tx = twoCols ? w * 0.5f + gap : gap, tr2 = w - gap;
+            String title = (res.away.abbr.equals("LAST") ? tr("LAST RACE", "DERNIÈRE COURSE") + " · " + res.event : res.away.name.toUpperCase() + " · " + tr("RESULT", "RÉSULTAT")).toUpperCase();
+            text(c, title, tx + gap * 0.4f, by + H * 0.02f, H * 0.028f, tfCond, MUTED, Paint.Align.LEFT, tr2 - tx);
+            float ly = by + H * 0.05f;
+            int n = Math.min(10, res.results.size());
+            int perCol = twoCols ? Math.max(n, 8) : 5;          // full width: two columns of 5
+            float colW = twoCols ? tr2 - tx : (tr2 - tx - gap) / 2f;
+            float rowH = (bb - ly) / perCol;
+            for (int i = 0; i < n; i++) {
+                float cx0 = tx + (twoCols ? 0 : (i / 5) * (colW + gap));
+                int ri = twoCols ? i : i % 5;
+                RectF row = new RectF(cx0, ly + ri * rowH + rowH * 0.06f, cx0 + colW, ly + (ri + 1) * rowH - rowH * 0.06f);
+                float rh = row.height();
+                p.setColor(i % 2 == 0 ? 0xFF15171D : 0xFF111318);
+                c.drawRoundRect(row, rh * 0.18f, rh * 0.18f, p);
+                RectF pos = new RectF(row.left + rh * 0.12f, row.top + rh * 0.14f, row.left + rh * 0.12f + rh * 0.9f, row.bottom - rh * 0.14f);
+                p.setColor(i == 0 ? AMBER : i == 1 ? 0xFFC0C6CF : i == 2 ? 0xFFCD7F32 : 0xFF2A2E37);
+                c.drawRoundRect(pos, rh * 0.12f, rh * 0.12f, p);
+                text(c, String.valueOf(i + 1), pos.centerX(), pos.centerY(), rh * 0.44f, tfBlack, i < 3 ? 0xFF000000 : TEXT, Paint.Align.CENTER, pos.width());
+                int tc = i < res.resultColors.size() ? res.resultColors.get(i) : MUTED;
+                p.setColor(tc);
+                c.drawRoundRect(new RectF(pos.right + rh * 0.18f, pos.top, pos.right + rh * 0.28f, pos.bottom), 3, 3, p);
+                String[] nm = res.results.get(i).split("\\s+", 2);
+                String[] info = i < res.resultInfo.size() ? res.resultInfo.get(i).split("\\|", -1) : new String[]{"", ""};
+                float nx = pos.right + rh * 0.45f;
+                String family = nm.length > 1 ? nm[1] : nm[0];
+                text(c, family, nx, row.top + rh * 0.38f, rh * 0.36f, tfBlack, TEXT, Paint.Align.LEFT, row.width() * 0.5f);
+                text(c, info[0], nx, row.top + rh * 0.76f, rh * 0.23f, tfMed, MUTED, Paint.Align.LEFT, row.width() * 0.5f);
+                if (info.length > 1) text(c, info[1], row.right - rh * 0.3f, row.centerY(), rh * 0.32f, tfMed, i == 0 ? TEXT : 0xFFC9CDD3, Paint.Align.RIGHT, row.width() * 0.3f);
+            }
         }
     }
 

@@ -196,7 +196,10 @@ public class MainActivity extends Activity implements ThorView.Listener {
         String[] labels = new String[Espn.LEAGUES.length];
         for (int i = 0; i < labels.length; i++) labels[i] = Espn.LEAGUES[i].label;
         leagueLabelsCache = labels;
-        for (int i = 0; i < Espn.LEAGUES.length; i++) leagueLogoUrls[i] = prefs.getString("leagueLogo_" + Espn.LEAGUES[i].path, null);
+        for (int i = 0; i < Espn.LEAGUES.length; i++) {
+            String fixed = Espn.fixedLogo(Espn.LEAGUES[i]);
+            leagueLogoUrls[i] = fixed != null ? fixed : prefs.getString("leagueLogo_" + Espn.LEAGUES[i].path, null);
+        }
         all(v -> v.setLeagueLabels(labels));
         all(v -> v.setFavorites(new HashSet<>(favorites)));
         all(v -> v.setLeague(leagueIdx, Espn.LEAGUES[leagueIdx]));
@@ -575,7 +578,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
                     return;
                 }
             }
-            if (tab == ThorView.TAB_BOARD) onTabTap(ThorView.TAB_SCORES); // Board is on top now
+            if (tab != ThorView.TAB_STANDINGS) onTabTap(ThorView.TAB_BOARD); // bottom: GAME companion for the game on top
         } else if (TopActivity.current != null) {
             TopActivity.current.finish();
         }
@@ -652,42 +655,50 @@ public class MainActivity extends Activity implements ThorView.Listener {
         all(v -> v.setSettings(delaySec, ledsOn, ledsAvailable, Math.round((1 - DIM_LEVELS[dimLevel]) * 100), autoBoard));
         all(v -> v.setDisplayPrefs(hideFinal, nightMode, shotMap));
         List<String[]> it = new ArrayList<>();
-        it.add(item(t("Two-screen mode (Board on top)", "Mode deux écrans (tableau en haut)"), onOff(dual), ThorView.SET_DUAL, false));
-        it.add(item(t("Spoiler delay", "Délai anti-spoiler"), (delaySec == 0 ? onOff(false) : delaySec + " s") + "  ›", ThorView.SET_DELAY, false));
-        it.add(item(t("Goal horn", "Klaxon de but"), onOff(sound), ThorView.SET_HORN, false));
-        it.add(item(t("Horn volume", "Volume du klaxon"), LEVELS[hornVol], ThorView.SET_HORN_VOL, false));
-        it.add(item(t("Quiet hours (11 PM–8 AM)", "Heures calmes (23 h–8 h)"), onOff(quietHours), ThorView.SET_QUIET, false));
-        it.add(item(t("Vibration", "Vibration"), onOff(vibrate), ThorView.SET_VIBRATE, false));
-        it.add(item(t("Goal screen (party)", "Écran de but (fête)"), onOff(celebrations), ThorView.SET_CELEB, false));
-        it.add(item(t("Goal screen length", "Durée de l'écran de but"), CELEB_NAMES[celebLen], ThorView.SET_CELEB_LEN, false));
-        it.add(item(t("Stick lights", "Lumières des joysticks"), ledsAvailable ? onOff(ledsOn) : "N/A", ThorView.SET_LEDS, false));
-        it.add(item(t("Light brightness", "Intensité des lumières"), LEVELS[ledBri], ThorView.SET_LED_BRI, false));
-        it.add(item(t("Test a goal", "Tester un but"), "▶", ThorView.SET_TEST, false));
-        it.add(item(t("Screen brightness", "Luminosité"), Math.round((1 - DIM_LEVELS[dimLevel]) * 100) + "%", ThorView.SET_DIM, false));
-        it.add(item(t("Night dim (11 PM–7 AM)", "Mode nuit (23 h–7 h)"), onOff(nightMode), ThorView.SET_NIGHT, false));
-        it.add(item(t("Screensaver clock (10 min)", "Économiseur horloge (10 min)"), onOff(saver), ThorView.SET_SAVER, false));
-        it.add(item(t("Keep screen on", "Garder l'écran allumé"), onOff(keepOn), ThorView.SET_KEEP_ON, false));
-        it.add(item(t("Hide finished games", "Cacher les matchs finis"), onOff(hideFinal), ThorView.SET_HIDE_FINAL, false));
-        it.add(item(t("Standings size", "Taille du classement"), bigStandings ? t("BIG", "GRAND") : t("FIT ALL", "TOUT"), ThorView.SET_STAND_SIZE, false));
-        it.add(item(t("Open Board when my team plays", "Ouvrir le tableau quand mon équipe joue"), onOff(autoBoard), ThorView.SET_AUTOBOARD, false));
-        it.add(item(t("Accent color", "Couleur d'accent"), ACCENT_NAMES[accentIdx], ThorView.SET_ACCENT, false));
-        it.add(item(t("Clock", "Horloge"), CLOCK_NAMES[clockMode], ThorView.SET_CLOCK, false));
-        it.add(item(t("Language", "Langue"), french ? "FRANÇAIS" : "ENGLISH", ThorView.SET_LANG, false));
-        it.add(item(t("Baseball field demo", "Démo terrain de baseball"), "▶", ThorView.SET_DEMO_MLB, false));
-        it.add(item(t("Football field demo", "Démo terrain de football"), "▶", ThorView.SET_DEMO_NFL, false));
-        it.add(item(t("NHL shot map (rink)", "Carte des tirs LNH (patinoire)"), onOff(shotMap), ThorView.SET_SHOT_MAP, false));
-        it.add(item(t("Hockey rink demo", "Démo patinoire"), "▶", ThorView.SET_DEMO_NHL, false));
-        it.add(item(t("App update", "Mise à jour"), updateLabel(), ThorView.SET_UPDATE, false));
-        it.add(item(t("Help / tips", "Aide / astuces"), "?", ThorView.SET_HELP, false));
+        // 0 GENERAL
+        it.add(item(0, t("Two-screen mode", "Mode deux écrans"), onOff(dual), ThorView.SET_DUAL));
+        it.add(item(0, t("Spoiler delay", "Délai anti-spoiler"), (delaySec == 0 ? onOff(false) : delaySec + " s") + "  ›", ThorView.SET_DELAY));
+        it.add(item(0, t("Language", "Langue"), french ? "FRANÇAIS" : "ENGLISH", ThorView.SET_LANG));
+        it.add(item(0, t("Clock", "Horloge"), CLOCK_NAMES[clockMode], ThorView.SET_CLOCK));
+        it.add(item(0, t("Accent color", "Couleur d'accent"), ACCENT_NAMES[accentIdx], ThorView.SET_ACCENT));
+        it.add(item(0, t("Screen brightness", "Luminosité"), Math.round((1 - DIM_LEVELS[dimLevel]) * 100) + "%", ThorView.SET_DIM));
+        it.add(item(0, t("Night dim (11 PM–7 AM)", "Mode nuit (23 h–7 h)"), onOff(nightMode), ThorView.SET_NIGHT));
+        it.add(item(0, t("Screensaver clock (10 min)", "Économiseur horloge (10 min)"), onOff(saver), ThorView.SET_SAVER));
+        it.add(item(0, t("Keep screen on", "Garder l'écran allumé"), onOff(keepOn), ThorView.SET_KEEP_ON));
+        // 1 GOALS & ALERTS
+        it.add(item(1, t("Goal horn", "Klaxon de but"), onOff(sound), ThorView.SET_HORN));
+        it.add(item(1, t("Horn volume", "Volume du klaxon"), LEVELS[hornVol], ThorView.SET_HORN_VOL));
+        it.add(item(1, t("Quiet hours (11 PM–8 AM)", "Heures calmes (23 h–8 h)"), onOff(quietHours), ThorView.SET_QUIET));
+        it.add(item(1, t("Vibration", "Vibration"), onOff(vibrate), ThorView.SET_VIBRATE));
+        it.add(item(1, t("Goal screen", "Écran de but"), onOff(celebrations), ThorView.SET_CELEB));
+        it.add(item(1, t("Goal screen length", "Durée de l'écran de but"), CELEB_NAMES[celebLen], ThorView.SET_CELEB_LEN));
+        it.add(item(1, t("Test a goal", "Tester un but"), "▶", ThorView.SET_TEST));
+        // 2 STICK LIGHTS
+        it.add(item(2, t("Stick lights", "Lumières des joysticks"), ledsAvailable ? onOff(ledsOn) : "N/A", ThorView.SET_LEDS));
+        it.add(item(2, t("Light brightness", "Intensité des lumières"), LEVELS[ledBri], ThorView.SET_LED_BRI));
+        it.add(item(2, t("Test a goal", "Tester un but"), "▶", ThorView.SET_TEST));
+        // 3 SCORES & BOARD
+        it.add(item(3, t("Hide finished games", "Cacher les matchs finis"), onOff(hideFinal), ThorView.SET_HIDE_FINAL));
+        it.add(item(3, t("Standings size", "Taille du classement"), bigStandings ? t("BIG", "GRAND") : t("FIT ALL", "TOUT"), ThorView.SET_STAND_SIZE));
+        it.add(item(3, t("Open Board when my team plays", "Ouvrir le tableau quand mon équipe joue"), onOff(autoBoard), ThorView.SET_AUTOBOARD));
+        it.add(item(3, t("NHL shot map (rink)", "Carte des tirs LNH"), onOff(shotMap), ThorView.SET_SHOT_MAP));
+        it.add(item(3, t("Baseball field demo", "Démo terrain de baseball"), "▶", ThorView.SET_DEMO_MLB));
+        it.add(item(3, t("Football field demo", "Démo terrain de football"), "▶", ThorView.SET_DEMO_NFL));
+        it.add(item(3, t("Hockey rink demo", "Démo patinoire"), "▶", ThorView.SET_DEMO_NHL));
+        // 4 APP
+        it.add(item(4, t("App update", "Mise à jour"), updateLabel(), ThorView.SET_UPDATE));
+        it.add(item(4, t("Help / tips", "Aide / astuces"), "?", ThorView.SET_HELP));
         boolean armed = System.currentTimeMillis() - resetArmedAt < 4000;
-        it.add(item(t("Clear MY TEAMS", "Vider MES ÉQUIPES") + " (" + favKeys.size() + ")", armed ? t("TAP AGAIN", "TOUCHEZ ENCORE") : t("CLEAR", "VIDER"), ThorView.SET_RESET, false));
+        it.add(item(4, t("Clear MY TEAMS", "Vider MES ÉQUIPES") + " (" + favKeys.size() + ")", armed ? t("TAP AGAIN", "TOUCHEZ ENCORE") : t("CLEAR", "VIDER"), ThorView.SET_RESET));
+        all(v -> v.setAppVersion(Updater.currentVersion(this)));
         all(v -> v.setSettingItems(it));
     }
 
     private static String onOff(boolean b) { return b ? "ON" : ThorView.tr("OFF", "OFF"); }
 
-    private static String[] item(String label, String value, int id, boolean stepper) {
-        return new String[]{label, value, String.valueOf(id), stepper ? "1" : "0"};
+    /** {label, value, id, stepper, section} */
+    private static String[] item(int section, String label, String value, int id) {
+        return new String[]{label, value, String.valueOf(id), "0", String.valueOf(section)};
     }
 
     // ------------------------------------------------------------------ in-app update (GitHub releases)

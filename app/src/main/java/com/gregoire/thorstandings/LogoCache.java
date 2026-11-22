@@ -69,6 +69,17 @@ public class LogoCache {
      * ESPN URL ".../i/teamlogos/nhl/500-dark/mtl.png" -> asset "logos/teamlogos/nhl/500-dark/mtl.png".
      * If that exact variant isn't bundled, try the dark/normal twin.
      */
+    /** "asset:league/lol.png" -> app/src/main/assets/league/lol.png */
+    private byte[] readAsset(String path) {
+        try (InputStream in = assets.open(path)) {
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            byte[] buf = new byte[16384];
+            int n;
+            while ((n = in.read(buf)) > 0) bos.write(buf, 0, n);
+            return bos.toByteArray();
+        } catch (Exception e) { return null; }
+    }
+
     private byte[] fromAssets(String url) {
         int i = url.indexOf("/i/");
         if (i < 0) return null;
@@ -88,7 +99,8 @@ public class LogoCache {
 
     private Bitmap load(String url) throws Exception {
         File f = new File(dir, Integer.toHexString(url.hashCode()) + ".png");
-        byte[] bytes = fromAssets(url);
+        byte[] bytes = url.startsWith("asset:") ? readAsset(url.substring(6)) : fromAssets(url);
+        if (bytes == null && url.startsWith("asset:")) return null;
         if (bytes != null) {
             // bundled in the APK — nothing to download
         } else if (f.exists() && f.length() > 0) {

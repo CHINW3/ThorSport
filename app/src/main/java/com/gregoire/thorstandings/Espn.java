@@ -482,7 +482,16 @@ public final class Espn {
     }
 
     /** The league's own logo (dark version), from the saved scoreboard or a fresh one. */
+    /** Leagues whose logo we know without asking ESPN. */
+    static String fixedLogo(League lg) {
+        if (lg.path.startsWith("esports")) return "asset:league/lol.png";
+        if (lg.path.equals("racing/f1")) return "https://a.espncdn.com/i/teamlogos/leagues/500-dark/f1.png|https://a.espncdn.com/i/teamlogos/leagues/500/f1.png";
+        return null;
+    }
+
     static String leagueLogo(League lg) {
+        String fixed = fixedLogo(lg);
+        if (fixed != null) return fixed;
         if (lg.mine() || lg.path.endsWith("/pwhl") || lg.path.startsWith("esports")) return null;
         try {
             String url = scoresUrl(lg, null);
