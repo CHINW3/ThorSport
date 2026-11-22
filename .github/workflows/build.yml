@@ -28,19 +28,21 @@ jobs:
       - name: Upload the APK
         uses: actions/upload-artifact@v4
         with:
-          name: ThorStandings-apk
+          name: ThorSport-apk
           path: app/build/outputs/apk/debug/app-debug.apk
 
       - name: Publish the APK as a download
         if: github.ref == 'refs/heads/main'
-        run: cp app/build/outputs/apk/debug/app-debug.apk ThorSport.apk
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk ThorSport.apk
+          echo "VERSION=$(grep -oP "versionName\s+'\K[^']+" app/build.gradle)" >> $GITHUB_ENV
 
       - name: Latest release
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: latest
-          name: ThorSport (latest build)
-          body: Install ThorSport.apk on your AYN Thor. Rebuilt automatically on every update.
+          tag_name: v${{ env.VERSION }}
+          name: ThorSport ${{ env.VERSION }}
+          body: Install ThorSport.apk on your AYN Thor (bottom screen). If it opens on the top screen, long-press the icon, Screen Launch, Bottom Screen.
           files: ThorSport.apk
           make_latest: true
