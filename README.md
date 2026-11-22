@@ -1,4 +1,4 @@
-# ThorSport 3.5
+# ThorSport 3.6
 
 Live sports for the **AYN Thor bottom screen** (1240×1080). Everything is drawn to fill the screen exactly.
 
@@ -9,6 +9,8 @@ Live sports for the **AYN Thor bottom screen** (1240×1080). Everything is drawn
 ## Download
 
 **[ThorSport.apk — latest release](https://github.com/CHINW3/ThorSport/releases/latest)** · copy it to the Thor and install it. If it opens on the top screen: long-press the icon → Screen Launch → Bottom Screen.
+
+**Updates:** ThorSport checks GitHub for a new version and shows a banner when one is out. Settings → App update downloads and installs it (Android asks once to allow ThorSport to install apps). What changed: [CHANGELOG.md](CHANGELOG.md).
 
 ## Leagues
 ★ MY TEAMS · NHL · PWHL · NBA · NFL · MLB · WNBA · F1 · League of Legends · Premier League · MLS · Champions League · La Liga · Bundesliga · Serie A · Ligue 1
