@@ -72,7 +72,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
     private int standingsLeague = -1;
     private boolean running, sound, myTeamsOnly, lastFailed, ledsOn, autoBoard;
     private int delaySec, hornVol, ledBri;
-    private boolean celebrations, keepOn, nightMode, hideFinal;
+    private boolean celebrations, keepOn, nightMode, hideFinal, shotMap;
     private long resetArmedAt;
     private static final float[] HORN_VOLS = {0.35f, 0.7f, 1f};
     private static final float[] LED_BRIS = {0.3f, 0.7f, 1f};
@@ -168,6 +168,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         keepOn = prefs.getBoolean("keepOn", true);
         nightMode = prefs.getBoolean("night", false);
         hideFinal = prefs.getBoolean("hideFinal", false);
+        shotMap = prefs.getBoolean("shotMap", true);
         Leds.setBrightness(LED_BRIS[ledBri]);
         quietHours = prefs.getBoolean("quiet", false);
         bigStandings = prefs.getBoolean("bigStandings", true);
@@ -640,7 +641,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         view.setSaver(saver);
         all(v -> v.setBigStandings(bigStandings));
         all(v -> v.setSettings(delaySec, ledsOn, ledsAvailable, Math.round((1 - DIM_LEVELS[dimLevel]) * 100), autoBoard));
-        all(v -> v.setDisplayPrefs(hideFinal, nightMode));
+        all(v -> v.setDisplayPrefs(hideFinal, nightMode, shotMap));
         List<String[]> it = new ArrayList<>();
         it.add(item(t("Two-screen mode (Board on top)", "Mode deux écrans (tableau en haut)"), onOff(dual), ThorView.SET_DUAL, false));
         it.add(item(t("Spoiler delay", "Délai anti-spoiler"), (delaySec == 0 ? onOff(false) : delaySec + " s") + "  ›", ThorView.SET_DELAY, false));
@@ -665,6 +666,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         it.add(item(t("Language", "Langue"), french ? "FRANÇAIS" : "ENGLISH", ThorView.SET_LANG, false));
         it.add(item(t("Baseball field demo", "Démo terrain de baseball"), "▶", ThorView.SET_DEMO_MLB, false));
         it.add(item(t("Football field demo", "Démo terrain de football"), "▶", ThorView.SET_DEMO_NFL, false));
+        it.add(item(t("NHL shot map (rink)", "Carte des tirs LNH (patinoire)"), onOff(shotMap), ThorView.SET_SHOT_MAP, false));
         it.add(item(t("Hockey rink demo", "Démo patinoire"), "▶", ThorView.SET_DEMO_NHL, false));
         it.add(item(t("Help / tips", "Aide / astuces"), "?", ThorView.SET_HELP, false));
         boolean armed = System.currentTimeMillis() - resetArmedAt < 4000;
@@ -712,6 +714,10 @@ public class MainActivity extends Activity implements ThorView.Listener {
                 nightMode = !nightMode; e.putBoolean("night", nightMode); break;
             case ThorView.SET_HIDE_FINAL:
                 hideFinal = !hideFinal; e.putBoolean("hideFinal", hideFinal); break;
+            case ThorView.SET_SHOT_MAP:
+                shotMap = !shotMap; e.putBoolean("shotMap", shotMap);
+                if (shotMap) refresh(true);
+                break;
             case ThorView.SET_QUIET:
                 quietHours = !quietHours; e.putBoolean("quiet", quietHours); break;
             case ThorView.SET_VIBRATE:
@@ -1019,7 +1025,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         }
         if (!lg.mine()) {
             Model.Scoreboard sb = Espn.scores(lg, date, fromCache);
-            if (!fromCache) { Extras.nhlGoals(sb.games); Extras.polymarket(sb.games); Extras.nhlPlays(shotMapGame(sb.games)); }
+            if (!fromCache) { Extras.nhlGoals(sb.games); Extras.polymarket(sb.games); if (shotMap) Extras.nhlPlays(shotMapGame(sb.games)); }
             return sb;
         }
         Model.Scoreboard all = new Model.Scoreboard();
@@ -1035,7 +1041,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
             } catch (Exception ignored) { }
         }
         if (!any && !favKeys.isEmpty()) throw new Exception("offline");
-        if (!fromCache) { Extras.nhlGoals(all.games); Extras.polymarket(all.games); Extras.nhlPlays(shotMapGame(all.games)); }
+        if (!fromCache) { Extras.nhlGoals(all.games); Extras.polymarket(all.games); if (shotMap) Extras.nhlPlays(shotMapGame(all.games)); }
         all.games.sort((a, b) -> {
             int ra = Espn.rank(a), rb = Espn.rank(b);
             return ra != rb ? ra - rb : Long.compare(a.startMs, b.startMs);

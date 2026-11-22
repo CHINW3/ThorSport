@@ -57,7 +57,7 @@ public class ThorView extends View {
     public static final int SET_DELAY = 0, SET_HORN = 1, SET_LEDS = 2, SET_DIM = 3, SET_AUTOBOARD = 4,
         SET_HORN_VOL = 5, SET_LED_BRI = 6, SET_CELEB = 7, SET_KEEP_ON = 8, SET_NIGHT = 9, SET_HIDE_FINAL = 10,
         SET_TEST = 11, SET_HELP = 12, SET_RESET = 13, SET_DUAL = 14, SET_QUIET = 15, SET_VIBRATE = 16,
-        SET_CELEB_LEN = 17, SET_ACCENT = 18, SET_CLOCK = 19, SET_LANG = 20, SET_SAVER = 21, SET_STAND_SIZE = 22, SET_DEMO_MLB = 23, SET_DEMO_NFL = 24, SET_DEMO_NHL = 25;
+        SET_CELEB_LEN = 17, SET_ACCENT = 18, SET_CLOCK = 19, SET_LANG = 20, SET_SAVER = 21, SET_STAND_SIZE = 22, SET_DEMO_MLB = 23, SET_DEMO_NFL = 24, SET_DEMO_NHL = 25, SET_SHOT_MAP = 26;
     private static final int GAMES_PER_PAGE = 8;
     private static final long AUTO_PAGE_MS = 10_000;
     private long CELEBRATION_MS = 6500;
@@ -126,7 +126,7 @@ public class ThorView extends View {
     private boolean offline, loading, myTeamsOnly, pickerOpen, bigScore, settingsOpen;
     private int delaySec, dimPct = 100;
     private boolean ledsOn, ledsAvailable, autoBoard = true;
-    private boolean helpOpen, hideFinal, nightMode, delayOpen;
+    private boolean helpOpen, hideFinal, nightMode, delayOpen, shotMap = true;
     private final List<RectF> delayRects = new ArrayList<>();
     private final List<int[]> delayActs = new ArrayList<>();
     private int syncState;            // 0 off, 1 waiting for a score, 2 score happened: tap when you see it
@@ -605,7 +605,7 @@ public class ThorView extends View {
     }
 
     public void setSettingItems(List<String[]> items) { settingItems = items; invalidate(); }
-    public void setDisplayPrefs(boolean hideFinished, boolean night) { hideFinal = hideFinished; nightMode = night; page = 0; invalidate(); }
+    public void setDisplayPrefs(boolean hideFinished, boolean night, boolean shots) { hideFinal = hideFinished; nightMode = night; shotMap = shots; page = 0; invalidate(); }
     /** This view is the TOP screen of two-screen mode: always the Board, no tabs. */
     public void setClockMode(int m) { clockMode = m; invalidate(); }
     public void setSaver(boolean on) { saverOn = on; invalidate(); }
@@ -840,7 +840,7 @@ public class ThorView extends View {
                 if ("racing".equals(g.sport)) drawRaceBoard(c, g, w, bh, top);
                 else if ("baseball".equals(g.sport) && g.isLive() && !bigScore) drawBaseballBoard(c, g, w, bh, top);
                 else if ("football".equals(g.sport) && g.isLive() && !bigScore) drawFootballBoard(c, g, w, bh, top);
-                else if ("hockey".equals(g.sport) && !g.shots.isEmpty() && !"pre".equals(g.state) && !bigScore) drawHockeyBoard(c, g, w, bh, top);
+                else if ("hockey".equals(g.sport) && (shotMap || g == demoGame) && !g.shots.isEmpty() && !"pre".equals(g.state) && !bigScore) drawHockeyBoard(c, g, w, bh, top);
                 else if (bigScore) drawBigScore(c, g, w, bh, top);
                 else drawBoard(c, g, w, bh, top);
                 if (topMode) drawTicker(c, g, w, h, bh);
@@ -2723,7 +2723,7 @@ public class ThorView extends View {
         }
 
         // --- the rink (keeps the real 200 x 85 ft shape)
-        float availTop = top + topH + gap, availBottom = top + H * 0.87f;
+        float availTop = top + topH + gap * 2.2f, availBottom = top + H * 0.87f;
         float rw = w - 2 * gap, rh = rw * 85f / 200f;
         if (rh > availBottom - availTop) { rh = availBottom - availTop; rw = rh * 200f / 85f; }
         RectF rink = new RectF(cx - rw / 2, availTop + (availBottom - availTop - rh) / 2, cx + rw / 2, availTop + (availBottom - availTop - rh) / 2 + rh);
@@ -2746,125 +2746,193 @@ public class ThorView extends View {
         text(c, tagTxt, tick.left + kh * 0.4f, tick.centerY(), kh * 0.32f, tfCond, last != null && last.goal ? LIVE : AMBER, Paint.Align.LEFT, kh * 3);
         text(c, msg, tick.left + kh * 2.6f, tick.centerY(), kh * 0.36f, tfReg, TEXT, Paint.Align.LEFT, tick.width() - kh * 2.9f);
         // legend
-        text(c, "● " + tr("shots", "tirs") + "   ○ " + tr("missed", "ratés") + "   ◉ " + tr("goals", "buts"), cx, availBottom + gap * 0.05f - gap * 0.4f,
-            gap * 0.75f, tfReg, DIM, Paint.Align.CENTER, w);
+        drawShotLegend(c, cx, availBottom + gap * 0.05f - gap * 0.4f, gap * 0.75f);
         if (g == demoGame) tag(c, tr("DEMO · tap to close", "DÉMO · touchez pour fermer"), cx, availTop + gap * 0.2f, topH * 0.08f, Paint.Align.CENTER, LIVE, TEXT);
     }
 
-    /** Dark ice with glowing lines; shots in team colors, goals as glowing pucks, newest shot pops in. */
+    /** Team color that stays readable on white ice (very light colors become dark slate). */
+    private static int iceColor(int col) {
+        col = Leds.vivid(col) | 0xFF000000;
+        int r = (col >> 16) & 0xFF, g = (col >> 8) & 0xFF, b = col & 0xFF;
+        float lum = (0.299f * r + 0.587f * g + 0.114f * b) / 255f;
+        if (lum > 0.72f) return 0xFF39424E;
+        if (lum > 0.55f) return 0xFF000000 | ((int) (r * 0.7f) << 16) | ((int) (g * 0.7f) << 8) | (int) (b * 0.7f);
+        return col;
+    }
+
+    /** Broadcast-style rink: bright ice, real markings, shots as clean team-colored dots, goals with the scorer. */
     private void drawRink(Canvas c, Model.Game g, RectF rink) {
         float k = rink.width() / 200f;
         float corner = 28 * k;
-        // ice
-        p.setShader(new RadialGradient(rink.centerX(), rink.centerY(), rink.width() * 0.6f, 0xFF15222E, 0xFF0A1118, Shader.TileMode.CLAMP));
-        c.drawRoundRect(rink, corner, corner, p);
-        p.setShader(null);
-        c.save();
-        c.clipRect(rink);
-        float cy = rink.centerY();
-        // center ice logo (home team), very faint
-        if (logos != null && logos.get(g.home.logo) != null) {
-            bmpPaint.setAlpha(28);
-            logo(c, g.home.logo, g.home.abbr, 0, rink.centerX(), cy, 26 * k);
-            bmpPaint.setAlpha(255);
-        }
-        // lines
-        p.setColor(0xCCD3293A);   // red
-        c.drawRect(rink.centerX() - 0.6f * k, rink.top, rink.centerX() + 0.6f * k, rink.bottom, p);
-        for (int sgn : new int[]{-1, 1}) {
-            float gx = rink.centerX() + sgn * 89 * k;
-            c.drawRect(gx - 0.25f * k, rink.top + 4 * k, gx + 0.25f * k, rink.bottom - 4 * k, p);
-        }
-        p.setColor(0xCC2F6FE0);   // blue
-        for (int sgn : new int[]{-1, 1}) {
-            float bx = rink.centerX() + sgn * 25 * k;
-            c.drawRect(bx - 0.6f * k, rink.top, bx + 0.6f * k, rink.bottom, p);
-        }
-        // circles & dots
-        p.setStyle(Paint.Style.STROKE);
-        p.setStrokeWidth(Math.max(1.5f, 0.35f * k));
-        p.setColor(0xAA2F6FE0);
-        c.drawCircle(rink.centerX(), cy, 15 * k, p);
-        p.setColor(0xAAD3293A);
-        for (int sx : new int[]{-69, 69}) for (int sy : new int[]{-22, 22}) c.drawCircle(rink.centerX() + sx * k, cy - sy * k, 15 * k, p);
+        float cx = rink.centerX(), cy = rink.centerY();
+        Path shape = new Path();
+        shape.addRoundRect(rink, corner, corner, Path.Direction.CW);
+
+        // shadow + ice
         p.setStyle(Paint.Style.FILL);
-        p.setColor(0xCCD3293A);
-        for (int sx : new int[]{-69, -20, 20, 69}) for (int sy : new int[]{-22, 22}) c.drawCircle(rink.centerX() + sx * k, cy - sy * k, 1 * k, p);
-        // creases + nets
-        for (int sgn : new int[]{-1, 1}) {
-            float gx = rink.centerX() + sgn * 89 * k;
-            p.setColor(0x553F8CFF);
-            RectF crease = new RectF(gx - 6 * k, cy - 6 * k, gx + 6 * k, cy + 6 * k);
-            c.drawArc(crease, sgn > 0 ? 90 : -90, 180, true, p);
-            p.setColor(0xFFE8E8E8);
-            c.drawRect(sgn > 0 ? gx : gx - 3.3f * k, cy - 3 * k, sgn > 0 ? gx + 3.3f * k : gx, cy + 3 * k, p);
-        }
-        // which team defends which end (logos behind the nets)
+        p.setShadowLayer(3 * k, 0, 1.2f * k, 0x99000000);
+        p.setColor(0xFFE9EEF3);
+        c.drawPath(shape, p);
+        p.clearShadowLayer();
+        c.save();
+        c.clipPath(shape);
+        p.setShader(new LinearGradient(0, rink.top, 0, rink.bottom, 0xFFF7F9FB, 0xFFE1E8EF, Shader.TileMode.CLAMP));
+        c.drawRect(rink, p);
+        p.setShader(null);
+
+        // which team defends which end: soft team tint in each zone
         boolean homeLeft = "left".equals(g.homeSide);
         Model.Side leftTeam = homeLeft ? g.home : g.away, rightTeam = homeLeft ? g.away : g.home;
-        tag(c, leftTeam.abbr, rink.left + 5 * k, cy - 34 * k, 3.4f * k, Paint.Align.LEFT, alpha(leftTeam.color | 0xFF000000, 0xCC), TEXT);
-        tag(c, rightTeam.abbr, rink.right - 5 * k, cy - 34 * k, 3.4f * k, Paint.Align.RIGHT, alpha(rightTeam.color | 0xFF000000, 0xCC), TEXT);
+        int lc = iceColor(leftTeam.color), rc = iceColor(rightTeam.color);
+        p.setColor(alpha(lc, 0x14));
+        c.drawRect(rink.left, rink.top, cx - 25 * k, rink.bottom, p);
+        p.setColor(alpha(rc, 0x14));
+        c.drawRect(cx + 25 * k, rink.top, rink.right, rink.bottom, p);
 
-        // shots: missed (hollow) -> on goal (filled) -> goals (pucks)
-        float r0 = Math.max(4f, 1.5f * k);
+        // center ice logo
+        if (logos != null && logos.get(g.home.logo) != null) {
+            bmpPaint.setAlpha(60);
+            logo(c, g.home.logo, g.home.abbr, 0, cx, cy, 24 * k);
+            bmpPaint.setAlpha(255);
+        }
+
+        final int RED = 0xFFD5243A, BLUE = 0xFF1F5FD1;
+        float thin = Math.max(1.5f, 0.35f * k);
+        // lines
+        p.setColor(BLUE);
+        for (int sgn : new int[]{-1, 1}) c.drawRect(cx + sgn * 25 * k - 0.5f * k, rink.top, cx + sgn * 25 * k + 0.5f * k, rink.bottom, p);
+        p.setColor(RED);
+        c.drawRect(cx - 0.5f * k, rink.top, cx + 0.5f * k, rink.bottom, p);
+        for (int sgn : new int[]{-1, 1}) {
+            float gx = cx + sgn * 89 * k;
+            c.drawRect(gx - thin / 2, rink.top, gx + thin / 2, rink.bottom, p);
+        }
+        // circles + dots
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(thin);
+        p.setColor(BLUE);
+        c.drawCircle(cx, cy, 15 * k, p);
+        p.setColor(RED);
+        for (int sx : new int[]{-69, 69}) for (int sy : new int[]{-22, 22}) c.drawCircle(cx + sx * k, cy - sy * k, 15 * k, p);
+        p.setStyle(Paint.Style.FILL);
+        p.setColor(BLUE);
+        c.drawCircle(cx, cy, 0.6f * k, p);
+        p.setColor(RED);
+        for (int sx : new int[]{-69, -20, 20, 69}) for (int sy : new int[]{-22, 22}) c.drawCircle(cx + sx * k, cy - sy * k, 1f * k, p);
+        // creases + nets
+        for (int sgn : new int[]{-1, 1}) {
+            float gx = cx + sgn * 89 * k;
+            RectF crease = new RectF(gx - 6 * k, cy - 6 * k, gx + 6 * k, cy + 6 * k);
+            p.setColor(0xFF9BD0F5);
+            c.drawArc(crease, sgn > 0 ? 90 : -90, 180, true, p);
+            p.setStyle(Paint.Style.STROKE);
+            p.setStrokeWidth(thin);
+            p.setColor(RED);
+            c.drawArc(crease, sgn > 0 ? 90 : -90, 180, false, p);
+            p.setColor(0xFF5A6270);
+            p.setStrokeWidth(Math.max(2f, 0.5f * k));
+            float nx = sgn > 0 ? gx + 3.4f * k : gx - 3.4f * k;
+            c.drawRoundRect(new RectF(Math.min(gx, nx), cy - 3 * k, Math.max(gx, nx), cy + 3 * k), 1.2f * k, 1.2f * k, p);
+            p.setStyle(Paint.Style.FILL);
+        }
+
+        // shots: missed (rings) under shots on goal (dots) under goals
+        float r0 = Math.max(5f, 1.7f * k);
         for (int pass = 0; pass < 3; pass++) {
             for (Model.Shot s : g.shots) {
-                if ((pass == 0) != s.missed || (pass == 2) != s.goal) { if (!(pass == 1 && !s.missed && !s.goal)) continue; }
-                float px = rink.centerX() + s.x * k, py = cy - s.y * k;
-                int col = Leds.vivid((s.home ? g.home : g.away).color);
-                if (s.missed) {
+                int kind = s.goal ? 2 : s.missed ? 0 : 1;
+                if (kind != pass) continue;
+                float px = cx + s.x * k, py = cy - s.y * k;
+                int col = iceColor((s.home ? g.home : g.away).color);
+                if (kind == 0) {
                     p.setStyle(Paint.Style.STROKE);
-                    p.setStrokeWidth(Math.max(1.5f, r0 * 0.3f));
-                    p.setColor(alpha(col, 0x88));
-                    c.drawCircle(px, py, r0 * 0.8f, p);
+                    p.setStrokeWidth(Math.max(1.5f, r0 * 0.28f));
+                    p.setColor(alpha(col, 0x99));
+                    c.drawCircle(px, py, r0 * 0.75f, p);
                     p.setStyle(Paint.Style.FILL);
-                } else if (!s.goal) {
-                    p.setColor(alpha(col, 0xDD));
+                } else if (kind == 1) {
+                    p.setColor(col);
                     c.drawCircle(px, py, r0, p);
+                    p.setStyle(Paint.Style.STROKE);
+                    p.setStrokeWidth(Math.max(1.2f, r0 * 0.25f));
+                    p.setColor(0xFFFFFFFF);
+                    c.drawCircle(px, py, r0, p);
+                    p.setStyle(Paint.Style.FILL);
                 } else {
-                    p.setShadowLayer(r0 * 2.5f, 0, 0, col);
-                    p.setColor(0xFF0B0B0B);
-                    c.drawCircle(px, py, r0 * 1.6f, p);
+                    p.setShadowLayer(r0 * 0.8f, 0, r0 * 0.2f, 0x66000000);
+                    p.setColor(col);
+                    c.drawCircle(px, py, r0 * 1.7f, p);
                     p.clearShadowLayer();
                     p.setStyle(Paint.Style.STROKE);
-                    p.setStrokeWidth(r0 * 0.45f);
-                    p.setColor(col);
-                    c.drawCircle(px, py, r0 * 1.6f, p);
+                    p.setStrokeWidth(r0 * 0.35f);
+                    p.setColor(0xFFFFFFFF);
+                    c.drawCircle(px, py, r0 * 1.7f, p);
                     p.setStyle(Paint.Style.FILL);
+                    p.setColor(0xFFFFFFFF);
+                    c.drawCircle(px, py, r0 * 0.55f, p);
                     if (!s.who.isEmpty()) {
                         String last = s.who.contains(". ") ? s.who.substring(s.who.indexOf(". ") + 2) : s.who;
-                        tag(c, last, px, py - r0 * 3.2f, 2.6f * k, Paint.Align.CENTER, 0xDD101218, TEXT);
+                        float ly = py - r0 * 3.4f < rink.top + 4 * k ? py + r0 * 3.4f : py - r0 * 3.4f;
+                        tag(c, last.toUpperCase(), px, ly, 2.4f * k, Paint.Align.CENTER, 0xF0151820, 0xFFFFFFFF);
                     }
                 }
             }
         }
-        // newest shot: expanding rings
+        // newest shot: soft expanding ring + name
         Long at = newShotAt.get(g.id);
         if (at != null && !g.shots.isEmpty()) {
             long t = System.currentTimeMillis() - at;
             if (t < 1800) {
                 Model.Shot s = g.shots.get(g.shots.size() - 1);
-                float px = rink.centerX() + s.x * k, py = cy - s.y * k;
-                int col = Leds.vivid((s.home ? g.home : g.away).color);
+                float px = cx + s.x * k, py = cy - s.y * k;
+                int col = iceColor((s.home ? g.home : g.away).color);
+                float f = (t % 900) / 900f;
                 p.setStyle(Paint.Style.STROKE);
-                for (int i = 0; i < 2; i++) {
-                    float f = ((t / 900f) + i * 0.5f) % 1f;
-                    p.setStrokeWidth(Math.max(2f, r0 * 0.5f * (1 - f)));
-                    p.setColor(alpha(col, (int) (255 * (1 - f))));
-                    c.drawCircle(px, py, r0 * (1.5f + f * 5f), p);
-                }
+                p.setStrokeWidth(Math.max(2f, r0 * 0.4f * (1 - f)));
+                p.setColor(alpha(col, (int) (220 * (1 - f))));
+                c.drawCircle(px, py, r0 * (1.4f + f * 4f), p);
                 p.setStyle(Paint.Style.FILL);
-                if (!s.who.isEmpty() && !s.goal) tag(c, s.who, px, py + r0 * 3.5f, 2.6f * k, Paint.Align.CENTER, alpha(col, 0xEE), 0xFF000000);
+                if (!s.who.isEmpty() && !s.goal) tag(c, s.who, px, py + r0 * 3.2f, 2.4f * k, Paint.Align.CENTER, col, 0xFFFFFFFF);
                 postInvalidateOnAnimation();
             }
         }
         c.restore();
+
         // boards
         p.setStyle(Paint.Style.STROKE);
-        p.setStrokeWidth(Math.max(2f, 0.8f * k));
-        p.setColor(0x88C8D2DC);
-        c.drawRoundRect(rink, corner, corner, p);
+        p.setStrokeWidth(Math.max(3f, 1.1f * k));
+        p.setColor(0xFFF2F4F7);
+        c.drawPath(shape, p);
+        p.setStrokeWidth(Math.max(1.5f, 0.4f * k));
+        p.setColor(0xFF8A94A3);
+        c.drawPath(shape, p);
         p.setStyle(Paint.Style.FILL);
+
+        // team names above each end
+        tag(c, leftTeam.abbr, rink.left + 14 * k, rink.top - 3.2f * k, 2.8f * k, Paint.Align.CENTER, lc, 0xFFFFFFFF);
+        tag(c, rightTeam.abbr, rink.right - 14 * k, rink.top - 3.2f * k, 2.8f * k, Paint.Align.CENTER, rc, 0xFFFFFFFF);
+    }
+
+    /** Legend drawn with real symbols (not text glyphs). */
+    private void drawShotLegend(Canvas c, float cx, float cy, float size) {
+        String[] labels = {tr("Shot", "Tir"), tr("Missed", "Raté"), tr("Goal", "But")};
+        p.setTypeface(tfCond);
+        p.setTextSize(size);
+        float r = size * 0.38f, gapX = size * 1.4f, total = 0;
+        float[] tw = new float[3];
+        for (int i = 0; i < 3; i++) { tw[i] = p.measureText(labels[i]); total += r * 2 + size * 0.4f + tw[i]; }
+        total += gapX * 2;
+        float x = cx - total / 2;
+        for (int i = 0; i < 3; i++) {
+            float dx = x + r;
+            p.setStyle(i == 1 ? Paint.Style.STROKE : Paint.Style.FILL);
+            p.setStrokeWidth(Math.max(1.5f, r * 0.35f));
+            p.setColor(i == 1 ? MUTED : i == 2 ? 0xFFFFFFFF : MUTED);
+            c.drawCircle(dx, cy, i == 2 ? r * 1.15f : r, p);
+            p.setStyle(Paint.Style.FILL);
+            text(c, labels[i], x + r * 2 + size * 0.4f, cy, size, tfCond, MUTED, Paint.Align.LEFT, tw[i] + 4);
+            x += r * 2 + size * 0.4f + tw[i] + gapX;
+        }
     }
 
     // ------------------------------------------------------------------ goal celebration
