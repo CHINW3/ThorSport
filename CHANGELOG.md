@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.19
+- **Logos without Wi-Fi**: every NHL, NFL, NBA, MLB and MLS team logo (and those five league logos) is now packed inside the app, with a thin light outline on the darkest ones so they stand out on the dark background, so they show right away, even offline. Other leagues (PWHL, WNBA, soccer in Europe, F1…) still load their logos from ESPN, and a team that isn't in the pack (like the Utah Mammoth) falls back to ESPN too. The big faded logo behind a team on the Board (and the logo at center ice) uses ESPN's version, so you see two different logos instead of the same one twice.
+
 ## 3.18
 - **Stick lights**: navy teams (Bears, Patriots, Astros…) use their main color again, like before 3.17.
 
