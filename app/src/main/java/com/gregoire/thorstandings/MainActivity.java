@@ -156,6 +156,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
             for (String a : prefs.getStringSet("favs", new HashSet<>())) favKeys.add("hockey/nhl|" + a);
         }
         if (!prefs.contains("league")) leagueIdx = favKeys.isEmpty() ? 1 : 0; // NHL until you pick teams
+        if (tab >= tabCount()) tab = ThorView.TAB_SCORES;
         favorites = favAbbrs(leagueIdx);
         sound = prefs.getBoolean("sound", true);
         myTeamsOnly = prefs.getBoolean("myTeams", false);
@@ -224,6 +225,11 @@ public class MainActivity extends Activity implements ThorView.Listener {
         loadLeagueLogos();
         running = true;
         loadFromCache();
+        view.setFavKeys(new HashSet<>(favKeys));
+        if (!prefs.getBoolean("onboarded", false)) {
+            if (!favKeys.isEmpty()) prefs.edit().putBoolean("onboarded", true).apply();   // already has teams (older version)
+            else main.postDelayed(() -> view.openOnboarding(true, onboardLeagues()), 600);
+        }
         main.post(refreshLoop);
         main.post(clockTick);
         if (prefs.getBoolean("dual", false)) main.postDelayed(() -> setDual(true), 900);
@@ -320,8 +326,8 @@ public class MainActivity extends Activity implements ThorView.Listener {
             case KeyEvent.KEYCODE_BACK: return v.controllerBack() || from == top;    // Back on top never closes it
             case KeyEvent.KEYCODE_BUTTON_X: v.controllerFavorite(false); return true;
             case KeyEvent.KEYCODE_BUTTON_Y: v.controllerFavorite(true); return true;
-            case KeyEvent.KEYCODE_BUTTON_L1: v.hideCursor(); onTabTap((tab + 2) % 3); return true;
-            case KeyEvent.KEYCODE_BUTTON_R1: v.hideCursor(); onTabTap((tab + 1) % 3); return true;
+            case KeyEvent.KEYCODE_BUTTON_L1: if (v.onboardingOpen()) { v.onboardShift(-1); return true; } v.hideCursor(); onTabTap((tab + tabCount() - 1) % tabCount()); return true;
+            case KeyEvent.KEYCODE_BUTTON_R1: if (v.onboardingOpen()) { v.onboardShift(1); return true; } v.hideCursor(); onTabTap((tab + 1) % tabCount()); return true;
             case KeyEvent.KEYCODE_BUTTON_L2: switchLeague((leagueIdx + Espn.LEAGUES.length - 1) % Espn.LEAGUES.length); return true;
             case KeyEvent.KEYCODE_BUTTON_R2: switchLeague((leagueIdx + 1) % Espn.LEAGUES.length); return true;
             case KeyEvent.KEYCODE_BUTTON_START: v.openSettings(); return true;
@@ -430,6 +436,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         dateOffset = 0;
         leagueIdx = idx;
         prefs.edit().putInt("league", leagueIdx).remove("boardGame").apply();
+        if (tab >= tabCount()) { tab = ThorView.TAB_SCORES; prefs.edit().putInt("tab", tab).apply(); view.setTab(tab); }
         view.setDateOffset(0);
         all(v -> v.setBoardGameId(null));
         favorites = favAbbrs(leagueIdx);
@@ -440,7 +447,11 @@ public class MainActivity extends Activity implements ThorView.Listener {
         restartLoop();
     }
 
+    /** MY TEAMS has no standings tab (teams from different leagues can't share a table). */
+    private int tabCount() { return Espn.LEAGUES[leagueIdx].mine() ? 2 : 3; }
+
     @Override public void onTabTap(int t) {
+        if (t >= tabCount()) t = ThorView.TAB_SCORES;
         if (t == tab) return;
         tab = t;
         prefs.edit().putInt("tab", tab).apply();
@@ -475,6 +486,54 @@ public class MainActivity extends Activity implements ThorView.Listener {
         rememberColors(lastGames);
         updateLeds();
         Toast.makeText(this, abbr + (added ? " ★ added to MY TEAMS" : " removed from MY TEAMS"), Toast.LENGTH_SHORT).show();
+        view.setFavKeys(new HashSet<>(favKeys));
+    }
+
+    // ------------------------------------------------------------------ "Pick your teams"
+    /** Leagues offered in the team picker (not MY TEAMS, F1 or LoL). */
+    private List<Integer> onboardLeagues() {
+        List<Integer> out = new ArrayList<>();
+        for (int i = 0; i < Espn.LEAGUES.length; i++) {
+            Espn.League l = Espn.LEAGUES[i];
+            if (l.mine() || l.path.startsWith("racing") || l.path.startsWith("esports")) continue;
+            out.add(i);
+        }
+        return out;
+    }
+
+    /** Teams of a league, from its standings (saved copy first, then online), sorted by name. */
+    @Override public void onOnboardLeague(int idx) {
+        final Espn.League lg = Espn.LEAGUES[idx];
+        new Thread(() -> {
+            List<Model.Team> teams = new ArrayList<>();
+            for (boolean cache : new boolean[]{true, false}) {
+                try {
+                    Map<String, Model.Team> seen = new java.util.LinkedHashMap<>();
+                    for (Model.Group g : fetchStandings(lg, cache)) for (Model.Team t : g.teams) if (t.abbr != null && !t.abbr.isEmpty()) seen.put(t.abbr, t);
+                    if (!seen.isEmpty()) { teams = new ArrayList<>(seen.values()); break; }
+                } catch (Exception ignored) { }
+            }
+            teams.sort((a, b) -> String.valueOf(a.name).compareToIgnoreCase(String.valueOf(b.name)));
+            final List<Model.Team> fin = teams;
+            main.post(() -> view.setOnboardTeams(idx, fin));
+        }).start();
+    }
+
+    @Override public void onOnboardToggle(String path, String abbr) {
+        String key = path + "|" + abbr;
+        if (!favKeys.remove(key)) favKeys.add(key);
+        prefs.edit().putStringSet("favKeys", new HashSet<>(favKeys)).apply();
+        favorites = favAbbrs(leagueIdx);
+        all(v -> v.setFavorites(new HashSet<>(favorites)));
+        view.setFavKeys(new HashSet<>(favKeys));
+    }
+
+    @Override public void onOnboardDone() {
+        prefs.edit().putBoolean("onboarded", true).apply();
+        pushSettings();
+        updateLeds();
+        if (!favKeys.isEmpty() && !Espn.LEAGUES[leagueIdx].mine()) switchLeague(0);   // straight to MY TEAMS
+        else refresh(true);
     }
 
     @Override public void onTeamTap(String abbr) {
@@ -578,7 +637,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
                     return;
                 }
             }
-            if (tab != ThorView.TAB_STANDINGS) onTabTap(ThorView.TAB_BOARD); // bottom: GAME companion for the game on top
+            if (tab == ThorView.TAB_BOARD) onTabTap(ThorView.TAB_SCORES); // Board is on top now
         } else if (TopActivity.current != null) {
             TopActivity.current.finish();
         }
@@ -686,6 +745,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         it.add(item(3, t("Football field demo", "Démo terrain de football"), "▶", ThorView.SET_DEMO_NFL));
         it.add(item(3, t("Hockey rink demo", "Démo patinoire"), "▶", ThorView.SET_DEMO_NHL));
         // 4 APP
+        it.add(item(4, t("My teams", "Mes équipes") + " (" + favKeys.size() + ")", t("EDIT  ›", "MODIFIER  ›"), ThorView.SET_MY_TEAMS));
         it.add(item(4, t("App update", "Mise à jour"), updateLabel(), ThorView.SET_UPDATE));
         it.add(item(4, t("Help / tips", "Aide / astuces"), "?", ThorView.SET_HELP));
         boolean armed = System.currentTimeMillis() - resetArmedAt < 4000;
@@ -909,10 +969,15 @@ public class MainActivity extends Activity implements ThorView.Listener {
                 view.showHelp(); break;
             case ThorView.SET_UPDATE:
                 onUpdateTap(); break;
+            case ThorView.SET_MY_TEAMS:
+                view.closeSettings();
+                view.openOnboarding(false, onboardLeagues());
+                break;
             case ThorView.SET_RESET:
                 if (System.currentTimeMillis() - resetArmedAt < 4000) {
                     favKeys.clear();
                     e.putStringSet("favKeys", new HashSet<>());
+                    view.setFavKeys(new HashSet<>());
                     favorites = favAbbrs(leagueIdx);
                     all(v -> v.setFavorites(new HashSet<>(favorites)));
                     resetArmedAt = 0;
