@@ -1,4 +1,4 @@
-# ThorSport 3.17
+# ThorSport 3.18
 
 Live sports for the **AYN Thor bottom screen** (1240×1080). Everything is drawn to fill the screen exactly.
 

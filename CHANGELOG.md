@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.18
+- **Stick lights**: navy teams (Bears, Patriots, Astros…) use their main color again, like before 3.17.
+
 ## 3.17
 **Goals & alerts**
 - **Bigger goal celebration**: a white flash then a strobe (red goal light for hockey, team color for the other sports), two rotating goal-lamp beams, GOAL! / TOUCHDOWN! slams onto the screen and shakes it, shockwave rings from the logo, the word glows in the team color, fireworks and twice the confetti. Try it: Settings → Test a goal.
