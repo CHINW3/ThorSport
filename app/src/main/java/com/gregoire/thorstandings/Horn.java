@@ -21,6 +21,8 @@ public final class Horn {
     private Horn() {}
 
     public static boolean vibrate = true;
+    /** Settings → Horn length: SHORT plays about 1.2 s instead of the full 3.2 s blast. */
+    public static boolean shortHorn;
 
     private static synchronized short[] buffer() {
         if (pcm != null) return pcm;
@@ -98,6 +100,14 @@ public final class Horn {
             try {
                 if (am != null) am.requestAudioFocus(focus);
                 short[] data = batCrack ? withCrack() : buffer();
+                int len = data.length;
+                if (shortHorn) {   // cut it and fade the last 0.25 s so it doesn't click
+                    int keep = Math.min(data.length, (batCrack ? data.length - buffer().length : 0) + (int) (RATE * 1.2));
+                    short[] cut = java.util.Arrays.copyOf(data, keep);
+                    int fadeN = Math.min(keep, (int) (RATE * 0.25));
+                    for (int i = 0; i < fadeN; i++) cut[keep - 1 - i] = (short) (cut[keep - 1 - i] * (i / (float) fadeN));
+                    data = cut; len = keep;
+                }
                 // Streaming mode: some devices silently refuse a big "static" buffer (that was a source of no sound).
                 int min = AudioTrack.getMinBufferSize(RATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);
                 track = new AudioTrack.Builder()
@@ -112,7 +122,7 @@ public final class Horn {
                 if (track.getState() != AudioTrack.STATE_INITIALIZED) throw new IllegalStateException("audio not ready");
                 track.setVolume(volume);
                 track.play();
-                track.write(data, 0, data.length);   // blocks until everything is queued
+                track.write(data, 0, len);   // blocks until everything is queued
                 Thread.sleep(400);                   // let the tail finish
                 track.stop();
             } catch (Exception e) {

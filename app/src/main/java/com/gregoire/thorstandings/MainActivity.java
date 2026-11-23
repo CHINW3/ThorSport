@@ -83,6 +83,25 @@ public class MainActivity extends Activity implements ThorView.Listener {
     private final Map<String, Integer> lastPeriod = new HashMap<>();
     private long followedFinalAt;
     private boolean quietHours, vibrate, saver, french, bigStandings, menuFx;
+    // 3.17 options
+    private long muteUntil;                 // alerts muted until (Settings → Mute alerts 1 h)
+    private boolean celebMine, fastLive, lowBattWarned;
+    private final Map<String, int[]> worstDeficit = new HashMap<>();   // game id -> {away's biggest deficit, home's biggest deficit}
+    private final Map<String, int[]> scoringRun = new HashMap<>();   // game id -> {side that scored last (0 away / 1 home), how many in a row}
+    private int keepMode;                   // 0 always · 1 only while a game is live · 2 never
+    private static final String[] KEEP_NAMES = {"ALWAYS", "LIVE GAMES", "NEVER"};
+    private int rotateIdx;                  // auto-rotate live games on the Board: 0 off · 20 s · 45 s
+    private static final int[] ROTATE_SEC = {0, 20, 45};
+    private long rotatedAt;
+    private int reminderIdx = 2;            // pre-game reminder: off · 5 · 15 · 30 min
+    private static final int[] REMIND_MIN = {0, 5, 15, 30};
+    private int startLeague;                // 0 = last league · 1 = MY TEAMS
+    private long settingsResetArmedAt;
+    private Model.Game lastAlertGame; private Model.Side lastAlertSide; private String lastAlertWord;   // Replay last goal
+    private final Map<String, String> lastSituation = new HashMap<>();
+    private final Map<String, Integer> lastRedCards = new HashMap<>();
+    private final Map<String, Map<String, Integer>> lastScorerGoals = new HashMap<>();
+    private final Set<String> twoMinWarned = new HashSet<>();
     private int celebLen, accentIdx, clockMode, batteryPct = 100;
     private boolean batteryCharging = true;
     private long dateChangedAt;
@@ -134,6 +153,11 @@ public class MainActivity extends Activity implements ThorView.Listener {
             if (level >= 0 && scale > 0) {
                 batteryPct = level * 100 / scale;
                 batteryCharging = chg;
+                if (chg || batteryPct > 20) lowBattWarned = false;
+                else if (batteryPct <= 15 && !lowBattWarned && view != null) {
+                    lowBattWarned = true;
+                    all(v -> v.banner(t("BATTERY ", "BATTERIE ") + batteryPct + t("% · saving power: slower refresh", " % · économie : rafraîchissement plus lent"), 0xFFFF3B30));
+                }
                 all(v -> v.setBattery(level * 100 / scale, chg));
                 pushSettings();
             }
@@ -156,6 +180,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
             for (String a : prefs.getStringSet("favs", new HashSet<>())) favKeys.add("hockey/nhl|" + a);
         }
         if (!prefs.contains("league")) leagueIdx = favKeys.isEmpty() ? 1 : 0; // NHL until you pick teams
+        if (prefs.getInt("startLeague", 0) == 1 && !favKeys.isEmpty()) { leagueIdx = 0; tab = ThorView.TAB_SCORES; }   // Settings → Open on: MY TEAMS
         if (tab >= tabCount()) tab = ThorView.TAB_SCORES;
         favorites = favAbbrs(leagueIdx);
         sound = prefs.getBoolean("sound", true);
@@ -170,13 +195,21 @@ public class MainActivity extends Activity implements ThorView.Listener {
         ledBri = prefs.getInt("ledBri", 1);
         celebrations = prefs.getBoolean("celebrations", true);
         notify = prefs.getBoolean("otherTeams", true);
-        keepOn = prefs.getBoolean("keepOn", true);
-        nightMode = prefs.getBoolean("night", false);
+        keepOn = prefs.getInt("keepMode", prefs.getBoolean("keepOn", true) ? 0 : 2) == 0;   // LIVE GAMES: switched on/off as games go live
+        nightMode = false;   // night dim removed (3.17)
         hideFinal = prefs.getBoolean("hideFinal", false);
         shotMap = prefs.getBoolean("shotMap", true);
         companion = true;   // only one two-screen mode now: Board on top, GAME + LIVE below
         Leds.setBrightness(LED_BRIS[ledBri]);
-        quietHours = prefs.getBoolean("quiet", false);
+        quietHours = false;   // quiet hours removed (3.17): use Mute alerts instead
+        muteUntil = prefs.getLong("muteUntil", 0);
+        celebMine = prefs.getBoolean("celebMine", false);
+        Horn.shortHorn = prefs.getBoolean("hornShort", false);
+        fastLive = prefs.getBoolean("fastLive", false);
+        keepMode = prefs.getInt("keepMode", prefs.getBoolean("keepOn", true) ? 0 : 2);
+        rotateIdx = Math.min(prefs.getInt("rotate", 0), ROTATE_SEC.length - 1);
+        reminderIdx = Math.min(prefs.getInt("reminder", 2), REMIND_MIN.length - 1);
+        startLeague = prefs.getInt("startLeague", 0);
         bigStandings = prefs.getBoolean("bigStandings", true);
         vibrate = prefs.getBoolean("vibrateGoal", false);   // off by default (3.16)
         menuFx = prefs.getBoolean("menuFx", false);
@@ -410,7 +443,8 @@ public class MainActivity extends Activity implements ThorView.Listener {
             return true;
         }
         boolean boardSwitch = tab == ThorView.TAB_BOARD && dx != 0;
-        if (!boardSwitch && now - stickHeldSince > 450 && now - stickLastRepeat > 160) {   // held: repeat in lists
+        long repeatMs = now - stickHeldSince > 1500 ? 70 : 160;   // held longer: scroll faster
+        if (!boardSwitch && now - stickHeldSince > 450 && now - stickLastRepeat > repeatMs) {   // held: repeat in lists
             stickLastRepeat = now;
             menuFeedback(KeyEvent.KEYCODE_DPAD_DOWN);
             view.controllerMove(dx, dy);
@@ -462,7 +496,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         if (lastFailed) return RETRY_MS;
         Model.Game b = view.boardGame();
         if (tab == ThorView.TAB_BOARD && b != null && b.isLive()) return BOARD_REFRESH_MS;
-        if (view.anyLive()) return LIVE_REFRESH_MS;
+        if (view.anyLive()) return fastLive ? 15_000 : LIVE_REFRESH_MS;
         int hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
         return hour >= 1 && hour < 8 ? NIGHT_REFRESH_MS : IDLE_REFRESH_MS;
     }
@@ -805,9 +839,27 @@ public class MainActivity extends Activity implements ThorView.Listener {
     private boolean lowBattery() { return batteryPct <= 15 && !batteryCharging; }
 
     private boolean quietNow() {
-        if (!quietHours) return false;
-        int h = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
-        return h >= 23 || h < 8;
+        return System.currentTimeMillis() < muteUntil;   // Mute alerts for 1 hour
+    }
+
+    /** Goal horn + vibration, both silenced by Settings → Mute alerts. */
+    private void horn(float volume, boolean batCrack) {
+        if (quietNow()) return;
+        Horn.play(this, sound, volume, batCrack);
+    }
+
+    private String muteLabel() {
+        if (System.currentTimeMillis() >= muteUntil) return t("MUTE 1 H", "COUPER 1 H");
+        return t("UNTIL ", "JUSQU'À ") + new java.text.SimpleDateFormat(clockMode == 2 || clockMode == 0 && android.text.format.DateFormat.is24HourFormat(this) ? "H:mm" : "h:mm a", Locale.getDefault()).format(new java.util.Date(muteUntil));
+    }
+
+    /** Keep the screen on: always, never, or only while a game is live. */
+    private void applyKeepScreen() {
+        boolean on = keepMode == 0 || keepMode == 1 && view != null && view.anyLive();
+        if (on == keepOn && getWindow() != null) return;
+        keepOn = on;
+        if (on) getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
 
     private static String t(String en, String fr) { return ThorView.tr(en, fr); }
@@ -829,19 +881,24 @@ public class MainActivity extends Activity implements ThorView.Listener {
         it.add(item(0, t("Clock", "Horloge"), CLOCK_NAMES[clockMode], ThorView.SET_CLOCK));
         it.add(item(0, t("Accent color", "Couleur d'accent"), ACCENT_NAMES[accentIdx], ThorView.SET_ACCENT));
         it.add(item(0, t("Screen brightness", "Luminosité"), Math.round((1 - DIM_LEVELS[dimLevel]) * 100) + "%", ThorView.SET_DIM));
-        it.add(item(0, t("Night dim (11 PM–7 AM)", "Mode nuit (23 h–7 h)"), onOff(nightMode), ThorView.SET_NIGHT));
         it.add(item(0, t("Screensaver clock (10 min)", "Économiseur horloge (10 min)"), onOff(saver), ThorView.SET_SAVER));
-        it.add(item(0, t("Keep screen on", "Garder l'écran allumé"), onOff(keepOn), ThorView.SET_KEEP_ON));
+        it.add(item(0, t("Keep screen on", "Garder l'écran allumé"), keepName(), ThorView.SET_KEEP_ON));
+        it.add(item(0, t("Open on", "Ouvrir sur"), startLeague == 1 ? t("MY TEAMS", "MES ÉQUIPES") : t("LAST LEAGUE", "DERNIÈRE LIGUE"), ThorView.SET_START_LEAGUE));
+        it.add(item(0, t("Live refresh", "Rafraîchissement en direct"), fastLive ? t("FAST (15 s)", "RAPIDE (15 s)") : "NORMAL (30 s)", ThorView.SET_FAST_LIVE));
         it.add(item(0, t("Menu sounds & vibration", "Sons et vibration des menus"), onOff(menuFx), ThorView.SET_MENU_FX));
         // 1 GOALS & ALERTS
         it.add(item(1, t("Goal horn", "Klaxon de but"), onOff(sound), ThorView.SET_HORN));
         it.add(item(1, t("Horn volume", "Volume du klaxon"), LEVELS[hornVol], ThorView.SET_HORN_VOL));
-        it.add(item(1, t("Quiet hours (11 PM–8 AM)", "Heures calmes (23 h–8 h)"), onOff(quietHours), ThorView.SET_QUIET));
+        it.add(item(1, t("Horn length", "Durée du klaxon"), Horn.shortHorn ? t("SHORT", "COURT") : t("FULL", "COMPLET"), ThorView.SET_HORN_SHORT));
+        it.add(item(1, t("Mute alerts", "Couper les alertes"), muteLabel(), ThorView.SET_MUTE));
         it.add(item(1, t("Vibrate on goals", "Vibrer aux buts"), onOff(vibrate), ThorView.SET_VIBRATE));
         it.add(item(1, t("Goal screen", "Écran de but"), onOff(celebrations), ThorView.SET_CELEB));
+        it.add(item(1, t("Celebrate", "Célébrer"), celebMine ? t("MY TEAMS ONLY", "MES ÉQUIPES") : t("ALL GAMES", "TOUS LES MATCHS"), ThorView.SET_CELEB_MINE));
+        it.add(item(1, t("Game reminder", "Rappel d'avant-match"), reminderIdx == 0 ? onOff(false) : REMIND_MIN[reminderIdx] + " MIN", ThorView.SET_REMINDER));
         it.add(item(1, t("Your other games", "Tes autres matchs"), onOff(notify), ThorView.SET_OTHER_TEAMS));
         it.add(item(1, t("Goal screen length", "Durée de l'écran de but"), CELEB_NAMES[celebLen], ThorView.SET_CELEB_LEN));
         it.add(item(1, t("Test a goal", "Tester un but"), "▶", ThorView.SET_TEST));
+        if (lastAlertWord != null) it.add(item(1, t("Replay last goal", "Revoir le dernier but"), "▶", ThorView.SET_REPLAY));
         // 2 STICK LIGHTS
         it.add(item(2, t("Stick lights", "Lumières des joysticks"), ledsAvailable ? onOff(ledsOn) : "N/A", ThorView.SET_LEDS));
         it.add(item(2, t("Light brightness", "Intensité des lumières"), LEVELS[ledBri], ThorView.SET_LED_BRI));
@@ -850,6 +907,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         it.add(item(3, t("Hide finished games", "Cacher les matchs finis"), onOff(hideFinal), ThorView.SET_HIDE_FINAL));
         it.add(item(3, t("Standings size", "Taille du classement"), bigStandings ? t("BIG", "GRAND") : t("FIT ALL", "TOUT"), ThorView.SET_STAND_SIZE));
         it.add(item(3, t("Open Board when my team plays", "Ouvrir le tableau quand mon équipe joue"), onOff(autoBoard), ThorView.SET_AUTOBOARD));
+        it.add(item(3, t("Rotate live games on Board", "Alterner les matchs en direct"), rotateIdx == 0 ? onOff(false) : t("EVERY ", "AUX ") + ROTATE_SEC[rotateIdx] + " s", ThorView.SET_ROTATE));
         it.add(item(3, t("NHL shot map (rink)", "Carte des tirs LNH"), onOff(shotMap), ThorView.SET_SHOT_MAP));
         it.add(item(3, t("Baseball field demo", "Démo terrain de baseball"), "▶", ThorView.SET_DEMO_MLB));
         it.add(item(3, t("Football field demo", "Démo terrain de football"), "▶", ThorView.SET_DEMO_NFL));
@@ -860,11 +918,18 @@ public class MainActivity extends Activity implements ThorView.Listener {
         it.add(item(4, t("Help / tips", "Aide / astuces"), "?", ThorView.SET_HELP));
         boolean armed = System.currentTimeMillis() - resetArmedAt < 4000;
         it.add(item(4, t("Clear MY TEAMS", "Vider MES ÉQUIPES") + " (" + favKeys.size() + ")", armed ? t("TAP AGAIN", "TOUCHEZ ENCORE") : t("CLEAR", "VIDER"), ThorView.SET_RESET));
+        boolean armedSet = System.currentTimeMillis() - settingsResetArmedAt < 4000;
+        it.add(item(4, t("Reset settings", "Réinitialiser les réglages"), armedSet ? t("TAP AGAIN", "TOUCHEZ ENCORE") : t("RESET", "RÉINITIALISER"), ThorView.SET_RESET_SETTINGS));
         all(v -> v.setAppVersion(Updater.currentVersion(this)));
         all(v -> v.setSettingItems(it));
     }
 
     private static String onOff(boolean b) { return b ? "ON" : ThorView.tr("OFF", "OFF"); }
+
+    private String keepName() {
+        if (!french) return KEEP_NAMES[keepMode];
+        return keepMode == 0 ? "TOUJOURS" : keepMode == 1 ? "MATCHS EN DIRECT" : "JAMAIS";
+    }
 
     /** {label, value, id, stepper, section} */
     private static String[] item(int section, String label, String value, int id) {
@@ -947,20 +1012,54 @@ public class MainActivity extends Activity implements ThorView.Listener {
             case ThorView.SET_CELEB:
                 celebrations = !celebrations; e.putBoolean("celebrations", celebrations); break;
             case ThorView.SET_KEEP_ON:
-                keepOn = !keepOn; e.putBoolean("keepOn", keepOn);
-                if (keepOn) getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-                else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                keepMode = (keepMode + 1) % KEEP_NAMES.length; e.putInt("keepMode", keepMode);
+                keepOn = !(keepMode == 0 || keepMode == 1 && view.anyLive());   // force applyKeepScreen to apply
+                applyKeepScreen();
                 break;
-            case ThorView.SET_NIGHT:
-                nightMode = !nightMode; e.putBoolean("night", nightMode); break;
+            case ThorView.SET_START_LEAGUE:
+                startLeague = 1 - startLeague; e.putInt("startLeague", startLeague); break;
+            case ThorView.SET_FAST_LIVE:
+                fastLive = !fastLive; e.putBoolean("fastLive", fastLive);
+                main.removeCallbacks(refreshLoop); main.postDelayed(refreshLoop, nextDelay());
+                break;
+            case ThorView.SET_MUTE:
+                muteUntil = System.currentTimeMillis() < muteUntil ? 0 : System.currentTimeMillis() + 3600_000L;
+                e.putLong("muteUntil", muteUntil);
+                Toast.makeText(this, muteUntil == 0 ? t("Alerts back on", "Alertes réactivées") : t("Alerts muted for 1 hour", "Alertes coupées pendant 1 h"), Toast.LENGTH_SHORT).show();
+                break;
+            case ThorView.SET_HORN_SHORT:
+                Horn.shortHorn = !Horn.shortHorn; e.putBoolean("hornShort", Horn.shortHorn);
+                Horn.play(this, true, HORN_VOLS[hornVol]);
+                break;
+            case ThorView.SET_CELEB_MINE:
+                celebMine = !celebMine; e.putBoolean("celebMine", celebMine); break;
+            case ThorView.SET_REMINDER:
+                reminderIdx = (reminderIdx + 1) % REMIND_MIN.length; e.putInt("reminder", reminderIdx); break;
+            case ThorView.SET_REPLAY:
+                if (lastAlertWord != null) {
+                    view.closeSettings();
+                    if (top != null) top.closeSettings();
+                    goalAlert(lastAlertGame, lastAlertSide, lastAlertWord);
+                }
+                break;
+            case ThorView.SET_ROTATE:
+                rotateIdx = (rotateIdx + 1) % ROTATE_SEC.length; e.putInt("rotate", rotateIdx); rotatedAt = System.currentTimeMillis(); break;
+            case ThorView.SET_RESET_SETTINGS:
+                if (System.currentTimeMillis() - settingsResetArmedAt < 4000) {
+                    settingsResetArmedAt = 0;
+                    resetSettings();
+                    return;
+                }
+                settingsResetArmedAt = System.currentTimeMillis();
+                main.postDelayed(this::pushSettings, 4100);
+                break;
             case ThorView.SET_HIDE_FINAL:
                 hideFinal = !hideFinal; e.putBoolean("hideFinal", hideFinal); break;
             case ThorView.SET_SHOT_MAP:
                 shotMap = !shotMap; e.putBoolean("shotMap", shotMap);
                 if (shotMap) refresh(true);
                 break;
-            case ThorView.SET_QUIET:
-                quietHours = !quietHours; e.putBoolean("quiet", quietHours); break;
+
             case ThorView.SET_VIBRATE:
                 vibrate = !vibrate; Horn.vibrate = vibrate; e.putBoolean("vibrateGoal", vibrate); if (vibrate) Horn.play(this, false); break;
             case ThorView.SET_MENU_FX:
@@ -1118,6 +1217,20 @@ public class MainActivity extends Activity implements ThorView.Listener {
      */
     private boolean tension;   // tight finish: lights are "breathing", leave them alone
 
+    /** Settings → Reset settings: everything back to how a new install starts (your teams are kept). */
+    private void resetSettings() {
+        Set<String> keepFav = new HashSet<>(favKeys);
+        boolean onboarded = prefs.getBoolean("onboarded", false);
+        int league = leagueIdx;
+        prefs.edit().clear()
+            .putStringSet("favKeys", keepFav)
+            .putBoolean("onboarded", onboarded)
+            .putInt("league", league)
+            .apply();
+        Toast.makeText(this, t("Settings reset", "Réglages réinitialisés"), Toast.LENGTH_SHORT).show();
+        recreate();   // reload everything with the default values
+    }
+
     /** Remembered colors for every team we've seen (so a favorite keeps its colors when it isn't playing). */
     private int[] teamColors(String abbr) {
         String v = prefs.getString("led_" + abbr, null);
@@ -1155,7 +1268,14 @@ public class MainActivity extends Activity implements ThorView.Listener {
     private static int primary(Model.Side s) {
         int a = s.ledA != 0 ? s.ledA : s.color, b = s.ledB;
         if (b != 0 && ledScore(a) < 0.25f && ledScore(b) > ledScore(a)) return b;
+        // Very dark main color (navy like the Bears, Patriots, Astros…): pushed to full brightness on an LED it
+        // becomes a plain bright blue that doesn't look like the team. Use the bright second color (orange…) instead.
+        if (b != 0 && maxChannel(a) < 90 && maxChannel(b) >= 120 && ledScore(b) >= 0.5f) return b;
         return a;
+    }
+
+    private static int maxChannel(int c) {
+        return Math.max(Color.red(c), Math.max(Color.green(c), Color.blue(c)));
     }
 
     /** 0 = black or grey (useless on an LED), 1 = strong color. */
@@ -1467,6 +1587,8 @@ public class MainActivity extends Activity implements ThorView.Listener {
             all(v -> v.setMessage(null));
             updateLeds();
             if (ledsAvailable && ledsOn) Leds.reassert();   // in case the Thor put its own colors back
+            applyKeepScreen();
+            rotateBoard(games.games);
         }
         if (groups != null) { lastGroups = groups; final List<Model.Group> gr = groups; all(v -> v.setStandings(lg.colLabels, gr)); }
     }
@@ -1483,7 +1605,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         String line = g.away.abbr + " " + g.away.score + " – " + g.home.score + " " + g.home.abbr + (g.detail.isEmpty() ? "" : "  ·  " + g.detail);
         all(v -> v.notifyCard(scorer, title, line));
         if (yours && ledsAvailable && ledsOn) Leds.blink(primary(scorer), 2);
-        if (yours) Horn.play(this, sound && !quietNow(), HORN_VOLS[hornVol] * 0.35f);
+        if (yours) horn(HORN_VOLS[hornVol] * 0.35f, false);
     }
 
     /** One of your teams' games just ended (while you watch another one). */
@@ -1568,18 +1690,23 @@ public class MainActivity extends Activity implements ThorView.Listener {
             Integer prevPeriod = lastPeriod.put(g.id, g.period);
             if (watched && g.isLive() && prevDetail != null && !prevDetail.equals(g.detail)) {
                 String up = g.detail.toUpperCase(Locale.US);
-                if ((up.startsWith("END") || up.contains("INTERMISSION") || up.equals("HALFTIME")) && !prevDetail.toUpperCase(Locale.US).equals(up))
-                    all(v -> v.banner(up + " · " + g.away.abbr + " " + g.away.score + " – " + g.home.score + " " + g.home.abbr, 0xFF4DA3FF));
+                if ((up.startsWith("END") || up.contains("INTERMISSION") || up.equals("HALFTIME")) && !prevDetail.toUpperCase(Locale.US).equals(up)) {
+                    // hockey: the shots so far, the stat everyone checks at the intermission
+                    String shots = g.away.shots >= 0 && g.home.shots >= 0 ? t("  ·  SHOTS ", "  ·  TIRS ") + g.away.shots + "–" + g.home.shots : "";
+                    all(v -> v.banner(up + " · " + g.away.abbr + " " + g.away.score + " – " + g.home.score + " " + g.home.abbr + shots, 0xFF4DA3FF));
+                }
             }
             int reg = "hockey".equals(g.sport) ? 3 : "baseball".equals(g.sport) ? 9 : "soccer".equals(g.sport) ? 2 : 4;
             if (watched && g.isLive() && prevPeriod != null && prevPeriod <= reg && g.period > reg && !"soccer".equals(g.sport))
                 all(v -> v.banner(("baseball".equals(g.sport) ? t("EXTRA INNINGS", "MANCHES SUPP.") : t("OVERTIME", "PROLONGATION")) + " · " + g.away.abbr + " " + g.away.score
                     + " – " + g.home.score + " " + g.home.abbr, 0xFFFF3B30));
 
+            if (watched && g.isLive()) liveAlerts(g, prevPeriod, reg);
+
             if (prevState != null && !prevState.equals(g.state) && watched) {
                 if ("pre".equals(prevState) && g.isLive()) {
                     all(v -> v.banner(("hockey".equals(g.sport) ? t("PUCK DROP · ", "MISE AU JEU · ") : t("GAME ON · ", "C'EST PARTI · ")) + g.away.abbr + " @ " + g.home.abbr, 0xFF34C759));
-                    if (mine) Horn.play(this, sound && !quietNow(), HORN_VOLS[hornVol] * 0.5f);
+                    if (mine) horn(HORN_VOLS[hornVol] * 0.5f, false);
                     if (mine && autoBoard) {
                         onFollowGame(g.id, true);
                         followed = g;
@@ -1588,19 +1715,34 @@ public class MainActivity extends Activity implements ThorView.Listener {
                     noteFinal(g, favorites);
                 } else if (g.isFinal()) {
                     Model.Side won = g.away.winner ? g.away : g.home.winner ? g.home : null;
+                    boolean shutout = won != null && (won == g.away ? g.home : g.away).scoreInt() == 0
+                        && ("hockey".equals(g.sport) || "soccer".equals(g.sport) || "baseball".equals(g.sport) || "football".equals(g.sport));
                     if (won != null && favorites.contains(won.abbr) && !"racing".equals(g.sport)) {
-                        goalAlert(g, won, t("VICTORY!", "VICTOIRE!"), 0xFFFFC400);   // gold lights
+                        int[] wdf = worstDeficit.get(g.id);
+                        boolean comeback = wdf != null && wdf[won == g.away ? 0 : 1] >= 2 && !"basketball".equals(g.sport);
+                        goalAlert(g, won, comeback ? t("COMEBACK WIN!", "VICTOIRE DE REMONTÉE!") : shutout ? t("SHUTOUT!", "BLANCHISSAGE!") : t("VICTORY!", "VICTOIRE!"), 0xFFFFC400);   // gold lights
+                        if (g.series != null && !g.series.isEmpty()) all(v -> v.banner(t("SERIES · ", "SÉRIE · ") + g.series.toUpperCase(Locale.US), 0xFFFFC400));
                     } else {
-                        all(v -> v.banner("FINAL · " + g.away.abbr + " " + g.away.score + " – " + g.home.score + " " + g.home.abbr, 0xFFFFB524));
+                        all(v -> v.banner(t("FINAL · ", "FINAL · ") + g.away.abbr + " " + g.away.score + " – " + g.home.score + " " + g.home.abbr
+                            + (shutout ? t(" · SHUTOUT", " · BLANCHISSAGE") : "") + starOfGame(g), 0xFFFFB524));
+                        if (g.series != null && !g.series.isEmpty()) all(v -> v.banner(t("SERIES · ", "SÉRIE · ") + g.series.toUpperCase(Locale.US), 0xFFFFC400));
                     }
                 }
             }
 
+            // big swing in the win chance (20+ points since the last update) in the game you watch
+            float[] po = lastOdds.get(g.id);
+            if (watched && g.isLive() && po != null && g.away.odds >= 0 && Math.abs(g.away.odds - po[0]) >= 0.2f) {
+                boolean awayGains = g.away.odds > po[0];
+                Model.Side up = awayGains ? g.away : g.home;
+                int from = Math.round((awayGains ? po[0] : po[1]) * 100), to = Math.round((awayGains ? g.away.odds : g.home.odds) * 100);
+                all(v -> v.banner(t("WIN CHANCE · ", "CHANCES DE GAGNER · ") + up.abbr + " " + from + "% → " + to + "%", 0xFFB57BFF));
+            }
             if (g.away.odds >= 0 && !g.isFinal()) lastOdds.put(g.id, new float[]{g.away.odds, g.home.odds});
 
             // pre-game reminder for your teams
             long until = g.startMs - System.currentTimeMillis();
-            if (mine && "pre".equals(g.state) && until > 0 && until <= 15 * 60_000 && reminded.add(g.id)) {
+            if (mine && reminderIdx > 0 && "pre".equals(g.state) && until > 0 && until <= REMIND_MIN[reminderIdx] * 60_000L && reminded.add(g.id)) {
                 final Model.Game rg = g;
                 all(v -> v.banner(rg.away.abbr + " @ " + rg.home.abbr + t(" in ", " dans ") + (until / 60000 + 1) + " min", 0xFF4DA3FF));
             }
@@ -1625,6 +1767,35 @@ public class MainActivity extends Activity implements ThorView.Listener {
             if (prev == null || !g.isLive() && !g.isFinal()) continue;
             boolean awayUp = a > prev[0] && prev[0] >= 0, homeUp = h > prev[1] && prev[1] >= 0;
             if (awayUp || homeUp) all(v -> v.flash(g.id));
+            int[] wd = worstDeficit.get(g.id);   // remember each team's biggest deficit (for COMEBACK WIN!)
+            if (wd == null) { wd = new int[]{0, 0}; worstDeficit.put(g.id, wd); }
+            wd[0] = Math.max(wd[0], h - a); wd[1] = Math.max(wd[1], a - h);
+            if ((awayUp || homeUp) && watched && !"basketball".equals(g.sport) && !"esports".equals(g.sport)) {
+                int before = prev[0] - prev[1], now = a - h;
+                String sc = g.away.abbr + " " + g.away.score + " – " + g.home.score + " " + g.home.abbr;
+                Model.Side scorerSide = awayUp ? g.away : g.home;
+                // scoring run: the same team scores 3+ times in a row
+                if (awayUp != homeUp && !"baseball".equals(g.sport)) {
+                    int side = awayUp ? 0 : 1;
+                    int[] run = scoringRun.get(g.id);
+                    if (run == null || run[0] != side) run = new int[]{side, 0};
+                    run[1]++;
+                    scoringRun.put(g.id, run);
+                    if (run[1] >= 3) {
+                        String what = "football".equals(g.sport) ? t(" STRAIGHT SCORES · ", " MARQUES DE SUITE · ") : t(" UNANSWERED GOALS · ", " BUTS SANS RÉPLIQUE · ");
+                        final int n = run[1];
+                        all(v -> v.banner(n + what + scorerSide.abbr + " · " + sc, scorerSide.color | 0xFF000000));
+                    }
+                }
+                if (now == 0 && Math.abs(before) >= 2)   // came back from 2+ down
+                    all(v -> v.banner(t("COMEBACK! · ", "REMONTÉE! · ") + scorerSide.abbr + t(" TIES IT · ", " ÉGALISE · ") + sc, 0xFFFFC400));
+                else if (now == 0 && before != 0)
+                    all(v -> v.banner(t("TIE GAME · ", "ÉGALITÉ · ") + sc, 0xFF4DA3FF));
+                else if (before != 0 && Integer.signum(now) != Integer.signum(before)) {
+                    String lead = now > 0 ? g.away.abbr : g.home.abbr;
+                    all(v -> v.banner(t("LEAD CHANGE · ", "CHANGEMENT DE MENEUR · ") + lead + t(" LEADS ", " MÈNE ") + g.away.score + " – " + g.home.score, 0xFFFF9500));
+                }
+            }
             if (other) { noteScore(g, awayUp ? g.away : g.home, awayUp ? a - prev[0] : h - prev[1], favorites); continue; }
             if (!watched || celebrateGame != null) continue;
             if (awayUp) { celebrateGame = g; celebrateSide = g.away; celebrateDelta = a - prev[0]; }
@@ -1634,7 +1805,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         tensionLights(games);
         if (celebrateGame == null) return;
         if ("basketball".equals(celebrateGame.sport)) {   // NBA / WNBA: a small celebration for threes
-            boolean yours = !celebrateGame.involves(favorites) || favorites.contains(celebrateSide.abbr);
+            boolean yours = celebrateGame.involves(favorites) ? favorites.contains(celebrateSide.abbr) : !(celebMine && !favKeys.isEmpty());
             if (celebrateDelta == 3 && yours) {
                 final Model.Game tg = celebrateGame;
                 final Model.Side ts = celebrateSide;
@@ -1656,14 +1827,97 @@ public class MainActivity extends Activity implements ThorView.Listener {
         //  · two of your teams playing each other: both
         // Football extra points / 2-point conversions are a quiet banner too (the touchdown already had its party).
         boolean quietFootball = "football".equals(celebrateGame.sport) && celebrateDelta < 3;
-        if (quietFootball || (celebrateGame.involves(favorites) && !favorites.contains(celebrateSide.abbr))) {
+        boolean against = celebrateGame.involves(favorites) && !favorites.contains(celebrateSide.abbr);
+        if (against && !quietFootball) {
+            // goal against your team: a red banner and one short blink in their color, no party
+            Model.Game g = celebrateGame;
+            final Model.Side scorer = celebrateSide;
+            all(v -> v.banner(word.replace("!", "") + t(" AGAINST · ", " CONTRE · ") + scorer.abbr + " · " + g.away.abbr + " " + g.away.score
+                + " – " + g.home.score + " " + g.home.abbr, 0xFFE0333E));
+            if (ledsAvailable && ledsOn && !tension) Leds.blink(primary(scorer), 1);
+            return;
+        }
+        if (quietFootball || against || (celebMine && !favKeys.isEmpty() && !celebrateGame.involves(favorites))) {
             Model.Game g = celebrateGame;
             final Model.Side scorer = celebrateSide;
             all(v -> v.banner(word.replace("!", "") + " " + scorer.abbr + " · " + g.away.abbr + " " + g.away.score
                 + " – " + g.home.score + " " + g.home.abbr, 0xFF8B919C));
             return;
         }
+        lastAlertGame = celebrateGame; lastAlertSide = celebrateSide; lastAlertWord = word;   // Settings → Replay last goal
         goalAlert(celebrateGame, celebrateSide, word);
+    }
+
+    /**
+     * Small live alerts for the game you watch (or your team's): start of a period, NFL two-minute warning,
+     * NHL power play / empty net, soccer red card, hat trick.
+     */
+    private void liveAlerts(Model.Game g, Integer prevPeriod, int reg) {
+        String score = " · " + g.away.abbr + " " + g.away.score + " – " + g.home.score + " " + g.home.abbr;
+        // start of a period / quarter / second half (overtime has its own banner)
+        if (prevPeriod != null && prevPeriod > 0 && g.period > prevPeriod && g.period > 1 && g.period <= reg && !"baseball".equals(g.sport)) {
+            String what;
+            switch (g.sport) {
+                case "hockey": what = t("START OF PERIOD ", "DÉBUT DE LA PÉRIODE ") + g.period; break;
+                case "soccer": what = t("SECOND HALF", "DEUXIÈME DEMIE"); break;
+                default: what = t("START OF Q", "DÉBUT DU Q") + g.period; break;
+            }
+            final String wf = what;
+            all(v -> v.banner(wf + score, 0xFF34C759));
+        }
+        // NFL two-minute warning (end of the 2nd and 4th quarters)
+        if ("football".equals(g.sport) && (g.period == 2 || g.period == 4)) {
+            float mins = 99;
+            try { String[] mm = g.clock.split(":"); mins = Integer.parseInt(mm[0].trim()) + (mm.length > 1 ? Integer.parseInt(mm[1].trim()) / 60f : 0); } catch (Exception ignored) { }
+            if (mins <= 2f && mins > 0f && twoMinWarned.add(g.id + "#" + g.period))
+                all(v -> v.banner(t("TWO-MINUTE WARNING", "AVERTISSEMENT DES 2 MINUTES") + score, 0xFFFF9500));
+        }
+        // NHL power play / empty net (from the NHL feed's situation code: away goalie, away skaters, home skaters, home goalie)
+        if ("hockey".equals(g.sport) && g.situationCode != null && g.situationCode.length() == 4) {
+            String code = g.situationCode, prev = lastSituation.put(g.id, code);
+            if (prev != null && !prev.equals(code)) {
+                int ag = code.charAt(0) - '0', as = code.charAt(1) - '0', hs = code.charAt(2) - '0', hg = code.charAt(3) - '0';
+                boolean prevEven = prev.length() == 4 && prev.charAt(1) == prev.charAt(2) && prev.charAt(0) != '0' && prev.charAt(3) != '0';
+                if (ag == 0 || hg == 0) {
+                    String pulled = ag == 0 ? g.away.abbr : g.home.abbr;
+                    if (prev.charAt(ag == 0 ? 0 : 3) != '0')
+                        all(v -> v.banner(t("EMPTY NET · ", "FILET DÉSERT · ") + pulled + t(" PULLS THE GOALIE", " RETIRE SON GARDIEN"), 0xFFFF3B30));
+                } else if (as != hs && prevEven) {
+                    Model.Side pp = as > hs ? g.away : g.home;
+                    int big = Math.max(as, hs), small = Math.min(as, hs);
+                    all(v -> v.banner(t("POWER PLAY · ", "AVANTAGE NUMÉRIQUE · ") + pp.abbr + " (" + big + t(" ON ", " CONTRE ") + small + ")", pp.color | 0xFF000000));
+                }
+            }
+        }
+        // soccer red card / hat trick (from the scoring list)
+        int reds = 0;
+        Map<String, Integer> goalsBy = new HashMap<>();
+        for (Model.Goal gl : g.goals) {
+            if (gl.red) { reds++; continue; }
+            if ("OG".equals(gl.extra) || gl.who == null || gl.who.isEmpty() || "Goal".equals(gl.who)) continue;
+            String key = (gl.home ? "H|" : "A|") + gl.who;
+            goalsBy.put(key, goalsBy.getOrDefault(key, 0) + 1);
+        }
+        Integer prevReds = lastRedCards.put(g.id, reds);
+        if (prevReds != null && reds > prevReds && "soccer".equals(g.sport)) {
+            Model.Goal last = null;
+            for (Model.Goal gl : g.goals) if (gl.red) last = gl;
+            if (last != null) {
+                Model.Side side = last.home ? g.home : g.away;
+                String who = last.who;
+                all(v -> v.banner(t("RED CARD · ", "CARTON ROUGE · ") + side.abbr + ("Goal".equals(who) ? "" : " · " + who), 0xFFE0333E));
+            }
+        }
+        Map<String, Integer> prevGoals = lastScorerGoals.put(g.id, goalsBy);
+        if (prevGoals != null && ("hockey".equals(g.sport) || "soccer".equals(g.sport))) {
+            for (Map.Entry<String, Integer> en : goalsBy.entrySet()) {
+                if (en.getValue() >= 3 && prevGoals.getOrDefault(en.getKey(), 0) < 3) {
+                    Model.Side side = en.getKey().startsWith("H|") ? g.home : g.away;
+                    String who = en.getKey().substring(2);
+                    all(v -> v.banner(t("HAT TRICK! · ", "TOUR DU CHAPEAU! · ") + who + " · " + side.abbr, 0xFFFFC400));
+                }
+            }
+        }
     }
 
     /** Late in the game and within one score. */
@@ -1699,6 +1953,35 @@ public class MainActivity extends Activity implements ThorView.Listener {
             tension = false;
             updateLeds();
         }
+    }
+
+    /** " · ★ SUZUKI 2 GOALS": the player with the most goals (2 or more) in a finished game, or "". */
+    private static String starOfGame(Model.Game g) {
+        Map<String, Integer> count = new HashMap<>();
+        for (Model.Goal gl : g.goals) {
+            if (gl.red || "OG".equals(gl.extra) || gl.who == null || gl.who.isEmpty() || "Goal".equals(gl.who)) continue;
+            count.put(gl.who, count.getOrDefault(gl.who, 0) + 1);
+        }
+        String best = null; int most = 1;
+        for (Map.Entry<String, Integer> en : count.entrySet()) if (en.getValue() > most) { best = en.getKey(); most = en.getValue(); }
+        if (best == null) return "";
+        return " · ★ " + best.toUpperCase(Locale.US) + " " + most + t(" GOALS", " BUTS");
+    }
+
+    /** Settings → Rotate live games on Board: when none of your teams is playing, the Board moves to the next live game. */
+    private void rotateBoard(List<Model.Game> games) {
+        if (rotateIdx == 0 || games == null) return;
+        long now = System.currentTimeMillis();
+        if (now - rotatedAt < ROTATE_SEC[rotateIdx] * 1000L) return;
+        for (Model.Game g : games) if (g.isLive() && g.involves(favorites)) return;   // your team plays: stay on it
+        List<Model.Game> live = new ArrayList<>();
+        for (Model.Game g : games) if (g.isLive()) live.add(g);
+        if (live.size() < 2) return;
+        Model.Game cur = view.boardGame();
+        int i = 0;
+        for (int k = 0; k < live.size(); k++) if (cur != null && live.get(k).id.equals(cur.id)) i = k + 1;
+        rotatedAt = now;
+        onFollowGame(live.get(i % live.size()).id, false);
     }
 
     /** 2 minutes after the followed game ends, the Board moves to the next live game (yours first). */
@@ -1741,7 +2024,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         else if (celebrations) view.celebrate(g, side, word);
         else all(v -> v.banner(word + " " + side.abbr + " · " + g.away.abbr + " " + g.away.score + " – " + g.home.score + " " + g.home.abbr, side.color | 0xFF000000));
         boolean homer = ThorView.isHomeRunWord(word);
-        Horn.play(this, sound && !quietNow(), HORN_VOLS[hornVol], homer);
+        horn(HORN_VOLS[hornVol], homer);
         if (ledsAvailable && ledsOn && homer) {
             // the light follows the ball from the left stick to the right one, then the team's colors (gold for a grand slam)
             int a = side.ledA != 0 ? side.ledA : side.color;
@@ -1756,6 +2039,10 @@ public class MainActivity extends Activity implements ThorView.Listener {
     private static String scoreWord(Model.Game g, int delta) {
         switch (g.sport) {
             case "hockey":
+                // overtime goal (not the shootout) ends the game: say so
+                String dt = g.detail.toUpperCase(Locale.US);
+                if (g.period >= 4 && !dt.contains("SO") && !dt.contains("SHOOTOUT")) return ThorView.tr("OT WINNER!", "BUT EN PROLONGATION!");
+                return ThorView.tr("GOAL!", "BUT!");
             case "soccer": return ThorView.tr("GOAL!", "BUT!");
             case "football":
                 if (delta >= 6) return "TOUCHDOWN!";
