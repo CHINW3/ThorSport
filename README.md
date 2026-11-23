@@ -2,9 +2,13 @@
 
 Live sports for the **AYN Thor bottom screen** (1240×1080). Everything is drawn to fill the screen exactly.
 
-| Two-screen mode | Board next to the TV |
+| Two screens next to the TV | Two screens: Board on top, GAME tab below |
 |---|---|
-| ![Two-screen mode](screenshots/two-screen-scores.webp) | ![Board](screenshots/board-with-tv.webp) |
+| ![Two screens next to the TV](screenshots/two-screen-with-tv.webp) | ![Two screens with the GAME tab](screenshots/two-screen-game-tab.webp) |
+| **NFL Board with the live field** | **NHL Board with the shot map** |
+| ![NFL Board](screenshots/nfl-board.webp) | ![NHL shot map](screenshots/nhl-shot-map.webp) |
+| **MLS Board** | **Board next to the TV** |
+| ![MLS Board](screenshots/mls-board.webp) | ![Board](screenshots/board-with-tv.webp) |
 
 ## Download
 
