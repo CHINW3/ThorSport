@@ -945,6 +945,16 @@ public class ThorView extends View {
 
     private String star(String abbr) { return favorites.contains(abbr) ? abbr + "★" : abbr; }
 
+    /**
+     * Logos are "asset:teams/...png|<ESPN url>": the packed logo first (works offline), ESPN's as backup.
+     * Backgrounds (watermarks, center ice) use the ESPN one, so the same picture isn't shown twice.
+     */
+    private static String espnLogo(String url) {
+        if (url == null || !url.startsWith("asset:teams/")) return url;
+        int bar = url.indexOf('|');
+        return bar < 0 ? null : url.substring(bar + 1);
+    }
+
     /** Draws a logo centered at (cx, cy); falls back to a colored disc with initials. */
     private void logo(Canvas c, String url, String abbr, int color, float cx, float cy, float size) {
         Bitmap b = logos == null ? null : logos.get(url);
@@ -3027,11 +3037,12 @@ public class ThorView extends View {
         hitAbbrs.add(new String[]{s.abbr, s.abbr});
 
         float cx = r.centerX();
-        if (logos != null && logos.get(s.logo) != null) {   // big faint logo watermark
+        String wm = espnLogo(s.logo);   // background: ESPN's logo, so it isn't the same picture as the small one
+        if (logos != null && logos.get(wm) != null) {   // big faint logo watermark
             c.save();
             c.clipRect(r);
             bmpPaint.setAlpha(22);
-            logo(c, s.logo, s.abbr, 0, cx + pw * (s == g.home ? 0.18f : -0.18f), y + ph * 0.6f, ph * 0.95f);
+            logo(c, wm, s.abbr, 0, cx + pw * (s == g.home ? 0.18f : -0.18f), y + ph * 0.6f, ph * 0.95f);
             bmpPaint.setAlpha(255);
             c.restore();
         }
@@ -3803,9 +3814,10 @@ public class ThorView extends View {
         c.drawRect(cx + 25 * k, rink.top, rink.right, rink.bottom, p);
 
         // center ice logo
-        if (logos != null && logos.get(g.home.logo) != null) {
+        String ice = espnLogo(g.home.logo);
+        if (logos != null && logos.get(ice) != null) {
             bmpPaint.setAlpha(60);
-            logo(c, g.home.logo, g.home.abbr, 0, cx, cy, 24 * k);
+            logo(c, ice, g.home.abbr, 0, cx, cy, 24 * k);
             bmpPaint.setAlpha(255);
         }
 

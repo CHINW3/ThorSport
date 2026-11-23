@@ -167,7 +167,7 @@ public final class Espn {
                 if (team != null) {
                     t.abbr = team.optString("abbreviation", "");
                     t.name = team.optString("shortDisplayName", team.optString("displayName", t.abbr));
-                    t.logo = pickLogo(team.optJSONArray("logos"));
+                    t.logo = OfflineLogos.wrap(lg.path, team.optString("displayName", ""), pickLogo(team.optJSONArray("logos")));
                 } else {  // F1 drivers
                     t.abbr = athlete.optString("abbreviation", "");
                     t.name = athlete.optString("shortName", athlete.optString("displayName", t.abbr));
@@ -310,7 +310,7 @@ public final class Espn {
                     s.abbr = t.optString("abbreviation", "");
                     s.name = t.optString("shortDisplayName", t.optString("name", s.abbr));
                     String dark = t.optString("logoDark", "");
-                    s.logo = !dark.isEmpty() ? dark : t.optString("logo", null);
+                    s.logo = OfflineLogos.wrap(lg.path, t.optString("displayName", ""), !dark.isEmpty() ? dark : t.optString("logo", null));
                     s.color = pickColor(t.optString("color", ""), t.optString("alternateColor", ""));
                     s.ledA = parse(t.optString("color", ""));
                     s.ledB = parse(t.optString("alternateColor", ""));
@@ -486,6 +486,8 @@ public final class Espn {
     static String fixedLogo(League lg) {
         if (lg.path.startsWith("esports")) return "asset:league/lol.png";
         if (lg.path.endsWith("/pwhl")) return "asset:league/pwhl.png";
+        String packed = OfflineLogos.league(lg.path);
+        if (packed != null) return packed;
         if (lg.path.equals("racing/f1")) return "https://a.espncdn.com/i/teamlogos/leagues/500/f1.png|https://a.espncdn.com/combiner/i?img=/i/teamlogos/leagues/500/f1.png";
         return null;
     }
