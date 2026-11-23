@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.13
+- **Your other games**: when two of your teams play at the same time, the one you're not watching sends a little card at the bottom right (team logo, TOUCHDOWN / GOAL / FIELD GOAL · score · clock), a soft horn and a quick blink of the stick lights when it's your team scoring. You also get a card when the game starts and when it ends ("MTL WIN!" with gold lights, or the loss). Works across leagues too: watching the NFL, your NHL team is checked every 30 s in the background. Turn it off in Settings → Goals & alerts → Your other games.
+- **New Sync with TV**: no more waiting for a goal. It shows the last few minutes of the game on top (clock + score, newest first); tap the one your TV is showing and the delay is set instantly. Works with the controller too (↑↓ + A).
+- **Spoiler delay is per game now**: it belongs to the game you synced it for. Switching to another game (another stream) turns it off, and an old delay (4 h+) isn't kept when you open the app again.
+- **GAME tab, full screen of info**: it now loads ESPN's game summary for the game on top: team stats side by side (NFL: total yards, passing, rushing, 1st downs, 3rd downs, turnovers… · NBA: FG%, 3P%, rebounds, assists… · NHL / soccer equivalents), top players (passing / rushing leaders, points…), every scoring play, and for NFL the down & distance and the current drive in big text (the field itself stays on the top screen, no duplicate). ESPN's win probability (with the graph) fills in when Polymarket has no market.
+- **Win chance graph, like it should look**: the curve now shows the whole game right away from ESPN's play-by-play win probability, bigger, ending on the current Polymarket number. Before, it only drew what happened while the app was open, so it started as a flat line.
+- **NBA / WNBA threes**: a small celebration for a 3-pointer: a "THREE!" banner in the team's color, the card flashes and the stick lights blink 3 times (no horn or full-screen party). Same favorite rules as goals.
+- **Smarter celebrations**: a game without your teams now celebrates both teams' goals (before, having any favorite in the league turned them into a quiet banner). A game with one of your teams celebrates only your team; two of your teams playing each other celebrate both.
+- **NFL**: TOUCHDOWN! and FIELD GOAL! get the full party; the extra point or 2-point try right after is just a quiet banner so you don't get two parties for one touchdown.
+
 ## 3.12
 - **Polymarket for night games**: evening games (Sunday/Monday/Thursday Night Football, late NBA/NHL games) had no win chance because Polymarket files them under the next day's date. ThorSport now checks both dates.
 

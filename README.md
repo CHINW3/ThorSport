@@ -1,4 +1,4 @@
-# ThorSport 3.12
+# ThorSport 3.13
 
 Live sports for the **AYN Thor bottom screen** (1240×1080). Everything is drawn to fill the screen exactly.
 
@@ -46,7 +46,7 @@ The mode is remembered next time you open the app.
 
 ## Alerts
 GOAL! / TOUCHDOWN! screen with your team's colors, confetti, scorer name, goal horn, vibration and stick-light flash.
-With favorite teams, only your team's goals trigger it. Also: 15-min reminder, puck drop (short horn), end of period,
+In a game with one of your teams, only your team's goals trigger it; games without your teams (or two of your teams) celebrate both sides. Also: 15-min reminder, puck drop (short horn), end of period,
 overtime, close game, upset, final and VICTORY! (gold lights). Tight finish for your team: stick lights breathe.
 
 ## AYN Thor stick lights
