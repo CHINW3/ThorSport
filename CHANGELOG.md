@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.16
+- **Controller in LIVE fixed**: ↓ now goes straight down to the tile below (it went diagonal because the tiles are 3 per row).
+- **Menu sounds & vibration**: a soft tick and a tiny buzz when you move with the controller, a higher one when you select. Off by default: Settings → General → Menu sounds & vibration.
+- **Vibrate on goals is now off by default**: turn it on in Settings → Goals & alerts → Vibrate on goals.
+
 ## 3.15
 - **HOME RUN!**: the ball leaves the plate with a glowing trail and flies out of the park, then fireworks in your team's colors. Bat crack before the horn, and the stick lights follow the ball from left to right. **GRAND SLAM!** gets gold and extra fireworks. Shows the batter and the distance when ESPN has it. In two-screen mode the ball flies from the bottom screen into the top one. Try it: Settings → Test a goal with a baseball game on the Board.
 - **Two-screen celebrations**: one party over both screens instead of the same thing twice: logo and GOAL! on top, the new score and the scorer below, confetti falling from one screen into the other.

@@ -1,4 +1,4 @@
-# ThorSport 3.15
+# ThorSport 3.16
 
 Live sports for the **AYN Thor bottom screen** (1240×1080). Everything is drawn to fill the screen exactly.
 
@@ -49,7 +49,7 @@ The mode is remembered next time you open the app.
 - **★ MY TEAMS**: long-press any team in any league to add it. Shows all your teams' games, Board and table spots.
 
 ## Alerts
-GOAL! / TOUCHDOWN! screen with your team's colors, confetti, scorer name, goal horn, vibration and stick-light flash.
+GOAL! / TOUCHDOWN! screen with your team's colors, confetti, scorer name, goal horn, stick-light flash and (optional) vibration.
 In a game with one of your teams, only your team's goals trigger it; games without your teams (or two of your teams) celebrate both sides. Also: 15-min reminder, puck drop (short horn), end of period,
 overtime, close game, upset, final and VICTORY! (gold lights). Tight finish for your team: stick lights breathe.
 
@@ -67,7 +67,7 @@ scores are hidden, and when the next score happens live a big button asks you to
 your stream — the delay is set to exactly that.
 
 ## Settings (tap the clock)
-Two-screen mode · spoiler delay · goal horn, volume, quiet hours · vibration · goal screen + length ·
+Two-screen mode · spoiler delay · goal horn, volume, quiet hours · vibrate on goals (off by default) · menu sounds & vibration · goal screen + length ·
 stick lights + brightness · test a goal · screen brightness · night dim · screensaver clock · keep screen on ·
 hide finished games · auto-open Board · accent color · 12/24 h clock · English / Français · help · clear MY TEAMS
 
