@@ -37,7 +37,7 @@ import java.util.concurrent.Executors;
 public class MainActivity extends Activity implements ThorView.Listener {
     static MainActivity instance;
     private ThorView top;                 // the TOP screen view in two-screen mode (null otherwise)
-    private boolean dual;
+    private boolean dual, companion;
     private String[] leagueLabelsCache;
     private List<Model.Group> lastGroups;
     private String lastLeagueLogo;
@@ -172,6 +172,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         nightMode = prefs.getBoolean("night", false);
         hideFinal = prefs.getBoolean("hideFinal", false);
         shotMap = prefs.getBoolean("shotMap", true);
+        companion = prefs.getBoolean("companion", true);
         Leds.setBrightness(LED_BRIS[ledBri]);
         quietHours = prefs.getBoolean("quiet", false);
         bigStandings = prefs.getBoolean("bigStandings", true);
@@ -226,6 +227,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         running = true;
         loadFromCache();
         view.setFavKeys(new HashSet<>(favKeys));
+        view.setCompanion(companion);
         if (!prefs.getBoolean("onboarded", false)) {
             if (!favKeys.isEmpty()) prefs.edit().putBoolean("onboarded", true).apply();   // already has teams (older version)
             else main.postDelayed(() -> view.openOnboarding(true, onboardLeagues()), 600);
@@ -326,8 +328,8 @@ public class MainActivity extends Activity implements ThorView.Listener {
             case KeyEvent.KEYCODE_BACK: return v.controllerBack() || from == top;    // Back on top never closes it
             case KeyEvent.KEYCODE_BUTTON_X: v.controllerFavorite(false); return true;
             case KeyEvent.KEYCODE_BUTTON_Y: v.controllerFavorite(true); return true;
-            case KeyEvent.KEYCODE_BUTTON_L1: if (v.onboardingOpen()) { v.onboardShift(-1); return true; } v.hideCursor(); onTabTap((tab + tabCount() - 1) % tabCount()); return true;
-            case KeyEvent.KEYCODE_BUTTON_R1: if (v.onboardingOpen()) { v.onboardShift(1); return true; } v.hideCursor(); onTabTap((tab + 1) % tabCount()); return true;
+            case KeyEvent.KEYCODE_BUTTON_L1: if (v.onboardingOpen()) { v.onboardShift(-1); return true; } if (v.settingsShift(-1)) return true; v.hideCursor(); onTabTap((tab + tabCount() - 1) % tabCount()); return true;
+            case KeyEvent.KEYCODE_BUTTON_R1: if (v.onboardingOpen()) { v.onboardShift(1); return true; } if (v.settingsShift(1)) return true; v.hideCursor(); onTabTap((tab + 1) % tabCount()); return true;
             case KeyEvent.KEYCODE_BUTTON_L2: switchLeague((leagueIdx + Espn.LEAGUES.length - 1) % Espn.LEAGUES.length); return true;
             case KeyEvent.KEYCODE_BUTTON_R2: switchLeague((leagueIdx + 1) % Espn.LEAGUES.length); return true;
             case KeyEvent.KEYCODE_BUTTON_START: v.openSettings(); return true;
@@ -637,7 +639,8 @@ public class MainActivity extends Activity implements ThorView.Listener {
                     return;
                 }
             }
-            if (tab == ThorView.TAB_BOARD) onTabTap(ThorView.TAB_SCORES); // Board is on top now
+            if (companion) { if (tab != ThorView.TAB_STANDINGS) onTabTap(ThorView.TAB_BOARD); }   // bottom: GAME info for the game on top
+            else if (tab == ThorView.TAB_BOARD) onTabTap(ThorView.TAB_SCORES);                    // classic: Board is on top now
         } else if (TopActivity.current != null) {
             TopActivity.current.finish();
         }
@@ -716,6 +719,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         List<String[]> it = new ArrayList<>();
         // 0 GENERAL
         it.add(item(0, t("Two-screen mode", "Mode deux écrans"), onOff(dual), ThorView.SET_DUAL));
+        it.add(item(0, t("Two-screen: bottom shows", "Deux écrans : en bas"), companion ? t("GAME INFO", "INFOS MATCH") : t("CLASSIC", "CLASSIQUE"), ThorView.SET_COMPANION));
         it.add(item(0, t("Spoiler delay", "Délai anti-spoiler"), (delaySec == 0 ? onOff(false) : delaySec + " s") + "  ›", ThorView.SET_DELAY));
         it.add(item(0, t("Language", "Langue"), french ? "FRANÇAIS" : "ENGLISH", ThorView.SET_LANG));
         it.add(item(0, t("Clock", "Horloge"), CLOCK_NAMES[clockMode], ThorView.SET_CLOCK));
@@ -969,6 +973,10 @@ public class MainActivity extends Activity implements ThorView.Listener {
                 view.showHelp(); break;
             case ThorView.SET_UPDATE:
                 onUpdateTap(); break;
+            case ThorView.SET_COMPANION:
+                companion = !companion; e.putBoolean("companion", companion);
+                view.setCompanion(companion);
+                break;
             case ThorView.SET_MY_TEAMS:
                 view.closeSettings();
                 view.openOnboarding(false, onboardLeagues());

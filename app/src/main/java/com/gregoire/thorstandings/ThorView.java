@@ -60,7 +60,7 @@ public class ThorView extends View {
     public static final int SET_DELAY = 0, SET_HORN = 1, SET_LEDS = 2, SET_DIM = 3, SET_AUTOBOARD = 4,
         SET_HORN_VOL = 5, SET_LED_BRI = 6, SET_CELEB = 7, SET_KEEP_ON = 8, SET_NIGHT = 9, SET_HIDE_FINAL = 10,
         SET_TEST = 11, SET_HELP = 12, SET_RESET = 13, SET_DUAL = 14, SET_QUIET = 15, SET_VIBRATE = 16,
-        SET_CELEB_LEN = 17, SET_ACCENT = 18, SET_CLOCK = 19, SET_LANG = 20, SET_SAVER = 21, SET_STAND_SIZE = 22, SET_DEMO_MLB = 23, SET_DEMO_NFL = 24, SET_DEMO_NHL = 25, SET_SHOT_MAP = 26, SET_UPDATE = 27, SET_MY_TEAMS = 29;
+        SET_CELEB_LEN = 17, SET_ACCENT = 18, SET_CLOCK = 19, SET_LANG = 20, SET_SAVER = 21, SET_STAND_SIZE = 22, SET_DEMO_MLB = 23, SET_DEMO_NFL = 24, SET_DEMO_NHL = 25, SET_SHOT_MAP = 26, SET_UPDATE = 27, SET_COMPANION = 28, SET_MY_TEAMS = 29;
     private static final int GAMES_PER_PAGE = 8;
     private static final long AUTO_PAGE_MS = 10_000;
     private long CELEBRATION_MS = 6500;
@@ -155,6 +155,7 @@ public class ThorView extends View {
     private float fx = -1, fy = -1;                       // centre of the highlighted item
     private long lastStick;
     private final List<RectF> focusables = new ArrayList<>();
+    private final Map<String, List<Float>> oddsHist = new HashMap<>();   // gameId -> away win chance over time (GAME tab graph)
     private final Map<String, Long> popAt = new HashMap<>();   // "gameId:away"/"gameId:home" -> when score changed
     private int page, dateOffset;
     private String leagueLogo;
@@ -260,7 +261,7 @@ public class ThorView extends View {
         if (helpOpen) { helpOpen = false; invalidate(); return true; }
         if (settingsOpen) {
     for (int i = 0; i < sectionRects.size(); i++) {
-        if (sectionRects.get(i).contains(x, y)) { settingsSection = i; selSetting = 0; invalidate(); return true; }
+        if (sectionRects.get(i).contains(x, y)) { settingsSection = i; selSetting = 0; settingsFocus = 0; invalidate(); return true; }
     }
     for (int i = 0; i < settingRects.size(); i++) {
         if (settingRects.get(i).contains(x, y)) {
@@ -336,7 +337,7 @@ public class ThorView extends View {
     private RectF selectedRect() {
         if (delayOpen) return sel(delayRects, selDelay);
         if (onboardOpen) return sel(onboardRects, selOnboard);
-        if (settingsOpen) return sel(settingCells, selSetting);
+        if (settingsOpen) return settingsFocus == 0 ? sel(sectionRects, settingsSection) : sel(settingCells, selSetting);
         if (pickerOpen) return sel(pickerRects, selPicker);
         if (tab == TAB_SCORES) return sel(cardRects, selCard);
         if (tab == TAB_STANDINGS) return sel(hitRects, selRow);
@@ -353,10 +354,11 @@ public class ThorView extends View {
         float rad = Math.min(ring.width(), ring.height()) * 0.22f;
         p.setStyle(Paint.Style.STROKE);
         p.setStrokeWidth(pad * 1.3f);
-        p.setColor(ACCENT);
+        int rc = settingsOpen || onboardOpen ? TEXT : ACCENT;   // white ring on menus (the selected section is already blue)
+        p.setColor(rc);
         c.drawRoundRect(ring, rad, rad, p);
         p.setStyle(Paint.Style.FILL);
-        p.setColor(alpha(ACCENT, 0x22));
+        p.setColor(alpha(rc, 0x18));
         c.drawRoundRect(ring, rad, rad, p);
     }
 
@@ -387,8 +389,14 @@ public class ThorView extends View {
             return true;
         }
         if (settingsOpen) {
-            if (dx != 0) { settingsSection = clamp(settingsSection + dx, SECTIONS.length); selSetting = 0; }   // ← → sections
-            else selSetting = clamp(selSetting + dy, visibleSettings().size());
+            // console style: sections on the left, rows on the right; → / A goes into the rows, ← / B comes back
+            if (settingsFocus == 0) {
+                if (dy != 0) { settingsSection = clamp(settingsSection + dy, SECTIONS.length); selSetting = 0; }
+                else if (dx > 0 && !visibleSettings().isEmpty()) { settingsFocus = 1; selSetting = 0; }
+            } else {
+                if (dx < 0) settingsFocus = 0;
+                else if (dy != 0) selSetting = clamp(selSetting + dy, visibleSettings().size());
+            }
         } else if (pickerOpen) {
             int n = leagueLabels.length, rows = n > 8 ? (n + 1) / 2 : n;
             selPicker = clamp(selPicker + (dx != 0 ? dx * rows : dy), n);
@@ -484,6 +492,7 @@ public class ThorView extends View {
         wakeCursor();
         performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
         if (settingsOpen) {
+            if (settingsFocus == 0) { if (!visibleSettings().isEmpty()) { settingsFocus = 1; selSetting = 0; invalidate(); } return; }
             String[] it = sel2(visibleSettings(), selSetting);
             if (it != null) listener.onSetting(Integer.parseInt(it[2]), 1);
         } else if (pickerOpen) {
@@ -516,6 +525,7 @@ public class ThorView extends View {
 
     /** B: close menu → leave big score → back to Scores → hide the selection. Never leaves the app. */
     public boolean controllerBack() {
+        if (settingsOpen && settingsFocus == 1) { settingsFocus = 0; invalidate(); return true; }
         if (onboardOpen) { onboardOpen = false; listener.onOnboardDone(); invalidate(); return true; }
         if (syncState > 0) { listener.onSyncCancel(); return true; }
         if (demoGame != null) { demoGame = null; invalidate(); return true; }
@@ -538,6 +548,7 @@ public class ThorView extends View {
         pickerOpen = false;
         settingsOpen = !settingsOpen;
         selSetting = 0;
+        settingsFocus = 0;
         wakeCursor();
         invalidate();
     }
@@ -589,6 +600,13 @@ public class ThorView extends View {
                 if (!og.away.score.equals(ng.away.score) && !ng.away.score.isEmpty()) popAt.put(ng.id + ":away", now);
                 if (!og.home.score.equals(ng.home.score) && !ng.home.score.isEmpty()) popAt.put(ng.id + ":home", now);
             }
+        }
+        for (Model.Game ng : g) {
+            if (!ng.isLive() || ng.away.odds < 0) continue;
+            List<Float> hist = oddsHist.get(ng.id);
+            if (hist == null) { hist = new ArrayList<>(); oddsHist.put(ng.id, hist); }
+            if (hist.isEmpty() || Math.abs(hist.get(hist.size() - 1) - ng.away.odds) > 0.004f) hist.add(ng.away.odds);
+            if (hist.size() > 300) hist.remove(0);
         }
         games = g;
         if (page >= pageCount()) page = 0;
@@ -857,7 +875,10 @@ public class ThorView extends View {
                     : leagueInfo != null && leagueInfo.mine() && favorites.isEmpty() ? tr("Long-press any team in any league to add it here", "Appuyez longuement sur une équipe pour l'ajouter ici")
                     : myTeamsOnly || leagueInfo != null && leagueInfo.mine() ? tr("No games for your teams", "Aucun match pour vos équipes") : tr("No games", "Aucun match");
                 drawEmpty(c, w, bodyTop, h, m);
-            } else drawScores(c, w, h, bodyTop);
+            } else if (dualBottom()) drawWall(c, w, h, bodyTop);
+            else drawScores(c, w, h, bodyTop);
+        } else if (tab == TAB_BOARD && dualBottom() && demoGame == null && boardGame() != null && !"racing".equals(boardGame().sport)) {
+            drawCompanion(c, boardGame(), w, h, top);
         } else if (tab == TAB_BOARD) {
             Model.Game g = demoGame != null ? demoGame : boardGame();
             if (g == null) drawEmpty(c, w, top, h, message != null ? message : "No games today");
@@ -987,7 +1008,9 @@ public class ThorView extends View {
         r1.set(segRight - segW, cy - segH / 2, segRight, cy + segH / 2);
         p.setColor(0xFF161920);
         c.drawRoundRect(r1, segH / 2, segH / 2, p);
-        String[] labels = {tr("SCORES", "SCORES"), tr("BOARD", "TABLEAU"), tr("STANDINGS", "CLASSEMENT")};
+        String[] labels = dualBottom()
+            ? new String[]{tr("LIVE", "EN DIRECT"), tr("GAME", "MATCH"), tr("STANDINGS", "CLASSEMENT")}
+            : new String[]{tr("SCORES", "SCORES"), tr("BOARD", "TABLEAU"), tr("STANDINGS", "CLASSEMENT")};
         int nTabs = leagueInfo != null && leagueInfo.mine() ? 2 : 3;   // MY TEAMS: no standings tab
         float inset = segH * 0.09f;
         float segEach = segW / nTabs;
@@ -1018,6 +1041,328 @@ public class ThorView extends View {
 
         p.setColor(HAIRLINE);
         c.drawRect(0, hh - 1, w, hh, p);
+    }
+
+    // ------------------------------------------------------------------ two-screen bottom: GAME + LIVE (option)
+    private boolean companion;
+    public void setCompanion(boolean on) { companion = on; invalidate(); }
+    /** Bottom screen while the top screen shows the Board, with "Game info" on. */
+    private boolean dualBottom() { return dual && !topMode && companion; }
+
+    private String status(Model.Game g) {
+        if (g.isLive()) return g.detail.isEmpty() ? "LIVE" : g.detail.toUpperCase();
+        if (g.isFinal()) return g.detail.isEmpty() ? "FINAL" : g.detail.toUpperCase();
+        return g.startMs > 0 ? (DateUtils.isToday(g.startMs) ? "" : DateFormat.format("EEE ", g.startMs).toString().toUpperCase()) + fmtTime(g.startMs) : g.detail;
+    }
+
+    /** LIVE: every game of the league as scoreboard tiles; the one on top is outlined. Tap = show it on top. */
+    private void drawWall(Canvas c, int w, int h, float top) {
+        List<Model.Game> list = shownGames();
+        float gap = w * 0.014f;
+        int cols = 3, rowsN = Math.max(3, Math.min(5, (list.size() + cols - 1) / cols));
+        float tileH = (h - top - gap) / rowsN, tw = (w - gap * (cols + 1)) / cols;
+        int perPage = cols * rowsN, pages = Math.max(1, (list.size() + perPage - 1) / perPage), pg = Math.min(page, pages - 1);
+        Model.Game onTop = boardGame();
+        long now = System.currentTimeMillis();
+        for (int k = 0; k < perPage && pg * perPage + k < list.size(); k++) {
+            Model.Game g = list.get(pg * perPage + k);
+            float x = gap + (k % cols) * (tw + gap), y = top + (k / cols) * tileH;
+            RectF r = new RectF(x, y + gap * 0.3f, x + tw, y + tileH - gap * 0.3f);
+            float rad = r.height() * 0.14f;
+            p.setShader(new LinearGradient(r.left, 0, r.right, 0, alpha(g.away.color, g.isLive() ? 0x60 : 0x30), alpha(g.home.color, g.isLive() ? 0x60 : 0x30), Shader.TileMode.CLAMP));
+            c.drawRoundRect(r, rad, rad, p);
+            p.setShader(null);
+            p.setColor(0xB0101218);
+            c.drawRoundRect(r, rad, rad, p);
+            boolean isTop = onTop != null && g.id.equals(onTop.id);
+            if (isTop || g.isLive()) {
+                p.setStyle(Paint.Style.STROKE);
+                p.setStrokeWidth(Math.max(2f, r.height() * 0.022f));
+                p.setColor(isTop ? ACCENT : alpha(LIVE, 0x99));
+                c.drawRoundRect(r, rad, rad, p);
+                p.setStyle(Paint.Style.FILL);
+            }
+            cardRects.add(r);
+            cardIds.add(g.id);
+            float rh = r.height(), ls = Math.min(rh * 0.22f, tw * 0.13f), padX = Math.min(rh, tw) * 0.1f;
+            boolean pre = "pre".equals(g.state);
+            for (int sd = 0; sd < 2; sd++) {
+                Model.Side s2 = sd == 0 ? g.away : g.home;
+                float cy = r.top + rh * (sd == 0 ? 0.3f : 0.58f);
+                logo(c, s2.logo, s2.abbr, s2.color, r.left + padX + ls / 2, cy, ls);
+                boolean lost = g.isFinal() && !s2.winner && (g.away.winner || g.home.winner);
+                text(c, star(s2.abbr), r.left + padX * 1.6f + ls, cy, ls * 0.62f, tfBlack, lost ? MUTED : TEXT, Paint.Align.LEFT, tw * 0.5f);
+                if (!pre) {
+                    Long pa = popAt.get(g.id + ":" + (sd == 0 ? "away" : "home"));
+                    boolean pop = pa != null && now - pa < 20000;
+                    text(c, s2.score.isEmpty() ? "0" : s2.score, r.right - padX, cy, ls * 0.95f, tfBlack, pop ? AMBER : lost ? MUTED : TEXT, Paint.Align.RIGHT, tw * 0.3f);
+                    if (pop) postInvalidateDelayed(1000);
+                }
+            }
+            String st = isTop ? tr("ON TOP  ·  ", "EN HAUT  ·  ") + status(g) : status(g);
+            text(c, st, r.left + padX, r.top + rh * 0.84f, ls * 0.48f, tfCond, isTop ? ACCENT : g.isLive() ? 0xFFFF6B5E : MUTED, Paint.Align.LEFT, tw - padX * 2);
+        }
+        if (pages > 1) text(c, (pg + 1) + " / " + pages, w / 2f, h - gap * 0.6f, gap * 0.9f, tfCond, DIM, Paint.Align.CENTER, w);
+    }
+
+    /** GAME: the game on the top screen, in more detail. Same look as the Board: team colors, big numbers, no boxes in boxes. */
+    private void drawCompanion(Canvas c, Model.Game g, int w, int h, float top) {
+        float gap = w * 0.02f, H = h - top;
+        int ac = Leds.vivid(g.away.color), hc = Leds.vivid(g.home.color);
+
+        // --- header band in team colors
+        RectF band = new RectF(gap * 0.8f, top, w - gap * 0.8f, top + H * 0.2f);
+        float br = band.height() * 0.2f;
+        p.setShader(new LinearGradient(band.left, 0, band.right, 0, new int[]{alpha(g.away.color, 0xC0), 0xFF0E1015, alpha(g.home.color, 0xC0)}, new float[]{0f, 0.5f, 1f}, Shader.TileMode.CLAMP));
+        c.drawRoundRect(band, br, br, p);
+        p.setShader(null);
+        float bh = band.height(), ls = bh * 0.66f;
+        for (int sd = 0; sd < 2; sd++) {
+            Model.Side s2 = sd == 0 ? g.away : g.home;
+            boolean left = sd == 0;
+            float lx = left ? band.left + bh * 0.55f : band.right - bh * 0.55f;
+            logo(c, s2.logo, s2.abbr, s2.color, lx, band.centerY(), ls);
+            float nx = left ? lx + ls * 0.72f : lx - ls * 0.72f;
+            Paint.Align al = left ? Paint.Align.LEFT : Paint.Align.RIGHT;
+            text(c, star(s2.abbr), nx, band.top + bh * 0.4f, bh * 0.25f, tfBlack, favorites.contains(s2.abbr) ? ACCENT : TEXT, al, w * 0.15f);
+            text(c, s2.record, nx, band.top + bh * 0.68f, bh * 0.15f, tfMed, 0xCCFFFFFF, al, w * 0.15f);
+            if (!"pre".equals(g.state)) {
+                boolean lost = g.isFinal() && !s2.winner && (g.away.winner || g.home.winner);
+                text(c, s2.score.isEmpty() ? "0" : s2.score, left ? band.centerX() - bh * 0.85f : band.centerX() + bh * 0.85f, band.centerY(), bh * 0.6f, tfBlack,
+                    lost ? MUTED : TEXT, Paint.Align.CENTER, w * 0.12f);
+            }
+        }
+        String st = status(g);
+        p.setTypeface(tfCond);
+        p.setTextSize(bh * 0.15f);
+        float pw = p.measureText(st) + bh * 0.4f;
+        RectF pill = new RectF(band.centerX() - pw / 2, band.centerY() - bh * 0.14f, band.centerX() + pw / 2, band.centerY() + bh * 0.14f);
+        p.setColor(g.isLive() ? LIVE : 0xFF262A33);
+        c.drawRoundRect(pill, pill.height() / 2, pill.height() / 2, p);
+        text(c, st, pill.centerX(), pill.centerY(), bh * 0.15f, tfCond, TEXT, Paint.Align.CENTER, pw);
+
+        float by = band.bottom + gap * 1.2f, bb = h - gap * 0.8f;
+        float splitX = w * 0.54f;
+
+        // --- left: scoring
+        float lx0 = gap * 0.8f, lx1 = splitX - gap;
+        sectionLabel(c, g.goals.isEmpty() ? tr("LAST PLAY", "DERNIER JEU") : tr("SCORING", "BUTS"), lx0, by, H);
+        float ty = by + H * 0.045f;
+        boolean hasLines = !g.away.lines.isEmpty();
+        float lineH = hasLines ? H * 0.16f : 0;
+        List<Model.Goal> goals = new ArrayList<>(g.goals);
+        Collections.reverse(goals);   // newest first
+        if (goals.isEmpty()) {
+            String msg = !g.lastPlay.isEmpty() ? g.lastPlay : !g.headline.isEmpty() ? g.headline
+                : "pre".equals(g.state) ? tr("Starts ", "Début ") + status(g) : tr("No scoring yet", "Aucun but pour l'instant");
+            wrapText(c, msg, lx0, ty + H * 0.03f, lx1 - lx0, H * 0.036f, TEXT, 5);
+        }
+        float evH = H * 0.083f;
+        int maxEv = (int) ((bb - lineH - ty) / evH);
+        for (int i = 0; i < Math.min(maxEv, goals.size()); i++) {
+            Model.Goal gl = goals.get(i);
+            Model.Side s2 = gl.home ? g.home : g.away;
+            float ey = ty + i * evH, ecy = ey + evH * 0.46f;
+            if (i == 0) {   // newest: soft team glow
+                p.setShader(new LinearGradient(lx0, 0, lx1, 0, alpha(s2.color, 0x55), alpha(s2.color, 0x00), Shader.TileMode.CLAMP));
+                c.drawRoundRect(new RectF(lx0, ey, lx1, ey + evH * 0.92f), evH * 0.2f, evH * 0.2f, p);
+                p.setShader(null);
+            }
+            p.setColor(gl.red ? LIVE : (gl.home ? hc : ac));
+            c.drawRoundRect(new RectF(lx0, ey + evH * 0.14f, lx0 + evH * 0.07f, ey + evH * 0.78f), 3, 3, p);
+            logo(c, s2.logo, s2.abbr, s2.color, lx0 + evH * 0.55f, ecy, evH * 0.56f);
+            float tx = lx0 + evH * 1.0f;
+            text(c, (gl.red ? tr("Red card · ", "Carton rouge · ") : "") + gl.who, tx, ey + evH * (gl.extra.isEmpty() ? 0.46f : 0.33f), evH * 0.3f, tfBlack, TEXT, Paint.Align.LEFT, (lx1 - tx) * 0.72f);
+            if (!gl.extra.isEmpty()) text(c, gl.extra, tx, ey + evH * 0.66f, evH * 0.2f, tfMed, MUTED, Paint.Align.LEFT, (lx1 - tx) * 0.72f);
+            text(c, gl.time, lx1 - evH * 0.2f, ecy, evH * 0.22f, tfCond, MUTED, Paint.Align.RIGHT, (lx1 - tx) * 0.3f);
+            if (i < Math.min(maxEv, goals.size()) - 1) { p.setColor(HAIRLINE); c.drawRect(tx, ey + evH * 0.94f, lx1, ey + evH * 0.94f + 1, p); }
+        }
+        if (hasLines) drawLineTable(c, g, new RectF(lx0, bb - lineH, lx1, bb));
+
+        // divider
+        p.setColor(HAIRLINE);
+        c.drawRect(splitX, by, splitX + 1, bb, p);
+
+        // --- right: win chance, shot map, matchup
+        float rx0 = splitX + gap, rx1 = w - gap * 0.8f, ry = by;
+        if (g.away.odds >= 0 && g.home.odds >= 0) {
+            sectionLabel(c, tr("WIN CHANCE", "CHANCES DE VICTOIRE"), rx0, ry, H);
+            if (!g.oddsSource.isEmpty()) text(c, g.oddsSource, rx1, ry, H * 0.022f, tfMed, DIM, Paint.Align.RIGHT, (rx1 - rx0) * 0.5f);
+            float big = H * 0.07f, cy = ry + H * 0.085f;
+            int pa = Math.round(g.away.odds * 100), ph = Math.round(g.home.odds * 100);
+            text(c, pa + "%", rx0, cy, big, tfBlack, pa >= ph ? TEXT : MUTED, Paint.Align.LEFT, (rx1 - rx0) * 0.4f);
+            text(c, ph + "%", rx1, cy, big, tfBlack, ph > pa ? TEXT : MUTED, Paint.Align.RIGHT, (rx1 - rx0) * 0.4f);
+            text(c, g.away.abbr, rx0, cy + big * 0.78f, H * 0.022f, tfCond, MUTED, Paint.Align.LEFT, w);
+            text(c, g.home.abbr, rx1, cy + big * 0.78f, H * 0.022f, tfCond, MUTED, Paint.Align.RIGHT, w);
+            boolean roomy = !("hockey".equals(g.sport) && !g.shots.isEmpty() && shotMap);
+            RectF gr = new RectF(rx0, cy + big * 1.05f, rx1, cy + big * 1.05f + H * (roomy ? 0.2f : 0.13f));
+            drawOddsGraph(c, g, gr, oddsHist.get(g.id), ac, hc);
+            ry = gr.bottom + gap * 1.3f;
+        }
+        if ("hockey".equals(g.sport) && !g.shots.isEmpty() && shotMap) {
+            sectionLabel(c, tr("SHOT MAP", "CARTE DES TIRS"), rx0, ry, H);
+            float rw = rx1 - rx0, rh = rw * 85f / 200f;
+            RectF rink = new RectF(rx0, ry + H * 0.05f, rx1, ry + H * 0.05f + rh);
+            drawRink(c, g, rink);
+            ry = rink.bottom + gap * 1.2f;
+        }
+        List<String[]> rows = new ArrayList<>();
+        if (g.away.shots >= 0) rows.add(new String[]{tr("SHOTS", "TIRS"), "" + g.away.shots, "" + g.home.shots});
+        if (g.away.saves >= 0) rows.add(new String[]{tr("SAVES", "ARRÊTS"), "" + g.away.saves, "" + g.home.saves});
+        if (g.awayTimeouts >= 0) rows.add(new String[]{tr("TIMEOUTS", "TEMPS MORTS"), "" + g.awayTimeouts, "" + g.homeTimeouts});
+        if (!rows.isEmpty() && ry < bb - H * 0.12f) {
+            sectionLabel(c, tr("MATCHUP", "DUEL"), rx0, ry, H);
+            ry += H * 0.04f;
+            float rowH = Math.min(H * 0.085f, (bb - ry - (g.away.leader.isEmpty() ? 0 : H * 0.16f)) / rows.size());
+            for (String[] r : rows) {
+                float cy = ry + rowH * 0.42f;
+                text(c, r[1], rx0, cy, rowH * 0.42f, tfBlack, TEXT, Paint.Align.LEFT, (rx1 - rx0) * 0.25f);
+                text(c, r[2], rx1, cy, rowH * 0.42f, tfBlack, TEXT, Paint.Align.RIGHT, (rx1 - rx0) * 0.25f);
+                text(c, r[0], (rx0 + rx1) / 2, cy, rowH * 0.22f, tfCond, MUTED, Paint.Align.CENTER, (rx1 - rx0) * 0.4f);
+                try {   // diverging bars from the middle
+                    float a = Float.parseFloat(r[1]), b = Float.parseFloat(r[2]), mx = Math.max(1, Math.max(a, b));
+                    float mid = (rx0 + rx1) / 2, half = (rx1 - rx0) * 0.3f, yb = cy + rowH * 0.3f, bh2 = rowH * 0.09f;
+                    p.setColor(0xFF22252D);
+                    c.drawRoundRect(new RectF(mid - half, yb, mid + half, yb + bh2), bh2 / 2, bh2 / 2, p);
+                    p.setColor(ac);
+                    c.drawRoundRect(new RectF(mid - half * a / mx, yb, mid - 2, yb + bh2), bh2 / 2, bh2 / 2, p);
+                    p.setColor(hc);
+                    c.drawRoundRect(new RectF(mid + 2, yb, mid + half * b / mx, yb + bh2), bh2 / 2, bh2 / 2, p);
+                } catch (Exception ignored) { }
+                ry += rowH;
+            }
+        }
+        if ((!g.away.leader.isEmpty() || !g.home.leader.isEmpty()) && ry < bb - H * 0.1f) {
+            ry += gap * 0.4f;
+            sectionLabel(c, tr("TOP PLAYERS", "MEILLEURS JOUEURS"), rx0, ry, H);
+            float ph2 = Math.min(H * 0.055f, (bb - ry - H * 0.03f) / 2);
+            for (int sd = 0; sd < 2; sd++) {
+                Model.Side s2 = sd == 0 ? g.away : g.home;
+                if (s2.leader.isEmpty()) continue;
+                float cy = ry + H * 0.03f + ph2 * (sd + 0.5f);
+                logo(c, s2.logo, s2.abbr, s2.color, rx0 + ph2 * 0.35f, cy, ph2 * 0.62f);
+                text(c, s2.leader, rx0 + ph2 * 0.85f, cy, ph2 * 0.42f, tfMed, TEXT, Paint.Align.LEFT, rx1 - rx0 - ph2);
+            }
+        }
+    }
+
+    /**
+     * Win chance over the game: the line is the left team's chance. Above the 50% line the area takes the
+     * left team's color, below it the right team's, so you see who had the momentum and when.
+     */
+    private void drawOddsGraph(Canvas c, Model.Game g, RectF r, List<Float> hist, int ac, int hc) {
+        float rad = r.height() * 0.1f;
+        p.setColor(0xFF111318);
+        c.drawRoundRect(r, rad, rad, p);
+        List<Float> pts = new ArrayList<>();
+        if (hist != null) pts.addAll(hist);
+        if (pts.isEmpty()) pts.add(g.away.odds);
+        if (pts.size() == 1) pts.add(0, pts.get(0));
+        int n = pts.size();
+        float padX = r.height() * 0.08f, padY = r.height() * 0.1f;
+        float x0 = r.left + padX, x1 = r.right - padX, y0 = r.top + padY, y1 = r.bottom - padY, mid = (y0 + y1) / 2;
+        // 50% line (dashed) and 25/75 guides
+        p.setColor(0x30FFFFFF);
+        for (float x = x0; x < x1; x += r.height() * 0.06f) c.drawRect(x, mid - 0.75f, Math.min(x1, x + r.height() * 0.03f), mid + 0.75f, p);
+        p.setColor(0x12FFFFFF);
+        c.drawRect(x0, y0 + (y1 - y0) * 0.25f, x1, y0 + (y1 - y0) * 0.25f + 1, p);
+        c.drawRect(x0, y0 + (y1 - y0) * 0.75f, x1, y0 + (y1 - y0) * 0.75f + 1, p);
+        // zoom on the action: the scale grows with the biggest swing away from 50%
+        float span = 0.12f;
+        for (float v : pts) span = Math.max(span, Math.abs(v - 0.5f) + 0.04f);
+        span = Math.min(0.5f, span);
+        Path line = new Path(), area = new Path();
+        float lx = x0, ly = mid;
+        for (int i = 0; i < n; i++) {
+            float x = x0 + (x1 - x0) * i / (n - 1f);
+            float y = mid - (y1 - y0) / 2f * Math.max(-1f, Math.min(1f, (pts.get(i) - 0.5f) / span));
+            if (i == 0) { line.moveTo(x, y); area.moveTo(x, mid); area.lineTo(x, y); }
+            else {   // smooth: curve through the midpoints
+                float cx = (lx + x) / 2;
+                line.cubicTo(cx, ly, cx, y, x, y);
+                area.cubicTo(cx, ly, cx, y, x, y);
+            }
+            lx = x; ly = y;
+        }
+        area.lineTo(x1, mid);
+        area.close();
+        c.save();
+        c.clipRect(r.left, r.top, r.right, mid);
+        p.setShader(new LinearGradient(0, y0, 0, mid, alpha(ac, 0x99), alpha(ac, 0x10), Shader.TileMode.CLAMP));
+        c.drawPath(area, p);
+        c.restore();
+        c.save();
+        c.clipRect(r.left, mid, r.right, r.bottom);
+        p.setShader(new LinearGradient(0, mid, 0, y1, alpha(hc, 0x10), alpha(hc, 0x99), Shader.TileMode.CLAMP));
+        c.drawPath(area, p);
+        c.restore();
+        p.setShader(null);
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeCap(Paint.Cap.ROUND);
+        p.setStrokeJoin(Paint.Join.ROUND);
+        p.setStrokeWidth(Math.max(2.5f, r.height() * 0.022f));
+        p.setColor(TEXT);
+        c.drawPath(line, p);
+        p.setStrokeCap(Paint.Cap.BUTT);
+        p.setStrokeJoin(Paint.Join.MITER);
+        p.setStyle(Paint.Style.FILL);
+        // live end point
+        int lead = pts.get(n - 1) >= 0.5f ? ac : hc;
+        float pulse = g.isLive() ? (float) (0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 300.0)) : 0f;
+        p.setColor(alpha(lead, (int) (0x55 * pulse)));
+        c.drawCircle(lx, ly, r.height() * (0.05f + 0.04f * pulse), p);
+        p.setColor(TEXT);
+        c.drawCircle(lx, ly, r.height() * 0.035f, p);
+        p.setColor(lead);
+        c.drawCircle(lx, ly, r.height() * 0.022f, p);
+        if (g.isLive()) postInvalidateDelayed(60);
+        // side labels
+        text(c, g.away.abbr, x0 + padX * 0.4f, y0 + r.height() * 0.06f, r.height() * 0.085f, tfCond, alpha(TEXT, 0x99), Paint.Align.LEFT, r.width() * 0.3f);
+        text(c, g.home.abbr, x0 + padX * 0.4f, y1 - r.height() * 0.06f, r.height() * 0.085f, tfCond, alpha(TEXT, 0x99), Paint.Align.LEFT, r.width() * 0.3f);
+        text(c, "50%", x0 + padX * 0.4f, mid - r.height() * 0.06f, r.height() * 0.07f, tfCond, alpha(TEXT, 0x55), Paint.Align.LEFT, r.width() * 0.2f);
+    }
+
+    private void sectionLabel(Canvas c, String s, float x, float y, float H) {
+        text(c, s, x, y, H * 0.024f, tfCond, MUTED, Paint.Align.LEFT, getWidth());
+    }
+
+    /** Score by period. */
+    private void drawLineTable(Canvas c, Model.Game g, RectF r) {
+        int n = Math.max(g.away.lines.size(), g.home.lines.size());
+        if (n == 0) return;
+        p.setColor(0xFF14161B);
+        c.drawRoundRect(r, r.height() * 0.14f, r.height() * 0.14f, p);
+        float pad = r.height() * 0.12f;
+        float nameW = r.width() * 0.2f, totW = r.width() * 0.14f, colW = (r.width() - nameW - totW - pad * 2) / n, rh = (r.height() - pad) / 3f;
+        float x0 = r.left + pad, y0 = r.top + pad * 0.5f;
+        for (int i = 0; i < n; i++)
+            text(c, String.valueOf(i + 1), x0 + nameW + colW * (i + 0.5f), y0 + rh * 0.5f, rh * 0.36f, tfCond, DIM, Paint.Align.CENTER, colW);
+        text(c, "T", r.right - pad - totW / 2, y0 + rh * 0.5f, rh * 0.36f, tfCond, DIM, Paint.Align.CENTER, totW);
+        for (int sd = 0; sd < 2; sd++) {
+            Model.Side s2 = sd == 0 ? g.away : g.home;
+            float cy = y0 + rh * (1.5f + sd);
+            text(c, s2.abbr, x0, cy, rh * 0.42f, tfBlack, MUTED, Paint.Align.LEFT, nameW);
+            for (int i = 0; i < n; i++)
+                text(c, i < s2.lines.size() ? s2.lines.get(i) : "·", x0 + nameW + colW * (i + 0.5f), cy, rh * 0.42f, tfMed, TEXT, Paint.Align.CENTER, colW);
+            text(c, s2.score.isEmpty() ? "0" : s2.score, r.right - pad - totW / 2, cy, rh * 0.48f, tfBlack, TEXT, Paint.Align.CENTER, totW);
+        }
+    }
+
+    /** Simple word wrap. */
+    private void wrapText(Canvas c, String s, float x, float y, float maxW, float size, int col, int maxLines) {
+        p.setTypeface(tfMed);
+        p.setTextSize(size);
+        StringBuilder line = new StringBuilder();
+        int lines = 0;
+        for (String wd : s.split("\\s+")) {
+            String tryL = line.length() == 0 ? wd : line + " " + wd;
+            if (p.measureText(tryL) > maxW && line.length() > 0) {
+                text(c, line.toString(), x, y + lines * size * 1.35f, size, tfMed, col, Paint.Align.LEFT, maxW);
+                if (++lines >= maxLines) return;
+                line = new StringBuilder(wd);
+            } else line = new StringBuilder(tryL);
+        }
+        if (line.length() > 0) text(c, line.toString(), x, y + lines * size * 1.35f, size, tfMed, col, Paint.Align.LEFT, maxW);
     }
 
     private void drawEmpty(Canvas c, int w, float top, int h, String msg) {
@@ -1287,7 +1632,16 @@ public class ThorView extends View {
     private static final String[][] SECTIONS = {
         {"General", "Général"}, {"Goals & alerts", "Buts & alertes"}, {"Stick lights", "Lumières"},
         {"Scores & Board", "Scores & tableau"}, {"App", "Appli"}};
-    private int settingsSection;
+    private int settingsSection, settingsFocus;   // focus 0 = sections, 1 = rows
+
+    /** L1 / R1 while Settings is open: previous / next section. */
+    public boolean settingsShift(int dir) {
+        if (!settingsOpen) return false;
+        settingsSection = ((settingsSection + dir) % SECTIONS.length + SECTIONS.length) % SECTIONS.length;
+        selSetting = 0;
+        invalidate();
+        return true;
+    }
     private String appVersion = "";
     private final List<RectF> sectionRects = new ArrayList<>();
 
@@ -1318,6 +1672,8 @@ public class ThorView extends View {
         p.setTextSize(headH * 0.4f);
         float titleW = p.measureText(tr("Settings", "Réglages"));
         text(c, "ThorSport " + appVersion, gap * 2.4f + titleW, headH * 0.58f, headH * 0.2f, tfMed, DIM, Paint.Align.LEFT, w * 0.3f);
+        if (cursorOn) text(c, settingsFocus == 0 ? tr("↑↓ section   →/A open   B close", "↑↓ section   →/A ouvrir   B fermer")
+                : tr("↑↓ move   A change   ←/B back", "↑↓ bouger   A changer   ←/B retour"), w * 0.6f, headH * 0.55f, headH * 0.17f, tfCond, MUTED, Paint.Align.CENTER, w * 0.34f);
         RectF done = new RectF(w - gap * 1.5f - headH * 1.9f, headH * 0.22f, w - gap * 1.5f, headH * 0.88f);
         p.setColor(ACCENT);
         c.drawRoundRect(done, done.height() / 2, done.height() / 2, p);
