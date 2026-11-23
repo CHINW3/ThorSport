@@ -1453,7 +1453,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
     /** Score in one of your teams' games (not the one you're watching): a small card + a quick blink. */
     private void noteScore(Model.Game g, Model.Side scorer, int delta, Set<String> favs) {
         if (!notify) return;
-        String word = scoreWord(g.sport, delta);
+        String word = scoreWord(g, delta);
         if (word == null) return;   // basketball scores too often for cards
         if ("football".equals(g.sport) && delta < 3) return;   // extra point / 2-pt: the touchdown card is enough
         boolean yours = favs.contains(scorer.abbr);
@@ -1620,10 +1620,12 @@ public class MainActivity extends Activity implements ThorView.Listener {
                     ts.color | 0xFF000000));
                 all(v -> v.flash(tg.id));
                 if (ledsAvailable && ledsOn) Leds.blink(primary(ts), 3);
+            } else if (yours && ledsAvailable && ledsOn && !tension) {
+                Leds.blink(primary(celebrateSide), 2);   // every other basket: two quick blinks of the sticks
             }
             return;
         }
-        String word = scoreWord(celebrateGame.sport, celebrateDelta);
+        String word = scoreWord(celebrateGame, celebrateDelta);
         if (word == null) return;
 
         // Who gets the party (horn, goal screen, lights):
@@ -1700,25 +1702,37 @@ public class MainActivity extends Activity implements ThorView.Listener {
             g.detail = "TEST";
         }
         Model.Side side = favorites.contains(g.away.abbr) ? g.away : g.home;
-        String word = scoreWord(g.sport, 1);
+        // Baseball: the test shows the home run celebration (grand slam), it's the fun one.
+        String word = "baseball".equals(g.sport) ? ThorView.homeRunWord(4) : scoreWord(g, 1);
         goalAlert(g, side, word == null ? "SCORE!" : word);
     }
 
     private void goalAlert(Model.Game g, Model.Side side, String word) { goalAlert(g, side, word, side.color); }
 
     private void goalAlert(Model.Game g, Model.Side side, String word, int ledColor) {
-        if (celebrations) all(v -> v.celebrate(g, side, word));
+        if (celebrations && top != null) {
+            // Two-screen mode: one party spread over both screens (logo + word on top, score + scorer below).
+            long start = System.currentTimeMillis();
+            top.celebrate(g, side, word, ThorView.CELEB_TOP, start);
+            view.celebrate(g, side, word, ThorView.CELEB_BOTTOM, start);
+        }
+        else if (celebrations) view.celebrate(g, side, word);
         else all(v -> v.banner(word + " " + side.abbr + " · " + g.away.abbr + " " + g.away.score + " – " + g.home.score + " " + g.home.abbr, side.color | 0xFF000000));
-        Horn.play(this, sound && !quietNow(), HORN_VOLS[hornVol]);
-        if (ledsAvailable && ledsOn) {
+        boolean homer = ThorView.isHomeRunWord(word);
+        Horn.play(this, sound && !quietNow(), HORN_VOLS[hornVol], homer);
+        if (ledsAvailable && ledsOn && homer) {
+            // the light follows the ball from the left stick to the right one, then the team's colors (gold for a grand slam)
+            int a = side.ledA != 0 ? side.ledA : side.color;
+            Leds.homeRun(a, ThorView.isGrandSlamWord(word) ? 0xFFFFC400 : second(a, side.ledB));
+        } else if (ledsAvailable && ledsOn) {
             if (ledColor == side.color && side.ledA != 0) Leds.flash2(side.ledA, second(side.ledA, side.ledB));
             else Leds.flash(ledColor);
         }
     }
 
     /** What to shout. Basketball scores too often, so no celebration there. */
-    private static String scoreWord(String sport, int delta) {
-        switch (sport) {
+    private static String scoreWord(Model.Game g, int delta) {
+        switch (g.sport) {
             case "hockey":
             case "soccer": return ThorView.tr("GOAL!", "BUT!");
             case "football":
@@ -1726,7 +1740,9 @@ public class MainActivity extends Activity implements ThorView.Listener {
                 if (delta == 3) return ThorView.tr("FIELD GOAL!", "PLACEMENT!");
                 if (delta == 2) return ThorView.tr("2 POINTS!", "2 POINTS!");
                 return ThorView.tr("EXTRA POINT!", "TRANSFORMATION!");
-            case "baseball": return delta == 1 ? ThorView.tr("RUN!", "POINT!") : delta + ThorView.tr(" RUNS!", " POINTS!");
+            case "baseball":
+                if (ThorView.isHomeRunPlay(g.lastPlay)) return ThorView.homeRunWord(delta);
+                return delta == 1 ? ThorView.tr("RUN!", "POINT!") : delta + ThorView.tr(" RUNS!", " POINTS!");
             case "esports": return ThorView.tr("GAME WON!", "PARTIE GAGNÉE!");
             default: return null;
         }

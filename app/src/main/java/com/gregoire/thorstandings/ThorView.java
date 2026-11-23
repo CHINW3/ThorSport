@@ -83,6 +83,33 @@ public class ThorView extends View {
     /** Français / English */
     public static boolean fr;
     public static String tr(String en, String french) { return fr ? french : en; }
+
+    // ------------------------------------------------------------------ home runs
+    /** ESPN's last play says "J. Doe homered to left (402 feet)…" (or "home run"). */
+    public static boolean isHomeRunPlay(String lastPlay) {
+        if (lastPlay == null) return false;
+        String l = lastPlay.toLowerCase(Locale.US);
+        return l.contains("homered") || l.contains("home run") || l.contains("grand slam");
+    }
+    public static String homeRunWord(int runs) {
+        if (runs >= 4) return tr("GRAND SLAM!", "GRAND CHELEM!");
+        if (runs <= 1) return tr("HOME RUN!", "CIRCUIT!");
+        return runs + tr("-RUN HOMER!", " POINTS: CIRCUIT!");
+    }
+    public static boolean isGrandSlamWord(String w) { return "GRAND SLAM!".equals(w) || "GRAND CHELEM!".equals(w); }
+    public static boolean isHomeRunWord(String w) {
+        return w != null && (isGrandSlamWord(w) || w.equals("HOME RUN!") || w.equals("CIRCUIT!") || w.endsWith("-RUN HOMER!") || w.endsWith("CIRCUIT!"));
+    }
+    /** "AARON JUDGE · 427 FT" from the last play, or "" when it isn't there. */
+    private static String homeRunInfo(String lastPlay) {
+        if (!isHomeRunPlay(lastPlay)) return "";
+        String who = "";
+        int i = lastPlay.toLowerCase(Locale.US).indexOf(" homered");
+        if (i > 0) who = lastPlay.substring(0, i).trim();
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\d{3}) feet").matcher(lastPlay);
+        String ft = m.find() ? m.group(1) + " FT" : "";
+        return (who + (who.isEmpty() || ft.isEmpty() ? "" : "  ·  ") + ft).toUpperCase(Locale.US);
+    }
     private static final int LIVE = 0xFFFF3B30;
     private static final int AMBER = 0xFFFFB524;
     private static final int GREEN = 0xFF34C759;
@@ -778,13 +805,43 @@ public class ThorView extends View {
     }
 
     public void celebrate(Model.Game g, Model.Side side, String word) {
+        celebrate(g, side, word, CELEB_FULL, System.currentTimeMillis());
+    }
+
+    /** One screen shows it all. In two-screen mode the party is split: top = logo + word, bottom = score + scorer. */
+    public static final int CELEB_FULL = 0, CELEB_TOP = 1, CELEB_BOTTOM = 2;
+    private int celebPart = CELEB_FULL;
+
+    public void celebrate(Model.Game g, Model.Side side, String word, int part, long start) {
         celebGame = g; celebSide = side; celebWord = word;
         celebScorer = "";
         boolean home = side == g.home;
         for (Model.Goal goal : g.goals) if (goal.home == home && !goal.red) celebScorer = goal.who;
-        celebStart = System.currentTimeMillis();
+        celebPart = part;
+        celebStart = start;   // same start on both screens so the confetti falls from one into the other
+        // the score card keeps flashing after the party (otherwise it flashed hidden under it)
+        flashUntil.put(g.id, start + CELEBRATION_MS + FLASH_MS);
         invalidate();
     }
+
+    /**
+     * Score that just changed on the Board: it blinks amber for 4 s. If a goal celebration covered the Board,
+     * the blinking starts when the celebration ends (before, it happened under the party and nobody saw it).
+     * Returns 0 = normal, 1 = bright (amber) phase, 2 = dim phase.
+     */
+    private int scoreBlink(Model.Game g, boolean home) {
+        Long pa = popAt.get(g.id + ":" + (home ? "home" : "away"));
+        if (pa == null) return 0;
+        long now = System.currentTimeMillis(), start = pa;
+        if (celebGame != null && celebGame.id.equals(g.id) && celebStart + CELEBRATION_MS > pa && celebStart - pa < 60_000)
+            start = Math.max(pa, celebStart + CELEBRATION_MS);
+        long t = now - start;
+        if (t < 0) { postInvalidateDelayed(250); return 0; }
+        if (t >= SCORE_BLINK_MS) return 0;
+        postInvalidateOnAnimation();
+        return (t / 250) % 2 == 0 ? 1 : 2;
+    }
+    private static final long SCORE_BLINK_MS = 4000;
 
     private boolean celebrating() {
         return celebGame != null && System.currentTimeMillis() - celebStart < CELEBRATION_MS;
@@ -2970,11 +3027,8 @@ public class ThorView extends View {
         boolean lost = g.isFinal() && !s.winner && (g.away.winner || g.home.winner);
         int col = "–".equals(score) || lost ? DIM : TEXT;
         float size = Math.min(ph * 0.36f, pw * 0.46f);
-        Long pa = popAt.get(g.id + ":" + (s == g.home ? "home" : "away"));
-        if (pa != null) {
-            long t = System.currentTimeMillis() - pa;
-            if (t < 900) { size *= 1 + 0.3f * (float) Math.sin(Math.PI * t / 900.0); col = AMBER; postInvalidateOnAnimation(); }
-        }
+        int blink = scoreBlink(g, s == g.home);
+        if (blink > 0) { size *= 1.12f; col = blink == 1 ? AMBER : TEXT; }
         p.setShadowLayer(ph * 0.02f, 0, ph * 0.006f, 0x99000000);
         text(c, score, cx, y + ph * 0.79f, size, tfBlack, col, Paint.Align.CENTER, pw * 0.95f);
         p.clearShadowLayer();
@@ -3100,10 +3154,10 @@ public class ThorView extends View {
             logo(c, s.logo, s.abbr, s.color, lx, r.centerY() - topH * 0.06f, ls);
             text(c, star(s.abbr), lx, r.bottom - topH * 0.11f, topH * 0.13f, tfCond, TEXT, Paint.Align.CENTER, ls * 1.4f);
             String sc = s.score.isEmpty() ? "0" : s.score;
-            Long pa = popAt.get(g.id + ":" + (left ? "away" : "home"));
+            int blink = scoreBlink(g, !left);
             float size = topH * 0.62f;
             int col = TEXT;
-            if (pa != null && System.currentTimeMillis() - pa < 900) { size *= 1.2f; col = AMBER; postInvalidateOnAnimation(); }
+            if (blink > 0) { size *= 1.12f; col = blink == 1 ? AMBER : TEXT; }
             text(c, sc, left ? r.right - gap * 1.5f : r.left + gap * 1.5f, r.centerY(), size, tfBlack, col,
                 left ? Paint.Align.RIGHT : Paint.Align.LEFT, pw * 0.5f);
         }
@@ -3392,10 +3446,10 @@ public class ThorView extends View {
                 }
             }
             String sc = s.score.isEmpty() ? "0" : s.score;
-            Long pa = popAt.get(g.id + ":" + (left ? "away" : "home"));
+            int blink = scoreBlink(g, !left);
             float size = topH * 0.58f;
             int col = TEXT;
-            if (pa != null && System.currentTimeMillis() - pa < 900) { size *= 1.2f; col = AMBER; postInvalidateOnAnimation(); }
+            if (blink > 0) { size *= 1.12f; col = blink == 1 ? AMBER : TEXT; }
             text(c, sc, left ? r.right - gap * 1.5f : r.left + gap * 1.5f, r.centerY() - topH * 0.06f, size, tfBlack, col,
                 left ? Paint.Align.RIGHT : Paint.Align.LEFT, pw * 0.45f);
         }
@@ -3608,10 +3662,10 @@ public class ThorView extends View {
             logo(c, s.logo, s.abbr, s.color, lx, r.centerY() - topH * 0.08f, ls);
             text(c, star(s.abbr), lx, r.bottom - topH * 0.12f, topH * 0.13f, tfCond, TEXT, Paint.Align.CENTER, ls * 1.8f);
             String sc = s.score.isEmpty() ? "0" : s.score;
-            Long pa = popAt.get(g.id + ":" + (left ? "away" : "home"));
+            int blink = scoreBlink(g, !left);
             float size = topH * 0.6f;
             int col = g.isFinal() && !s.winner && (g.away.winner || g.home.winner) ? DIM : TEXT;
-            if (pa != null && System.currentTimeMillis() - pa < 900) { size *= 1.2f; col = AMBER; postInvalidateOnAnimation(); }
+            if (blink > 0) { size *= 1.12f; col = blink == 1 ? AMBER : TEXT; }
             float sx = left ? r.right - gap * 1.5f : r.left + gap * 1.5f;
             text(c, sc, sx, r.centerY() - topH * 0.08f, size, tfBlack, col, left ? Paint.Align.RIGHT : Paint.Align.LEFT, pw * 0.45f);
             if (s.shots >= 0)
@@ -3885,9 +3939,14 @@ public class ThorView extends View {
         p.setColor(alpha(0xFF000000, (int) (240 * fade)));
         c.drawRect(0, 0, w, h, p);
 
+        // Split over two screens: think of one tall canvas (top screen above the bottom one).
+        boolean split = celebPart != CELEB_FULL;
+        float H = split ? h * 2f : h;                       // height of the whole (virtual) canvas
+        float oy = celebPart == CELEB_BOTTOM ? h : 0;       // where this screen starts in it
+
         double pulse = 0.5 + 0.5 * Math.sin(t * 2 * Math.PI / 420.0);
         int a = (int) ((70 + 160 * pulse) * fade);
-        p.setShader(new RadialGradient(w / 2f, h * 0.4f, Math.max(w, h) * 0.8f,
+        p.setShader(new RadialGradient(w / 2f, (split ? H * 0.45f : h * 0.4f) - oy, Math.max(w, H) * 0.8f,
             alpha(s.color, a), alpha(s.color, a / 5), Shader.TileMode.CLAMP));
         c.drawRect(0, 0, w, h, p);
         p.setShader(null);
@@ -3907,9 +3966,9 @@ public class ThorView extends View {
         int[] colors = {s.color, TEXT, AMBER, alpha(s.color, 0xFF) ^ 0x00202020};
         for (int i = 0; i < 90; i++) {
             float x0 = rnd.nextFloat() * w;
-            float speed = h * (0.25f + rnd.nextFloat() * 0.35f);
-            float yy = -h * 0.1f - rnd.nextFloat() * h * 0.6f + speed * t / 1000f;
-            if (yy > h * 1.05f) continue;
+            float speed = H * (0.25f + rnd.nextFloat() * 0.35f);
+            float yy = -H * 0.1f - rnd.nextFloat() * H * 0.6f + speed * t / 1000f - oy;
+            if (yy > h * 1.05f || yy < -h * 0.05f) continue;
             float xx = x0 + (float) Math.sin(t / 300.0 + i) * w * 0.02f;
             float sz = h * (0.008f + rnd.nextFloat() * 0.01f);
             p.setColor(alpha(colors[i % colors.length], (int) (255 * fade)));
@@ -3919,21 +3978,125 @@ public class ThorView extends View {
             c.restore();
         }
 
-        float k = Math.min(1f, t / 520f);
-        bmpPaint.setAlpha((int) (255 * fade));
-        logo(c, s.logo, s.abbr, s.color, w / 2f, h * 0.33f, h * 0.4f * Math.max(0.01f, easeOutBack(k)));
-        bmpPaint.setAlpha(255);
+        boolean homer = isHomeRunWord(celebWord);
+        if (homer) drawHomeRun(c, w, h, H, oy, t, fade, s.color, isGrandSlamWord(celebWord));
 
-        float ws = h * 0.16f * (1 + 0.05f * (float) Math.sin(t * 2 * Math.PI / 420.0));
-        p.setShadowLayer(h * 0.025f, 0, h * 0.008f, 0xCC000000);
-        text(c, celebWord, w / 2f, h * 0.66f, ws, tfBlack, alpha(TEXT, (int) (255 * fade)), Paint.Align.CENTER, w * 0.95f);
+        // home run: the ball flies first, then the logo and the word land
+        long tt = homer ? Math.max(0, t - 800) : t;
+        float k = Math.min(1f, tt / 520f);
+        float beat = 1 + 0.05f * (float) Math.sin(t * 2 * Math.PI / 420.0);
         Model.Game g = celebGame;
         String line = g.away.abbr + "  " + g.away.score + "  –  " + g.home.score + "  " + g.home.abbr;
-        text(c, line, w / 2f, h * 0.8f, h * 0.07f, tfCond, alpha(TEXT, (int) (230 * fade)), Paint.Align.CENTER, w * 0.9f);
         String sub = (celebScorer.isEmpty() ? "" : celebScorer.toUpperCase() + "  ·  ") + g.detail.toUpperCase();
-        if (!sub.isEmpty())
-            text(c, sub, w / 2f, h * 0.89f, h * 0.045f, tfCond, alpha(AMBER, (int) (230 * fade)), Paint.Align.CENTER, w * 0.9f);
+        if (homer) {
+            String info = homeRunInfo(g.lastPlay);
+            sub = info.isEmpty() ? g.detail.toUpperCase() : info;
+        }
+        int wordCol = homer && isGrandSlamWord(celebWord) ? AMBER : TEXT;
+        if (homer && tt == 0) { p.clearShadowLayer(); return; }   // only the ball for now
+        p.setShadowLayer(h * 0.025f, 0, h * 0.008f, 0xCC000000);
+
+        if (celebPart == CELEB_TOP) {
+            // top screen: big logo + the word
+            bmpPaint.setAlpha((int) (255 * fade));
+            logo(c, s.logo, s.abbr, s.color, w / 2f, h * 0.36f, h * 0.5f * Math.max(0.01f, easeOutBack(k)));
+            bmpPaint.setAlpha(255);
+            text(c, celebWord, w / 2f, h * 0.86f, h * 0.22f * beat, tfBlack, alpha(wordCol, (int) (255 * fade)), Paint.Align.CENTER, w * 0.95f);
+        } else if (celebPart == CELEB_BOTTOM) {
+            // bottom screen: the new score, big, then who scored
+            float pop = Math.max(0.01f, easeOutBack(Math.min(1f, Math.max(0f, (tt - 250) / 520f))));   // lands just after the top
+            text(c, line, w / 2f, h * 0.5f, h * 0.17f * pop, tfBlack, alpha(TEXT, (int) (255 * fade)), Paint.Align.CENTER, w * 0.95f);
+            if (!sub.isEmpty())
+                text(c, sub, w / 2f, h * 0.72f, h * 0.065f, tfCond, alpha(AMBER, (int) (230 * fade)), Paint.Align.CENTER, w * 0.92f);
+        } else {
+            bmpPaint.setAlpha((int) (255 * fade));
+            logo(c, s.logo, s.abbr, s.color, w / 2f, h * 0.33f, h * 0.4f * Math.max(0.01f, easeOutBack(k)));
+            bmpPaint.setAlpha(255);
+            text(c, celebWord, w / 2f, h * 0.66f, h * 0.16f * beat, tfBlack, alpha(wordCol, (int) (255 * fade)), Paint.Align.CENTER, w * 0.95f);
+            text(c, line, w / 2f, h * 0.8f, h * 0.07f, tfCond, alpha(TEXT, (int) (230 * fade)), Paint.Align.CENTER, w * 0.9f);
+            if (!sub.isEmpty())
+                text(c, sub, w / 2f, h * 0.89f, h * 0.045f, tfCond, alpha(AMBER, (int) (230 * fade)), Paint.Align.CENTER, w * 0.9f);
+        }
         p.clearShadowLayer();
+    }
+
+    /**
+     * Home run: the ball leaves the plate (bottom left), flies up with a glowing trail and out of the park
+     * (top right), then fireworks in the team's colors. In two-screen mode it flies from the bottom screen into the top one.
+     * H = height of the whole canvas (2 screens when split), oy = where this screen starts in it.
+     */
+    private void drawHomeRun(Canvas c, int w, int h, float H, float oy, long t, float fade, int teamColor, boolean slam) {
+        p.setStyle(Paint.Style.FILL);
+        final float FLY = 1100f;
+        float x0 = w * 0.16f, y0 = H * 0.9f, cx = w * 0.42f, cy = -H * 0.3f, x1 = w * 1.12f, y1 = -H * 0.12f;
+
+        // the ball and its trail
+        if (t < FLY + 300) {
+            for (int i = 14; i >= 0; i--) {
+                float u = (t - i * 22) / FLY;
+                if (u < 0 || u > 1) continue;
+                float iu = 1 - u;
+                float bx = iu * iu * x0 + 2 * iu * u * cx + u * u * x1;
+                float by = iu * iu * y0 + 2 * iu * u * cy + u * u * y1 - oy;
+                float r = h * 0.035f * (1 - 0.55f * u) * (i == 0 ? 1f : 1f - i / 16f);
+                if (i == 0) {
+                    p.setShader(new RadialGradient(bx, by, r * 3.2f, alpha(AMBER, (int) (170 * fade)), 0x00000000, Shader.TileMode.CLAMP));
+                    c.drawCircle(bx, by, r * 3.2f, p);
+                    p.setShader(null);
+                    p.setColor(alpha(0xFFFFFFFF, (int) (255 * fade)));
+                    c.drawCircle(bx, by, r, p);
+                    p.setColor(alpha(0xFFE0333E, (int) (220 * fade)));   // seams
+                    p.setStyle(Paint.Style.STROKE);
+                    p.setStrokeWidth(r * 0.12f);
+                    c.drawArc(new RectF(bx - r * 1.5f, by - r * 0.7f, bx - r * 0.2f, by + r * 0.7f), -60, 120, false, p);
+                    c.drawArc(new RectF(bx + r * 0.2f, by - r * 0.7f, bx + r * 1.5f, by + r * 0.7f), 120, 120, false, p);
+                    p.setStyle(Paint.Style.FILL);
+                } else {
+                    p.setColor(alpha(i % 2 == 0 ? AMBER : 0xFFFFFFFF, (int) (150 * fade * (1 - i / 15f))));
+                    c.drawCircle(bx, by, r, p);
+                }
+            }
+            // the bat hit: a quick white flash at the plate
+            if (t < 220) {
+                float k = t / 220f;
+                p.setColor(alpha(0xFFFFFFFF, (int) (200 * (1 - k) * fade)));
+                c.drawCircle(x0, y0 - oy, h * (0.05f + 0.25f * k), p);
+            }
+        }
+
+        // fireworks
+        Random rnd = new Random(celebStart * 31 + 5);
+        int bursts = slam ? 10 : 6;
+        int[] cols = {teamColor, AMBER, 0xFFFFFFFF, slam ? 0xFFFFC400 : teamColor};
+        for (int b = 0; b < bursts; b++) {
+            float bx = w * (0.15f + rnd.nextFloat() * 0.7f);
+            float byV = H * (0.08f + rnd.nextFloat() * (H > h ? 0.6f : 0.4f));   // virtual y
+            float R = h * (0.16f + rnd.nextFloat() * 0.1f);
+            int col = cols[b % cols.length];
+            long start = (long) (FLY - 200 + b * (slam ? 300 : 420));
+            float k = (t - start) / 1300f;
+            if (k < 0 || k > 1) continue;
+            float by = byV - oy;
+            if (by < -R * 1.5f || by > h + R * 1.5f) continue;
+            float spread = 1 - (1 - k) * (1 - k);
+            float drop = h * 0.09f * k * k;
+            int al = (int) (255 * (1 - k) * fade);
+            if (k < 0.12f) {   // the bang
+                p.setColor(alpha(0xFFFFFFFF, (int) (220 * (1 - k / 0.12f) * fade)));
+                c.drawCircle(bx, by, R * 0.35f, p);
+            }
+            for (int i = 0; i < 30; i++) {
+                double ang = i * 2 * Math.PI / 30 + b;
+                float px = bx + (float) Math.cos(ang) * R * spread;
+                float py = by + (float) Math.sin(ang) * R * spread + drop;
+                p.setColor(alpha(i % 3 == 0 ? 0xFFFFFFFF : col, al));
+                c.drawCircle(px, py, h * 0.009f * (1.2f - k * 0.6f), p);
+                // a little sparkle line back toward the center
+                p.setColor(alpha(col, al / 3));
+                c.drawCircle(bx + (float) Math.cos(ang) * R * spread * 0.75f, by + (float) Math.sin(ang) * R * spread * 0.75f + drop * 0.8f, h * 0.005f, p);
+            }
+        }
+        if (t < CELEBRATION_MS) postInvalidateOnAnimation();
     }
 
     // ------------------------------------------------------------------ standings
