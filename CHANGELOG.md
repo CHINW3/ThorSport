@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.12
+- **Polymarket for night games**: evening games (Sunday/Monday/Thursday Night Football, late NBA/NHL games) had no win chance because Polymarket files them under the next day's date. ThorSport now checks both dates.
+
 ## 3.11
 - **F1, more visual**: team badges in each team's color (RBR, FER, MCL…) in the results, each driver's country flag next to their name (results and drivers' standings), constructors with their team code, and the host country's flag in the Grand Prix header. Fixed the F1 logo link.
 - **One two-screen mode**: two screens now always means the Board on top with GAME and LIVE on the bottom (the Classic option is gone). The ▭ button / R3 switch between one and two screens.
