@@ -45,7 +45,13 @@ public final class Leds {
         int max = Math.max(r, Math.max(g, b));
         if (max < 24) return 0xFFFFFFFF;
         float k = 255f / max;
-        return 0xFF000000 | (Math.min(255, (int) (r * k)) << 16) | (Math.min(255, (int) (g * k)) << 8) | Math.min(255, (int) (b * k));
+        r = Math.min(255, (int) (r * k)); g = Math.min(255, (int) (g * k)); b = Math.min(255, (int) (b * k));
+        // LEDs make a small bit of a weak channel very visible (a red with a little blue looks pink,
+        // e.g. Blackhawks). Drop channels under 25 % of the strongest so pure reds stay red.
+        if (r < 64) r = 0;
+        if (g < 64) g = 0;
+        if (b < 64) b = 0;
+        return 0xFF000000 | (r << 16) | (g << 8) | b;
     }
 
     private static String value(int color) {
@@ -69,27 +75,22 @@ public final class Leds {
         final int gen = ++generation;
         new Thread(() -> {
             for (int i = 0; i < 12 && gen == generation; i++) {
-                if (i % 2 == 0) apply(a, b); else apply(b, a);
+                if (i % 2 == 0) force(a, b); else force(b, a);
                 try { Thread.sleep(260); } catch (InterruptedException e) { return; }
             }
             if (gen != generation) return;
             if (steadyIsSystem && appCtx != null) { restoredOnce = false; restore(appCtx); }
-            else apply(steadyLeft, steadyRight);
+            else force(steadyLeft, steadyRight);
         }).start();
     }
 
-    /** Small celebration: a few quick blinks, then back to the steady colors. */
-    public static void blink(int color, int times) {
-        final int gen = ++generation;
-        new Thread(() -> {
-            for (int i = 0; i < times * 2 && gen == generation; i++) {
-                apply(i % 2 == 0 ? color : 0, i % 2 == 0 ? color : 0);
-                try { Thread.sleep(i % 2 == 0 ? 180 : 120); } catch (InterruptedException e) { return; }
-            }
-            if (gen != generation) return;
-            if (steadyIsSystem && appCtx != null) { restoredOnce = false; restore(appCtx); }
-            else apply(steadyLeft, steadyRight);
-        }).start();
+    /**
+     * Write even if we think the stick already has this color. Used during goal animations so they still show
+     * when another RGB app (AmbiAnalog, the Thor's own light settings…) keeps writing its colors over ours.
+     */
+    private static synchronized void force(int left, int right) {
+        lastL = ""; lastR = "";
+        apply(left, right);
     }
 
     /** color 0 = that stick off. */
@@ -120,12 +121,51 @@ public final class Leds {
         final int gen = ++generation;
         new Thread(() -> {
             for (int i = 0; i < 12 && gen == generation; i++) {
-                apply(i % 2 == 0 ? color : 0, i % 2 == 0 ? color : 0);
+                force(i % 2 == 0 ? color : 0, i % 2 == 0 ? color : 0);
                 try { Thread.sleep(i % 2 == 0 ? 330 : 170); } catch (InterruptedException e) { return; }
             }
             if (gen != generation) return;
             if (steadyIsSystem && appCtx != null) { restoredOnce = false; restore(appCtx); }
-            else apply(steadyLeft, steadyRight);
+            else force(steadyLeft, steadyRight);
+        }).start();
+    }
+
+    /**
+     * Home run: the light flies from the left stick to the right one (like the ball leaving the park),
+     * three times, then the sticks swap a and b (gold for a grand slam) like a goal.
+     */
+    public static void homeRun(int a, int b) {
+        final int gen = ++generation;
+        new Thread(() -> {
+            try {
+                for (int i = 0; i < 3 && gen == generation; i++) {
+                    force(a, 0); Thread.sleep(140);
+                    force(a, a); Thread.sleep(90);
+                    force(0, a); Thread.sleep(160);
+                    force(0, 0); Thread.sleep(120);
+                }
+                for (int i = 0; i < 10 && gen == generation; i++) {
+                    if (i % 2 == 0) force(a, b); else force(b, a);
+                    Thread.sleep(260);
+                }
+            } catch (InterruptedException e) { return; }
+            if (gen != generation) return;
+            if (steadyIsSystem && appCtx != null) { restoredOnce = false; restore(appCtx); }
+            else force(steadyLeft, steadyRight);
+        }).start();
+    }
+
+    /** Small score (basketball basket): two quick blinks in the team's color, then back to normal. */
+    public static void blink(int color) {
+        final int gen = ++generation;
+        new Thread(() -> {
+            for (int i = 0; i < 4 && gen == generation; i++) {
+                force(i % 2 == 0 ? color : 0, i % 2 == 0 ? color : 0);
+                try { Thread.sleep(150); } catch (InterruptedException e) { return; }
+            }
+            if (gen != generation) return;
+            if (steadyIsSystem && appCtx != null) { restoredOnce = false; restore(appCtx); }
+            else force(steadyLeft, steadyRight);
         }).start();
     }
 
