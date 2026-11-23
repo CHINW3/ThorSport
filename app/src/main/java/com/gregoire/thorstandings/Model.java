@@ -75,7 +75,12 @@ public final class Model {
         public final List<String> results = new ArrayList<>();   // F1: finishing order
         public final List<String> resultInfo = new ArrayList<>();  // F1: "Team|gap"
         public final List<Integer> resultColors = new ArrayList<>();
-        public final List<String> resultFlags = new ArrayList<>();   // F1: driver nationality flag URL
+        public final List<String> resultFlags = new ArrayList<>();
+        // GAME tab extras (ESPN game summary)
+        public final List<String[]> teamStats = new ArrayList<>();    // {label, away, home}
+        public final List<String[]> leaderLines = new ArrayList<>();  // {team abbr, category, player, value}
+        public final List<Float> winHist = new ArrayList<>();         // away win chance through the game (ESPN)
+        public String driveText = "";                                 // football: "8 plays, 54 yards, 4:12"   // F1: driver nationality flag URL
         public String flag = "";                                     // F1: host country flag URL
         public long startMs;
 

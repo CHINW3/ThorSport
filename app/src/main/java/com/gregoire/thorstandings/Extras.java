@@ -217,4 +217,126 @@ public final class Extras {
         }
         return null;
     }
+
+    // ------------------------------------------------------------------ ESPN game summary (GAME tab on the bottom screen)
+    private static final String[][] PREF = {
+        {"football", "totalYards", "netPassingYards", "rushingYards", "firstDowns", "thirdDownEff", "turnovers", "totalPenaltiesYards", "possessionTime"},
+        {"basketball", "fieldGoalPct", "threePointFieldGoalPct", "freeThrowPct", "totalRebounds", "assists", "turnovers", "steals", "blocks"},
+        {"hockey", "shotsTotal", "powerPlayGoals", "faceoffPercent", "hits", "blockedShots", "takeaways", "giveaways", "penaltyMinutes"},
+        {"soccer", "possessionPct", "totalShots", "shotsOnTarget", "wonCorners", "foulsCommitted", "yellowCards", "offsides", "saves"},
+    };
+    private static final Map<String, Long> sumAt = new HashMap<>();
+
+    /** Team stats, leaders, scoring plays, current drive and ESPN's win probability for one game. */
+    public static void summary(Model.Game g) {
+        if (g == null || g.league.isEmpty() || g.league.contains("pwhl") || "racing".equals(g.sport) || "esports".equals(g.sport)) return;
+        String ev = g.id.split("-")[0];
+        if (!ev.matches("\\d+")) return;
+        Long at = sumAt.get(g.id);
+        if (at != null && System.currentTimeMillis() - at < (g.isLive() ? 15_000 : 300_000)) { restore(g); return; }
+        try {
+            JSONObject root = new JSONObject(Espn.get("https://site.api.espn.com/apis/site/v2/sports/" + g.league + "/summary?event=" + ev));
+            Model.Game c = new Model.Game();   // parsed copy, cached and copied into g
+            // team stats
+            JSONObject box = root.optJSONObject("boxscore");
+            JSONArray teams = box == null ? null : box.optJSONArray("teams");
+            if (teams != null && teams.length() == 2) {
+                JSONObject t0 = teams.optJSONObject(0), t1 = teams.optJSONObject(1);
+                boolean firstHome = t0 != null && "home".equals(t0.optString("homeAway"));
+                JSONObject aw = firstHome ? t1 : t0, hm = firstHome ? t0 : t1;
+                JSONArray as = aw == null ? null : aw.optJSONArray("statistics"), hs = hm == null ? null : hm.optJSONArray("statistics");
+                if (as != null && hs != null) {
+                    Map<String, String[]> byName = new java.util.LinkedHashMap<>();
+                    for (int i = 0; i < as.length(); i++) {
+                        JSONObject a = as.optJSONObject(i);
+                        if (a == null) continue;
+                        String name = a.optString("name");
+                        if (byName.containsKey(name)) continue;
+                        String hv = "";
+                        for (int k = 0; k < hs.length(); k++) { JSONObject h = hs.optJSONObject(k); if (h != null && name.equals(h.optString("name"))) { hv = h.optString("displayValue"); break; } }
+                        byName.put(name, new String[]{a.optString("label", name), a.optString("displayValue"), hv});
+                    }
+                    String[] pref = null;
+                    for (String[] p : PREF) if (p[0].equals(g.sport)) pref = p;
+                    if (pref != null) for (int k = 1; k < pref.length; k++) { String[] v = byName.get(pref[k]); if (v != null) c.teamStats.add(v); }
+                    if (c.teamStats.isEmpty()) for (String[] v : byName.values()) { if (c.teamStats.size() >= 8) break; c.teamStats.add(v); }
+                }
+            }
+            // leaders
+            JSONArray lead = root.optJSONArray("leaders");
+            if (lead != null) for (int i = 0; i < lead.length(); i++) {
+                JSONObject tl = lead.optJSONObject(i);
+                if (tl == null) continue;
+                JSONObject tm = tl.optJSONObject("team");
+                String abbr = tm == null ? "" : tm.optString("abbreviation");
+                JSONArray cats = tl.optJSONArray("leaders");
+                if (cats == null) continue;
+                for (int k = 0; k < Math.min(3, cats.length()); k++) {
+                    JSONObject cat = cats.optJSONObject(k);
+                    JSONArray ls = cat == null ? null : cat.optJSONArray("leaders");
+                    JSONObject top = ls == null || ls.length() == 0 ? null : ls.optJSONObject(0);
+                    JSONObject ath = top == null ? null : top.optJSONObject("athlete");
+                    if (ath == null) continue;
+                    c.leaderLines.add(new String[]{abbr, cat.optString("displayName", cat.optString("name")),
+                        ath.optString("shortName", ath.optString("displayName")), top.optString("displayValue")});
+                }
+            }
+            // scoring plays
+            JSONArray sp = root.optJSONArray("scoringPlays");
+            if (sp != null) for (int i = 0; i < sp.length(); i++) {
+                JSONObject p = sp.optJSONObject(i);
+                if (p == null) continue;
+                JSONObject tm = p.optJSONObject("team");
+                Model.Goal gl = new Model.Goal();
+                gl.home = tm != null && tm.optString("abbreviation").equals(g.home.abbr);
+                String type = p.optJSONObject("type") == null ? "" : p.optJSONObject("type").optString("text");
+                gl.who = type.isEmpty() ? p.optString("text") : type;
+                gl.extra = type.isEmpty() ? "" : p.optString("text");
+                JSONObject per = p.optJSONObject("period"), clk = p.optJSONObject("clock");
+                gl.time = (per == null ? "" : "Q" + per.optInt("number") + " ") + (clk == null ? "" : clk.optString("displayValue"));
+                if ("soccer".equals(g.sport) || "hockey".equals(g.sport)) gl.time = clk == null ? "" : clk.optString("displayValue");
+                c.goals.add(gl);
+            }
+            // current drive (football)
+            JSONObject drives = root.optJSONObject("drives");
+            JSONObject cur = drives == null ? null : drives.optJSONObject("current");
+            if (cur != null && g.isLive()) {
+                JSONObject tm = cur.optJSONObject("team");
+                c.driveText = (tm == null ? "" : tm.optString("abbreviation") + " · ") + cur.optString("description");
+            }
+            // ESPN win probability (used when there's no Polymarket market)
+            JSONArray wp = root.optJSONArray("winprobability");
+            if (wp != null) {
+                int step = Math.max(1, wp.length() / 160);
+                for (int i = 0; i < wp.length(); i += step) {
+                    JSONObject w = wp.optJSONObject(i);
+                    if (w != null && w.has("homeWinPercentage")) c.winHist.add((float) (1 - w.optDouble("homeWinPercentage")));
+                }
+                JSONObject last = wp.optJSONObject(wp.length() - 1);
+                if (last != null && last.has("homeWinPercentage") && (c.winHist.isEmpty() || i(c) != (float) (1 - last.optDouble("homeWinPercentage"))))
+                    c.winHist.add((float) (1 - last.optDouble("homeWinPercentage")));
+            }
+            sumCache.put(g.id, c);
+            sumAt.put(g.id, System.currentTimeMillis());
+        } catch (Exception ignored) { }
+        restore(g);
+    }
+
+    private static float i(Model.Game c) { return c.winHist.get(c.winHist.size() - 1); }
+
+    private static final Map<String, Model.Game> sumCache = new HashMap<>();
+
+    private static void restore(Model.Game g) {
+        Model.Game c = sumCache.get(g.id);
+        if (c == null) return;
+        g.teamStats.clear(); g.teamStats.addAll(c.teamStats);
+        g.leaderLines.clear(); g.leaderLines.addAll(c.leaderLines);
+        g.winHist.clear(); g.winHist.addAll(c.winHist);
+        g.driveText = c.driveText;
+        if (g.goals.isEmpty()) g.goals.addAll(c.goals);
+        if (g.away.odds < 0 && !c.winHist.isEmpty() && !g.isFinal()) {
+            float a = c.winHist.get(c.winHist.size() - 1);
+            g.away.odds = a; g.home.odds = 1 - a; g.oddsSource = "ESPN";
+        }
+    }
 }

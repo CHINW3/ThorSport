@@ -78,6 +78,20 @@ public final class Leds {
         }).start();
     }
 
+    /** Small celebration: a few quick blinks, then back to the steady colors. */
+    public static void blink(int color, int times) {
+        final int gen = ++generation;
+        new Thread(() -> {
+            for (int i = 0; i < times * 2 && gen == generation; i++) {
+                apply(i % 2 == 0 ? color : 0, i % 2 == 0 ? color : 0);
+                try { Thread.sleep(i % 2 == 0 ? 180 : 120); } catch (InterruptedException e) { return; }
+            }
+            if (gen != generation) return;
+            if (steadyIsSystem && appCtx != null) { restoredOnce = false; restore(appCtx); }
+            else apply(steadyLeft, steadyRight);
+        }).start();
+    }
+
     /** color 0 = that stick off. */
     private static synchronized void apply(int left, int right) {
         String l = left == 0 ? "off" : value(left), r = right == 0 ? "off" : value(right);
