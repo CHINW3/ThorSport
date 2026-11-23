@@ -1,14 +1,10 @@
-# ThorSport 3.14
+# ThorSport 3.9
 
 Live sports for the **AYN Thor bottom screen** (1240×1080). Everything is drawn to fill the screen exactly.
 
-| Two screens next to the TV | Two screens: Board on top, GAME tab below |
+| Two-screen mode | Board next to the TV |
 |---|---|
-| ![Two screens next to the TV](screenshots/two-screen-with-tv.webp) | ![Two screens with the GAME tab](screenshots/two-screen-game-tab.webp) |
-| **NFL Board with the live field** | **NHL Board with the shot map** |
-| ![NFL Board](screenshots/nfl-board.webp) | ![NHL shot map](screenshots/nhl-shot-map.webp) |
-| **MLS Board** | **Board next to the TV** |
-| ![MLS Board](screenshots/mls-board.webp) | ![Board](screenshots/board-with-tv.webp) |
+| ![Two-screen mode](screenshots/two-screen-scores.webp) | ![Board](screenshots/board-with-tv.webp) |
 
 ## Download
 
@@ -50,7 +46,9 @@ The mode is remembered next time you open the app.
 
 ## Alerts
 GOAL! / TOUCHDOWN! screen with your team's colors, confetti, scorer name, goal horn, vibration and stick-light flash.
-In a game with one of your teams, only your team's goals trigger it; games without your teams (or two of your teams) celebrate both sides. Also: 15-min reminder, puck drop (short horn), end of period,
+HOME RUN! (ball flying out of the park, fireworks, bat crack) and GRAND SLAM! for baseball; in basketball every basket
+makes the stick lights blink. In two-screen mode one celebration spreads over both screens.
+With favorite teams, only your team's goals trigger it. Also: 15-min reminder, puck drop (short horn), end of period,
 overtime, close game, upset, final and VICTORY! (gold lights). Tight finish for your team: stick lights breathe.
 
 ## AYN Thor stick lights
@@ -58,6 +56,7 @@ overtime, close game, upset, final and VICTORY! (gold lights). Tight finish for 
 - **Favorite team**: its two main colors, all the time (e.g. Canadiens: red on the left stick, blue on the right).
 - **Two of your favorites playing each other**: each stick shows its own team.
 - Goals: the sticks swap the scoring team's two colors. Win: gold. Tight finish: slow pulse.
+- Another RGB app (AmbiAnalog…) can fight ThorSport for the lights: close it if the goal flashes don't show.
 - Dark team colors are boosted so they're clearly visible; ThorSport re-applies its colors if the Thor resets them
   (screen on, etc.) and hands the lights back to your Thor settings when you leave the app.
 
