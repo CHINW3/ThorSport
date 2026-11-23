@@ -63,7 +63,7 @@ public class ThorView extends View {
     public static final int SET_DELAY = 0, SET_HORN = 1, SET_LEDS = 2, SET_DIM = 3, SET_AUTOBOARD = 4,
         SET_HORN_VOL = 5, SET_LED_BRI = 6, SET_CELEB = 7, SET_KEEP_ON = 8, SET_NIGHT = 9, SET_HIDE_FINAL = 10,
         SET_TEST = 11, SET_HELP = 12, SET_RESET = 13, SET_DUAL = 14, SET_QUIET = 15, SET_VIBRATE = 16,
-        SET_CELEB_LEN = 17, SET_ACCENT = 18, SET_CLOCK = 19, SET_LANG = 20, SET_SAVER = 21, SET_STAND_SIZE = 22, SET_DEMO_MLB = 23, SET_DEMO_NFL = 24, SET_DEMO_NHL = 25, SET_SHOT_MAP = 26, SET_UPDATE = 27, SET_COMPANION = 28, SET_MY_TEAMS = 29, SET_OTHER_TEAMS = 30;
+        SET_CELEB_LEN = 17, SET_ACCENT = 18, SET_CLOCK = 19, SET_LANG = 20, SET_SAVER = 21, SET_STAND_SIZE = 22, SET_DEMO_MLB = 23, SET_DEMO_NFL = 24, SET_DEMO_NHL = 25, SET_SHOT_MAP = 26, SET_UPDATE = 27, SET_COMPANION = 28, SET_MY_TEAMS = 29, SET_OTHER_TEAMS = 30, SET_MENU_FX = 31;
     private static final int GAMES_PER_PAGE = 8;
     private static final long AUTO_PAGE_MS = 10_000;
     private long CELEBRATION_MS = 6500;
@@ -443,7 +443,7 @@ public class ThorView extends View {
             selPicker = clamp(selPicker + (dx != 0 ? dx * rows : dy), n);
         } else if (tab == TAB_SCORES) {
             int m = cardRects.size();
-            int cols = m <= 2 ? 1 : 2;
+            int cols = dualBottom() ? 3 : m <= 2 ? 1 : 2;   // LIVE tiles are 3 per row (with 2, ↓ went diagonal)
             int next = selCard + dx + dy * cols;
             if (next >= m && (dx > 0 || dy > 0)) { nextPage(1); selCard = 0; }
             else if (next < 0 && (dx < 0 || dy < 0)) { nextPage(-1); selCard = 99; }

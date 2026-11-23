@@ -123,4 +123,47 @@ public final class Horn {
             }
         }).start();
     }
+
+    // ------------------------------------------------------------------ menu sounds
+    private static AudioTrack tickTrack, selectTrack;
+
+    /** A short soft "tick" (sine with a fast fade), higher for select. */
+    private static AudioTrack clickTrack(double freq, double seconds) {
+        int n = (int) (RATE * seconds);
+        short[] d = new short[n];
+        for (int i = 0; i < n; i++) {
+            double t = (double) i / RATE;
+            d[i] = (short) (Math.sin(2 * Math.PI * freq * t) * Math.exp(-t * 90) * 0.35 * Short.MAX_VALUE);
+        }
+        AudioTrack tr = new AudioTrack.Builder()
+            .setAudioAttributes(new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
+            .setAudioFormat(new AudioFormat.Builder()
+                .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                .setSampleRate(RATE)
+                .setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
+            .setBufferSizeInBytes(n * 2)
+            .setTransferMode(AudioTrack.MODE_STATIC)
+            .build();
+        tr.write(d, 0, n);
+        return tr;
+    }
+
+    /** Menu feedback: tick + a tiny vibration (select = higher tick, slightly stronger buzz). */
+    public static synchronized void menuFx(Context ctx, boolean select) {
+        try {
+            if (select && selectTrack == null) selectTrack = clickTrack(1320, 0.05);
+            if (!select && tickTrack == null) tickTrack = clickTrack(880, 0.035);
+            AudioTrack tr = select ? selectTrack : tickTrack;
+            if (tr.getPlayState() == AudioTrack.PLAYSTATE_PLAYING) tr.stop();
+            tr.reloadStaticData();
+            tr.play();
+        } catch (Exception e) { Log.w("ThorSport", "menu sound", e); }
+        try {
+            Vibrator vib = ctx.getSystemService(Vibrator.class);
+            if (vib != null && vib.hasVibrator())
+                vib.vibrate(VibrationEffect.createPredefined(select ? VibrationEffect.EFFECT_CLICK : VibrationEffect.EFFECT_TICK));
+        } catch (Exception ignored) { }
+    }
 }

@@ -82,7 +82,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
     private final Map<String, String> lastDetail = new HashMap<>();
     private final Map<String, Integer> lastPeriod = new HashMap<>();
     private long followedFinalAt;
-    private boolean quietHours, vibrate, saver, french, bigStandings;
+    private boolean quietHours, vibrate, saver, french, bigStandings, menuFx;
     private int celebLen, accentIdx, clockMode, batteryPct = 100;
     private boolean batteryCharging = true;
     private long dateChangedAt;
@@ -178,7 +178,8 @@ public class MainActivity extends Activity implements ThorView.Listener {
         Leds.setBrightness(LED_BRIS[ledBri]);
         quietHours = prefs.getBoolean("quiet", false);
         bigStandings = prefs.getBoolean("bigStandings", true);
-        vibrate = prefs.getBoolean("vibrate", true);
+        vibrate = prefs.getBoolean("vibrateGoal", false);   // off by default (3.16)
+        menuFx = prefs.getBoolean("menuFx", false);
         saver = prefs.getBoolean("saver", true);
         french = prefs.getBoolean("fr", java.util.Locale.getDefault().getLanguage().equals("fr"));
         celebLen = prefs.getInt("celebLen", 1);
@@ -342,6 +343,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
      */
     boolean handleKey(ThorView from, int code) {
         ThorView v = view;
+        menuFeedback(code);
         switch (code) {
             case KeyEvent.KEYCODE_DPAD_LEFT: v.controllerMove(-1, 0); return true;
             case KeyEvent.KEYCODE_DPAD_RIGHT: v.controllerMove(1, 0); return true;
@@ -363,6 +365,21 @@ public class MainActivity extends Activity implements ThorView.Listener {
             case KeyEvent.KEYCODE_BUTTON_THUMBL: refresh(true); return true;
             case KeyEvent.KEYCODE_BUTTON_THUMBR: onViewMode(dual ? 0 : 2); return true;   // R3: one screen / two screens
             default: return false;
+        }
+    }
+
+    /** Settings → Menu sounds & vibration (off by default): a soft tick + tiny buzz when you move, a higher one to select. */
+    private void menuFeedback(int code) {
+        if (!menuFx) return;
+        switch (code) {
+            case KeyEvent.KEYCODE_DPAD_LEFT: case KeyEvent.KEYCODE_DPAD_RIGHT: case KeyEvent.KEYCODE_DPAD_UP: case KeyEvent.KEYCODE_DPAD_DOWN:
+            case KeyEvent.KEYCODE_BUTTON_L1: case KeyEvent.KEYCODE_BUTTON_R1: case KeyEvent.KEYCODE_BUTTON_L2: case KeyEvent.KEYCODE_BUTTON_R2:
+                Horn.menuFx(this, false); break;
+            case KeyEvent.KEYCODE_BUTTON_A: case KeyEvent.KEYCODE_DPAD_CENTER: case KeyEvent.KEYCODE_ENTER:
+            case KeyEvent.KEYCODE_BUTTON_B: case KeyEvent.KEYCODE_BUTTON_START: case KeyEvent.KEYCODE_BUTTON_SELECT:
+            case KeyEvent.KEYCODE_BUTTON_X: case KeyEvent.KEYCODE_BUTTON_Y:
+                Horn.menuFx(this, true); break;
+            default: break;
         }
     }
 
@@ -388,12 +405,14 @@ public class MainActivity extends Activity implements ThorView.Listener {
             stickArmed = false;
             stickHeldSince = now;
             stickLastRepeat = now;
+            menuFeedback(KeyEvent.KEYCODE_DPAD_DOWN);
             view.controllerMove(dx, dy);
             return true;
         }
         boolean boardSwitch = tab == ThorView.TAB_BOARD && dx != 0;
         if (!boardSwitch && now - stickHeldSince > 450 && now - stickLastRepeat > 160) {   // held: repeat in lists
             stickLastRepeat = now;
+            menuFeedback(KeyEvent.KEYCODE_DPAD_DOWN);
             view.controllerMove(dx, dy);
         }
         return true;
@@ -813,11 +832,12 @@ public class MainActivity extends Activity implements ThorView.Listener {
         it.add(item(0, t("Night dim (11 PM–7 AM)", "Mode nuit (23 h–7 h)"), onOff(nightMode), ThorView.SET_NIGHT));
         it.add(item(0, t("Screensaver clock (10 min)", "Économiseur horloge (10 min)"), onOff(saver), ThorView.SET_SAVER));
         it.add(item(0, t("Keep screen on", "Garder l'écran allumé"), onOff(keepOn), ThorView.SET_KEEP_ON));
+        it.add(item(0, t("Menu sounds & vibration", "Sons et vibration des menus"), onOff(menuFx), ThorView.SET_MENU_FX));
         // 1 GOALS & ALERTS
         it.add(item(1, t("Goal horn", "Klaxon de but"), onOff(sound), ThorView.SET_HORN));
         it.add(item(1, t("Horn volume", "Volume du klaxon"), LEVELS[hornVol], ThorView.SET_HORN_VOL));
         it.add(item(1, t("Quiet hours (11 PM–8 AM)", "Heures calmes (23 h–8 h)"), onOff(quietHours), ThorView.SET_QUIET));
-        it.add(item(1, t("Vibration", "Vibration"), onOff(vibrate), ThorView.SET_VIBRATE));
+        it.add(item(1, t("Vibrate on goals", "Vibrer aux buts"), onOff(vibrate), ThorView.SET_VIBRATE));
         it.add(item(1, t("Goal screen", "Écran de but"), onOff(celebrations), ThorView.SET_CELEB));
         it.add(item(1, t("Your other games", "Tes autres matchs"), onOff(notify), ThorView.SET_OTHER_TEAMS));
         it.add(item(1, t("Goal screen length", "Durée de l'écran de but"), CELEB_NAMES[celebLen], ThorView.SET_CELEB_LEN));
@@ -942,7 +962,9 @@ public class MainActivity extends Activity implements ThorView.Listener {
             case ThorView.SET_QUIET:
                 quietHours = !quietHours; e.putBoolean("quiet", quietHours); break;
             case ThorView.SET_VIBRATE:
-                vibrate = !vibrate; Horn.vibrate = vibrate; e.putBoolean("vibrate", vibrate); break;
+                vibrate = !vibrate; Horn.vibrate = vibrate; e.putBoolean("vibrateGoal", vibrate); if (vibrate) Horn.play(this, false); break;
+            case ThorView.SET_MENU_FX:
+                menuFx = !menuFx; e.putBoolean("menuFx", menuFx); if (menuFx) Horn.menuFx(this, true); break;
             case ThorView.SET_CELEB_LEN:
                 celebLen = (celebLen + 1) % CELEB_MS.length; e.putInt("celebLen", celebLen); break;
             case ThorView.SET_ACCENT:
