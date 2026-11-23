@@ -58,6 +58,12 @@ public class TopActivity extends Activity {
         return super.onGenericMotionEvent(e);
     }
 
+    /** Home pressed while the top screen had focus: send both screens home. */
+    @Override protected void onUserLeaveHint() {
+        super.onUserLeaveHint();
+        if (MainActivity.instance != null && !isFinishing()) MainActivity.instance.leaveHome(true);
+    }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();

@@ -54,6 +54,7 @@ public class ThorView extends View {
         void onOnboardLeague(int leagueIndex);              // load that league's teams for "Pick your teams"
         void onOnboardToggle(String leaguePath, String abbr);
         void onOnboardDone();
+        void onViewMode(int mode);                          // 0 one screen, 1 two screens classic, 2 two screens + game info
     }
 
     public static final int TAB_SCORES = 0, TAB_BOARD = 1, TAB_STANDINGS = 2;
@@ -179,7 +180,7 @@ public class ThorView extends View {
     private final Runnable autoPage = new Runnable() {
         @Override public void run() {
             int pages = pageCount();
-            if (tab == TAB_SCORES && pages > 1) { page = (page + 1) % pages; invalidate(); }
+            if (tab == TAB_SCORES && pages > 1) goPage((page + 1) % pages, 1);
             postDelayed(this, AUTO_PAGE_MS);
         }
     };
@@ -212,10 +213,9 @@ public class ThorView extends View {
                 if (tab != TAB_SCORES) return false;
                 int pages = pageCount();
                 if (pages < 2) return false;
-                page = (page + (vx < 0 ? 1 : pages - 1)) % pages;
+                goPage((page + (vx < 0 ? 1 : pages - 1)) % pages, vx < 0 ? 1 : -1);
                 removeCallbacks(autoPage);
                 postDelayed(autoPage, AUTO_PAGE_MS * 2);
-                invalidate();
                 return true;
             }
 
@@ -231,6 +231,11 @@ public class ThorView extends View {
     /** A tap at (x, y): from the touchscreen, or the controller's A button on the highlighted item. */
     private boolean handleTap(float x, float y) {
         if (listener == null) return false;
+        if (modeMenuOpen) {
+            for (int i = 0; i < modeRects.size(); i++)
+                if (modeRects.get(i).contains(x, y)) { modeMenuOpen = false; listener.onViewMode(i); invalidate(); return true; }
+            modeMenuOpen = false; invalidate(); return true;
+        }
         if (onboardOpen) {
             for (int i = 0; i < onboardLeagueRects.size(); i++)
                 if (onboardLeagueRects.get(i).contains(x, y)) { openOnboardLeague(onboardLeagues.get(i)); return true; }
@@ -280,7 +285,7 @@ public class ThorView extends View {
     }
     pickerOpen = false; invalidate(); return true;
         }
-        if (dualRect.contains(x, y)) { listener.onDualToggle(); return true; }
+        if (dualRect.contains(x, y)) { modeMenuOpen = !modeMenuOpen; invalidate(); return true; }
         if (leagueRect.contains(x, y)) { pickerOpen = true; invalidate(); return true; }
         if (clockRect.contains(x, y)) { settingsOpen = true; invalidate(); return true; }
         if (!topMode) for (int i = 0; i < tabRects.length; i++) {
@@ -391,7 +396,7 @@ public class ThorView extends View {
         if (settingsOpen) {
             // console style: sections on the left, rows on the right; → / A goes into the rows, ← / B comes back
             if (settingsFocus == 0) {
-                if (dy != 0) { settingsSection = clamp(settingsSection + dy, SECTIONS.length); selSetting = 0; }
+                if (dy != 0) { settingsSection = clamp(settingsSection + dy, sectionCount()); selSetting = 0; }
                 else if (dx > 0 && !visibleSettings().isEmpty()) { settingsFocus = 1; selSetting = 0; }
             } else {
                 if (dx < 0) settingsFocus = 0;
@@ -655,16 +660,29 @@ public class ThorView extends View {
     public void setSaver(boolean on) { saverOn = on; invalidate(); }
     public void toggleSettings() { openSettings(); }
     public boolean closeOverlays() {
-        boolean any = settingsOpen || pickerOpen || helpOpen || delayOpen || celebrating();
-        settingsOpen = pickerOpen = helpOpen = delayOpen = false; celebGame = null; invalidate();
+        boolean any = modeMenuOpen || settingsOpen || pickerOpen || helpOpen || delayOpen || celebrating();
+        modeMenuOpen = settingsOpen = pickerOpen = helpOpen = delayOpen = false; celebGame = null; invalidate();
         return any;
     }
     public void nextPage(int dir) {
         int pages = pageCount();
-        page = ((page + dir) % pages + pages) % pages;
+        goPage(((page + dir) % pages + pages) % pages, dir);
+    }
+
+    // slide between pages of game cards
+    private int pageFrom = -1, pageDir;
+    private long pageAt;
+    private static final long PAGE_ANIM_MS = 320;
+
+    private void goPage(int to, int dir) {
+        if (to == page) return;
+        pageFrom = page;
+        pageDir = dir >= 0 ? 1 : -1;
+        pageAt = System.currentTimeMillis();
+        page = to;
         invalidate();
     }
-    private boolean overlayOpen() { return onboardOpen || settingsOpen || pickerOpen || helpOpen || delayOpen || syncState > 0 || celebrating(); }
+    private boolean overlayOpen() { return modeMenuOpen || onboardOpen || settingsOpen || pickerOpen || helpOpen || delayOpen || syncState > 0 || celebrating(); }
 
     private boolean saverActive() {
         return saverOn && !topMode && System.currentTimeMillis() - lastTouch > 10 * 60_000 && !anyLive() && !celebrating();
@@ -910,6 +928,7 @@ public class ThorView extends View {
         if (pickerOpen) drawPicker(c, w, h);
         if (settingsOpen) drawSettings(c, w, h);
         if (onboardOpen) drawOnboarding(c, w, h);
+        if (modeMenuOpen) drawModeMenu(c, w, h);
         if (helpOpen) drawHelp(c, w, h);
         if (delayOpen) drawDelayPanel(c, w, h);
         if (syncState > 0) drawSync(c, w, h);
@@ -1405,6 +1424,8 @@ public class ThorView extends View {
         text(c, tr("Tap to wake", "Touchez pour réveiller"), w / 2f, h * 0.9f, h * 0.028f, tfReg, 0xFF2E3138, Paint.Align.CENTER, w);
     }
 
+    private static final long TICKER_T0 = System.currentTimeMillis();
+
     private void drawTicker(Canvas c, Model.Game cur, int w, int h, int top) {
         StringBuilder sb = new StringBuilder();
         for (Model.Game g : games) {
@@ -1422,7 +1443,8 @@ public class ThorView extends View {
         p.setTextSize(th * 0.45f);
         String s = sb.toString() + "      •      ";
         float tw = p.measureText(s);
-        float off = (System.currentTimeMillis() / 12f) % tw;
+        // long math: a float of the current time is too coarse and froze the ticker
+        float off = (float) (((System.currentTimeMillis() - TICKER_T0) / 12L) % Math.max(1L, (long) tw));
         c.save();
         c.clipRect(0, top, w, h);
         for (float x = -off; x < w; x += tw) text(c, s, x, top + th / 2, th * 0.45f, tfCond, MUTED, Paint.Align.LEFT, tw + 10);
@@ -1628,16 +1650,62 @@ public class ThorView extends View {
             total == 0 ? TEXT : 0xFF000000, Paint.Align.CENTER, onboardDoneRect.width());
     }
 
+    // ------------------------------------------------------------------ view mode menu (the ▭ button)
+    private boolean modeMenuOpen;
+    private final List<RectF> modeRects = new ArrayList<>();
+
+    private int viewMode() { return !dual ? 0 : companion ? 2 : 1; }
+
+    /** Small menu under the two-screen button: one screen / two screens classic / two screens + game info. */
+    private void drawModeMenu(Canvas c, int w, int h) {
+        modeRects.clear();
+        p.setColor(0x99000000);
+        c.drawRect(0, 0, w, h, p);
+        String[][] items = {
+            {tr("One screen", "Un écran"), tr("Top screen free for your game or stream", "Écran du haut libre pour ton jeu ou stream")},
+            {tr("Two screens · Classic", "Deux écrans · Classique"), tr("Board on top, Scores / Board / Standings below", "Tableau en haut, Scores / Tableau / Classement en bas")},
+            {tr("Two screens · Game info", "Deux écrans · Infos match"), tr("Board on top, GAME + LIVE below", "Tableau en haut, MATCH + EN DIRECT en bas")},
+        };
+        float mw = w * 0.56f, rh = h * 0.115f, gap = w * 0.016f;
+        float x = Math.max(gap, Math.min(w - gap - mw, dualRect.centerX() - mw / 2)), y = dualRect.bottom + gap;
+        RectF panel = new RectF(x, y, x + mw, y + rh * items.length + gap);
+        p.setShadowLayer(gap, 0, gap * 0.3f, 0xAA000000);
+        p.setColor(0xFF181B22);
+        c.drawRoundRect(panel, rh * 0.25f, rh * 0.25f, p);
+        p.clearShadowLayer();
+        int cur = viewMode();
+        for (int i = 0; i < items.length; i++) {
+            RectF r = new RectF(x + gap * 0.5f, y + gap * 0.5f + i * rh, x + mw - gap * 0.5f, y + gap * 0.5f + (i + 1) * rh);
+            if (i == cur) { p.setColor(alpha(ACCENT, 0x33)); c.drawRoundRect(r, rh * 0.2f, rh * 0.2f, p); }
+            // icon: one or two stacked screens
+            float ix = r.left + rh * 0.5f, ih = rh * 0.5f, iw = ih * 0.9f;
+            p.setStyle(Paint.Style.STROKE);
+            p.setStrokeWidth(Math.max(2f, rh * 0.03f));
+            p.setColor(i == cur ? ACCENT : MUTED);
+            if (i == 0) c.drawRoundRect(new RectF(ix - iw / 2, r.centerY(), ix + iw / 2, r.centerY() + ih * 0.45f), 4, 4, p);
+            else {
+                c.drawRoundRect(new RectF(ix - iw / 2, r.centerY() - ih * 0.5f, ix + iw / 2, r.centerY() - ih * 0.05f), 4, 4, p);
+                c.drawRoundRect(new RectF(ix - iw / 2, r.centerY() + ih * 0.05f, ix + iw / 2, r.centerY() + ih * 0.5f), 4, 4, p);
+            }
+            p.setStyle(Paint.Style.FILL);
+            if (i == 2) { p.setColor(i == cur ? ACCENT : MUTED); c.drawRect(ix - iw * 0.3f, r.centerY() + ih * 0.2f, ix + iw * 0.3f, r.centerY() + ih * 0.3f, p); }
+            text(c, items[i][0], r.left + rh * 1.05f, r.top + rh * 0.38f, rh * 0.26f, tfBlack, i == cur ? ACCENT : TEXT, Paint.Align.LEFT, r.width() - rh * 1.3f);
+            text(c, items[i][1], r.left + rh * 1.05f, r.top + rh * 0.7f, rh * 0.17f, tfMed, MUTED, Paint.Align.LEFT, r.width() - rh * 1.3f);
+            modeRects.add(r);
+        }
+    }
+
     // ------------------------------------------------------------------ settings panel
     private static final String[][] SECTIONS = {
         {"General", "Général"}, {"Goals & alerts", "Buts & alertes"}, {"Stick lights", "Lumières"},
         {"Scores & Board", "Scores & tableau"}, {"App", "Appli"}};
+    private int sectionCount() { return SECTIONS.length; }
     private int settingsSection, settingsFocus;   // focus 0 = sections, 1 = rows
 
     /** L1 / R1 while Settings is open: previous / next section. */
     public boolean settingsShift(int dir) {
         if (!settingsOpen) return false;
-        settingsSection = ((settingsSection + dir) % SECTIONS.length + SECTIONS.length) % SECTIONS.length;
+        settingsSection = ((settingsSection + dir) % sectionCount() + sectionCount()) % sectionCount();
         selSetting = 0;
         invalidate();
         return true;
@@ -1649,6 +1717,7 @@ public class ThorView extends View {
 
     /** Items of the section on screen. */
     private List<String[]> visibleSettings() {
+        if (settingsSection >= sectionCount()) settingsSection = 0;
         List<String[]> out = new ArrayList<>();
         for (String[] it : settingItems) if (it.length > 4 && Integer.parseInt(it[4]) == settingsSection) out.add(it);
         return out;
@@ -1682,8 +1751,8 @@ public class ThorView extends View {
 
         // sections (left)
         float sideW = w * 0.3f, top = headH + gap * 0.4f, bottom = h - gap;
-        float sh = Math.min(h * 0.12f, (bottom - top) / SECTIONS.length);
-        for (int i = 0; i < SECTIONS.length; i++) {
+        float sh = Math.min(h * 0.12f, (bottom - top) / sectionCount());
+        for (int i = 0; i < sectionCount(); i++) {
             RectF r = new RectF(gap, top + i * sh + sh * 0.08f, gap + sideW, top + (i + 1) * sh - sh * 0.08f);
             boolean on = i == settingsSection;
             p.setColor(on ? ACCENT : 0xFF171A21);
@@ -1959,9 +2028,33 @@ public class ThorView extends View {
     }
 
     private void drawScores(Canvas c, int w, int h, float top) {
-        List<Model.Game> list = shownGames();
         int pages = pageCount();
         if (page >= pages) page = 0;
+        long t = System.currentTimeMillis() - pageAt;
+        if (pageFrom >= 0 && pageFrom < pages && t < PAGE_ANIM_MS) {
+            float k = t / (float) PAGE_ANIM_MS;
+            k = 1 - (1 - k) * (1 - k) * (1 - k);   // ease out
+            int keep = cardRects.size();
+            c.save();
+            c.clipRect(0, top, w, h);
+            c.translate(-pageDir * w * k, 0);
+            drawScoresPage(c, w, h, top, pageFrom, pages, false);
+            c.restore();
+            while (cardRects.size() > keep) { cardRects.remove(cardRects.size() - 1); cardIds.remove(cardIds.size() - 1); }
+            c.save();
+            c.clipRect(0, top, w, h);
+            c.translate(pageDir * w * (1 - k), 0);
+            drawScoresPage(c, w, h, top, page, pages, true);
+            c.restore();
+            postInvalidateOnAnimation();
+        } else {
+            pageFrom = -1;
+            drawScoresPage(c, w, h, top, page, pages, true);
+        }
+    }
+
+    private void drawScoresPage(Canvas c, int w, int h, float top, int page, int pages, boolean dots) {
+        List<Model.Game> list = shownGames();
         int from = page * GAMES_PER_PAGE;
         List<Model.Game> pg = list.subList(from, Math.min(list.size(), from + GAMES_PER_PAGE));
         int m = pg.size();
@@ -1988,7 +2081,7 @@ public class ThorView extends View {
             else drawCard(c, pg.get(i), x, y, cw, ch);
         }
 
-        if (pages > 1) {
+        if (pages > 1 && dots) {
             float dy = h - dotsH / 2f - gap / 2f;
             float rr = dotsH * 0.14f, spacing = rr * 4f;
             float start = w / 2f - (pages - 1) * spacing / 2f;

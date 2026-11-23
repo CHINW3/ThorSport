@@ -289,14 +289,34 @@ public class MainActivity extends Activity implements ThorView.Listener {
     /** Completely hidden (and no top screen): stop refreshing and give the lights back. Saves battery and data. */
     @Override protected void onStop() {
         super.onStop();
-        if (!running || TopActivity.current != null) return;
+        if (!running || (TopActivity.current != null && !leftHome)) return;
         main.removeCallbacks(refreshLoop);
         main.removeCallbacks(delayTick);
         if (ledsAvailable) Leds.restore(this);
     }
 
+    // ---- Home with two screens (Cocoon etc.): leave both screens, come back on both
+    private boolean leftHome;
+
+    /** Home pressed (on either screen) in two-screen mode: close the top screen too. Two-screen mode stays on. */
+    void leaveHome(boolean fromTop) {
+        if (!dual || leftHome) return;
+        leftHome = true;
+        if (TopActivity.current != null) TopActivity.current.finish();
+        if (fromTop) moveTaskToBack(true);
+    }
+
+    @Override protected void onUserLeaveHint() {
+        super.onUserLeaveHint();
+        leaveHome(false);
+    }
+
     @Override protected void onStart() {
         super.onStart();
+        if (leftHome) {   // back from home: open the top screen again
+            leftHome = false;
+            if (dual && TopActivity.current == null) main.postDelayed(() -> { if (dual && TopActivity.current == null) setDual(true); }, 400);
+        }
         if (!running) return;
         main.removeCallbacks(refreshLoop);
         main.post(refreshLoop);
@@ -335,7 +355,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
             case KeyEvent.KEYCODE_BUTTON_START: v.openSettings(); return true;
             case KeyEvent.KEYCODE_BUTTON_SELECT: v.openLeaguePicker(); return true;
             case KeyEvent.KEYCODE_BUTTON_THUMBL: refresh(true); return true;
-            case KeyEvent.KEYCODE_BUTTON_THUMBR: setDual(!dual); return true;
+            case KeyEvent.KEYCODE_BUTTON_THUMBR: onViewMode(!dual ? 1 : companion ? 0 : 2); return true;   // R3 cycles the 3 view modes
             default: return false;
         }
     }
@@ -551,6 +571,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
     }
 
     @Override public void onFollowGame(String gameId, boolean openBoard) {
+        if (tension && !gameId.equals(boardGameId)) tension = false;
         boardGameId = gameId;
         prefs.edit().putString("boardGame", gameId).apply();
         all(v -> v.setBoardGameId(gameId));
@@ -616,6 +637,22 @@ public class MainActivity extends Activity implements ThorView.Listener {
     // ------------------------------------------------------------------ two-screen mode
     @Override public void onDualToggle() { setDual(!dual); }
 
+    /** ▭ menu (and R3): 0 = one screen, 1 = two screens classic, 2 = two screens + game info. */
+    @Override public void onViewMode(int mode) {
+        boolean wantCompanion = mode == 2;
+        if (wantCompanion != companion) {
+            companion = wantCompanion;
+            prefs.edit().putBoolean("companion", companion).apply();
+            all(v -> v.setCompanion(companion));
+        }
+        if ((mode > 0) != dual) setDual(mode > 0);
+        else if (dual) {   // already two screens: just move the bottom to the right tab
+            if (companion) { if (tab != ThorView.TAB_STANDINGS) onTabTap(ThorView.TAB_BOARD); }
+            else if (tab == ThorView.TAB_BOARD) onTabTap(ThorView.TAB_SCORES);
+        }
+        pushSettings();
+    }
+
     /** On: the TOP screen shows a giant Board, the bottom keeps scores/standings. Off: top screen is free. */
     private void setDual(boolean on) {
         if (on) {
@@ -664,6 +701,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         v.setGames(lastGames);
         if (lastGroups != null) v.setStandings(Espn.LEAGUES[leagueIdx].colLabels, lastGroups);
         v.setBoardGameId(boardGameId);
+        v.setCompanion(companion);
         v.setMessage(lastGames.isEmpty() ? "Loading…" : null);
         pushSettings();
     }
@@ -672,7 +710,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         if (top != v) return;
         top = null;
 
-        if (dual && !isFinishing()) { // top screen was closed some other way
+        if (dual && !isFinishing() && !leftHome) { // top screen was closed some other way (not Home)
             dual = false;
             prefs.edit().putBoolean("dual", false).apply();
             view.setDual(false);
@@ -975,7 +1013,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
                 onUpdateTap(); break;
             case ThorView.SET_COMPANION:
                 companion = !companion; e.putBoolean("companion", companion);
-                view.setCompanion(companion);
+                all(v -> v.setCompanion(companion));
                 break;
             case ThorView.SET_MY_TEAMS:
                 view.closeSettings();
@@ -1038,7 +1076,23 @@ public class MainActivity extends Activity implements ThorView.Listener {
         return d < 60 ? a : b;
     }
 
-    private static int primary(Model.Side s) { return s.ledA != 0 ? s.ledA : s.color; }
+    /**
+     * Best stick-light color for a team: its main color, unless that is black / grey (it would just show
+     * as white, which looks like the lights never changed: many NFL teams are black, silver or navy).
+     */
+    private static int primary(Model.Side s) {
+        int a = s.ledA != 0 ? s.ledA : s.color, b = s.ledB;
+        if (b != 0 && ledScore(a) < 0.25f && ledScore(b) > ledScore(a)) return b;
+        return a;
+    }
+
+    /** 0 = black or grey (useless on an LED), 1 = strong color. */
+    private static float ledScore(int c) {
+        int r = Color.red(c), g = Color.green(c), bl = Color.blue(c);
+        int max = Math.max(r, Math.max(g, bl)), min = Math.min(r, Math.min(g, bl));
+        if (max < 24) return 0f;
+        return (max - min) / (float) max;   // saturation
+    }
 
     /**
      * Stick lights:
@@ -1069,7 +1123,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
             if (favorites.contains(lg.home.abbr)) { fav = lg.home; break; }
         }
         int a, b;
-        if (fav != null && fav.ledA != 0) { a = fav.ledA; b = second(fav.ledA, fav.ledB); }
+        if (fav != null && fav.ledA != 0) { a = primary(fav); b = second(a, a == fav.ledA ? fav.ledB : fav.ledA); }
         else {
             int[] known = null;
             if (fav != null) known = teamColors(fav.abbr);
@@ -1450,7 +1504,9 @@ public class MainActivity extends Activity implements ThorView.Listener {
     private void tensionLights(List<Model.Game> games) {
         if (!ledsAvailable || !ledsOn || favorites.isEmpty()) { tension = false; return; }
         Model.Game hot = null;
-        for (Model.Game g : games) if (g.isLive() && g.involves(favorites) && isClutch(g)) { hot = g; break; }
+        Model.Game onBoard = view.boardGame();   // only the game you're watching, so other games never freeze the lights
+        if (onBoard != null) for (Model.Game g : games)
+            if (g.id.equals(onBoard.id) && g.isLive() && g.involves(favorites) && isClutch(g)) { hot = g; break; }
         if (hot != null) {
             tension = true;
             Model.Side hs = favorites.contains(hot.away.abbr) ? hot.away : hot.home;
