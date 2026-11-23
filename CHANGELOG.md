@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.10
+- **View modes in one tap**: the ▭ button now opens a menu: One screen, Two screens · Classic, Two screens · Game info. R3 on a controller cycles through them.
+- **Stick lights for every team**: teams whose main color is black, grey or very dark (lots of NFL teams) now use their second color instead of showing plain white, so the lights visibly change. The "tight finish" pulse only follows the game you're watching, so it no longer freezes the lights on another game. (Turn the lights off any time: Settings → Stick lights.)
+- **Pages slide**: the game cards slide left/right when you change page.
+- **Top-screen ticker scrolls again**: the score ticker under the top-screen Board was stuck; it now moves across.
+- **Home in two-screen mode**: pressing Home (Cocoon or any launcher, on either screen) now leaves ThorSport on both screens. Open ThorSport again and the top screen comes back.
+- **PWHL logo**: the PWHL now shows its logo in the league list and at the top.
+
 ## 3.9
 - **GAME and LIVE are back, redesigned**: in two-screen mode the bottom shows **GAME** (score band in team colors, scoring list with assists, score by period, win chance with the Polymarket graph over the game (smooth line, area in the leading team's color, zooms on the swings), shot map, shots and saves side by side, top players) and **LIVE** (every game as scoreboard tiles, tap one to put it on top). Prefer the old bottom screen? Settings → General → Two-screen: bottom shows → CLASSIC.
 - **Settings with a controller**: ↑↓ picks a section, → or A goes into it, ↑↓ moves, A changes, ← or B goes back, L1/R1 jump between sections. A white ring shows where you are, with the buttons listed at the top.
