@@ -1,5 +1,33 @@
 # Changelog
 
+## 3.17
+**Goals & alerts**
+- **Bigger goal celebration**: a white flash then a strobe (red goal light for hockey, team color for the other sports), two rotating goal-lamp beams, GOAL! / TOUCHDOWN! slams onto the screen and shakes it, shockwave rings from the logo, the word glows in the team color, fireworks and twice the confetti. Try it: Settings → Test a goal.
+- **OT WINNER!** for an NHL overtime goal, **SHUTOUT!** and **COMEBACK WIN!** (after being down by 2+) instead of VICTORY! when your team wins that way.
+- **New banners for the game you watch**: power play (5 on 4…) and empty net (NHL), tie game, lead change, COMEBACK! (tied after being down 2+), 3+ unanswered goals / straight scores, hat trick, red card (soccer), start of each period / quarter / second half, NFL two-minute warning, and a big swing in the win chance (20+ points).
+- **Goal against your team**: a red "GOAL AGAINST" banner and one short blink of the sticks in their color (no party).
+- **Better final banner**: shutout, the star of the game (2+ goals) and the playoff series.
+- **Intermission banner** shows the shots on goal (NHL).
+- **Banners wait their turn**: alerts that happen together (or during a goal screen) are shown one after the other instead of replacing each other.
+- **Mute alerts (1 h)**: Settings → Goals & alerts → Mute alerts. Silences the horn and vibration for an hour.
+- **Celebrate: all games / my teams only**: with MY TEAMS ONLY, games without your teams get a small banner instead of the full party.
+- **Horn length: full / short** (short ≈ 1 s).
+- **Replay last goal**: Settings → Goals & alerts → Replay last goal.
+- **Game reminder**: off, 5, 15 or 30 min before your team plays.
+- Removed: quiet hours and night dim (use Mute alerts).
+
+**App**
+- **Rotate live games on Board** every 20 or 45 s when none of your teams is playing (Settings → Scores & Board).
+- **Keep screen on**: always, only while a game is live, or never.
+- **Live refresh**: normal (30 s) or fast (15 s).
+- **Open on**: the last league or MY TEAMS.
+- **Low battery banner** at 15 % (ThorSport then refreshes less often).
+- **Reset settings** (Settings → App, tap twice). Your teams are kept.
+- **Controller**: in Settings, ↓ on the last row goes back to the top (and ↑ on the first goes to the bottom); holding the stick scrolls faster after a second and a half.
+
+**Fixes**
+- **Stick lights for navy teams**: teams whose main color is a very dark navy (Bears, Patriots, Astros…) now light up in their bright second color (Bears orange) instead of a plain bright blue that didn't look like the team.
+
 ## 3.16
 - **Controller in LIVE fixed**: ↓ now goes straight down to the tile below (it went diagonal because the tiles are 3 per row).
 - **Menu sounds & vibration**: a soft tick and a tiny buzz when you move with the controller, a higher one when you select. Off by default: Settings → General → Menu sounds & vibration.

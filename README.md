@@ -1,4 +1,4 @@
-# ThorSport 3.16
+# ThorSport 3.17
 
 Live sports for the **AYN Thor bottom screen** (1240×1080). Everything is drawn to fill the screen exactly.
 
@@ -67,9 +67,10 @@ scores are hidden, and when the next score happens live a big button asks you to
 your stream — the delay is set to exactly that.
 
 ## Settings (tap the clock)
-Two-screen mode · spoiler delay · goal horn, volume, quiet hours · vibrate on goals (off by default) · menu sounds & vibration · goal screen + length ·
-stick lights + brightness · test a goal · screen brightness · night dim · screensaver clock · keep screen on ·
-hide finished games · auto-open Board · accent color · 12/24 h clock · English / Français · help · clear MY TEAMS
+Two-screen mode · spoiler delay · goal horn, volume, length · mute alerts 1 h · vibrate on goals (off by default) · menu sounds & vibration ·
+goal screen + length · celebrate all games / my teams · game reminder · replay last goal · stick lights + brightness · test a goal ·
+screen brightness · screensaver clock · keep screen on (always / live games / never) · live refresh speed · open on · rotate live games ·
+hide finished games · auto-open Board · accent color · 12/24 h clock · English / Français · help · clear MY TEAMS · reset settings
 
 ## Controller
 Always drives the bottom screen (in two-screen mode the top screen follows the game you open).
