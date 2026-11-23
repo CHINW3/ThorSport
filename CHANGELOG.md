@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.9
+- **GAME and LIVE are back, redesigned**: in two-screen mode the bottom shows **GAME** (score band in team colors, scoring list with assists, score by period, win chance with the Polymarket graph over the game (smooth line, area in the leading team's color, zooms on the swings), shot map, shots and saves side by side, top players) and **LIVE** (every game as scoreboard tiles, tap one to put it on top). Prefer the old bottom screen? Settings → General → Two-screen: bottom shows → CLASSIC.
+- **Settings with a controller**: ↑↓ picks a section, → or A goes into it, ↑↓ moves, A changes, ← or B goes back, L1/R1 jump between sections. A white ring shows where you are, with the buttons listed at the top.
+
 ## 3.8
 - **Pick your teams on first start**: a welcome screen lets you choose your teams in every league (logos, tap to add). It only shows once: updates keep your teams. Change them any time in Settings → App → My teams.
 - **Two-screen mode**: the bottom screen is back to Scores / Board / Standings (the GAME and LIVE tabs from 3.7 are gone).
