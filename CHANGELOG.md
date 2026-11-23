@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.11
+- **F1, more visual**: team badges in each team's color (RBR, FER, MCL…) in the results, each driver's country flag next to their name (results and drivers' standings), constructors with their team code, and the host country's flag in the Grand Prix header. Fixed the F1 logo link.
+- **One two-screen mode**: two screens now always means the Board on top with GAME and LIVE on the bottom (the Classic option is gone). The ▭ button / R3 switch between one and two screens.
+- **Pick a game, see it**: choosing a game on the bottom screen (LIVE tile or score card) now jumps straight to its GAME tab.
+- **Stick lights follow the game you watch**: if one of your teams plays in a league (e.g. you picked an NFL team), the lights used to stay on that team's colors even while you watched other games, so they never changed. Now a game without your team shows its own two teams (left / right); your team's colors come back for its own games.
+
 ## 3.10
 - **View modes in one tap**: the ▭ button now opens a menu: One screen, Two screens · Classic, Two screens · Game info. R3 on a controller cycles through them.
 - **Stick lights for every team**: teams whose main color is black, grey or very dark (lots of NFL teams) now use their second color instead of showing plain white, so the lights visibly change. The "tight finish" pulse only follows the game you're watching, so it no longer freezes the lights on another game. (Turn the lights off any time: Settings → Stick lights.)
