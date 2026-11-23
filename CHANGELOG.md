@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.15
+- **HOME RUN!**: the ball leaves the plate with a glowing trail and flies out of the park, then fireworks in your team's colors. Bat crack before the horn, and the stick lights follow the ball from left to right. **GRAND SLAM!** gets gold and extra fireworks. Shows the batter and the distance when ESPN has it. In two-screen mode the ball flies from the bottom screen into the top one. Try it: Settings → Test a goal with a baseball game on the Board.
+- **Two-screen celebrations**: one party over both screens instead of the same thing twice: logo and GOAL! on top, the new score and the scorer below, confetti falling from one screen into the other.
+- **Score flash fixed**: the new score now blinks after the goal screen (before, it blinked hidden under it). On the Board it blinks amber for 4 seconds.
+- **Goal horn fixed**: new way of playing the sound that works on more devices, and the game or video on the other screen gets quieter while the horn plays.
+- **Stick lights**: goal animations now show even when another RGB app (AmbiAnalog…) keeps writing its own colors. Reds stay red (the Blackhawks no longer show pink).
+- **NBA / WNBA**: every basket makes the stick lights blink twice in the team's color (threes still get their THREE! banner).
+
 ## 3.14
 - **Smooth score ticker**: the line of other games under the Board on the top screen now scrolls at 60 fps on its own layer, with sub-pixel movement, instead of jumping a few pixels 25 times a second. It also keeps its place when a score changes instead of restarting, and hides while a celebration or a menu covers the screen.
 
