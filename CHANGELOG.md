@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.14
+- **Smooth score ticker**: the line of other games under the Board on the top screen now scrolls at 60 fps on its own layer, with sub-pixel movement, instead of jumping a few pixels 25 times a second. It also keeps its place when a score changes instead of restarting, and hides while a celebration or a menu covers the screen.
+
 ## 3.13
 - **Your other games**: when two of your teams play at the same time, the one you're not watching sends a little card at the bottom right (team logo, TOUCHDOWN / GOAL / FIELD GOAL · score · clock), a soft horn and a quick blink of the stick lights when it's your team scoring. You also get a card when the game starts and when it ends ("MTL WIN!" with gold lights, or the loss). Works across leagues too: watching the NFL, your NHL team is checked every 30 s in the background. Turn it off in Settings → Goals & alerts → Your other games.
 - **New Sync with TV**: no more waiting for a goal. It shows the last few minutes of the game on top (clock + score, newest first); tap the one your TV is showing and the delay is set instantly. Works with the controller too (↑↓ + A).
