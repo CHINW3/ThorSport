@@ -3,6 +3,7 @@ package com.gregoire.thorstandings;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.Path;
@@ -54,13 +55,15 @@ public class ThorView extends View {
         void onOnboardLeague(int leagueIndex);              // load that league's teams for "Pick your teams"
         void onOnboardToggle(String leaguePath, String abbr);
         void onOnboardDone();
+        void onViewMode(int mode);
+        void onSyncPick(int row);                           // Sync with TV: the moment your TV shows (row 0 = newest)                          // 0 one screen, 1 two screens classic, 2 two screens + game info
     }
 
     public static final int TAB_SCORES = 0, TAB_BOARD = 1, TAB_STANDINGS = 2;
     public static final int SET_DELAY = 0, SET_HORN = 1, SET_LEDS = 2, SET_DIM = 3, SET_AUTOBOARD = 4,
         SET_HORN_VOL = 5, SET_LED_BRI = 6, SET_CELEB = 7, SET_KEEP_ON = 8, SET_NIGHT = 9, SET_HIDE_FINAL = 10,
         SET_TEST = 11, SET_HELP = 12, SET_RESET = 13, SET_DUAL = 14, SET_QUIET = 15, SET_VIBRATE = 16,
-        SET_CELEB_LEN = 17, SET_ACCENT = 18, SET_CLOCK = 19, SET_LANG = 20, SET_SAVER = 21, SET_STAND_SIZE = 22, SET_DEMO_MLB = 23, SET_DEMO_NFL = 24, SET_DEMO_NHL = 25, SET_SHOT_MAP = 26, SET_UPDATE = 27, SET_MY_TEAMS = 29;
+        SET_CELEB_LEN = 17, SET_ACCENT = 18, SET_CLOCK = 19, SET_LANG = 20, SET_SAVER = 21, SET_STAND_SIZE = 22, SET_DEMO_MLB = 23, SET_DEMO_NFL = 24, SET_DEMO_NHL = 25, SET_SHOT_MAP = 26, SET_UPDATE = 27, SET_COMPANION = 28, SET_MY_TEAMS = 29, SET_OTHER_TEAMS = 30;
     private static final int GAMES_PER_PAGE = 8;
     private static final long AUTO_PAGE_MS = 10_000;
     private long CELEBRATION_MS = 6500;
@@ -80,33 +83,6 @@ public class ThorView extends View {
     /** Français / English */
     public static boolean fr;
     public static String tr(String en, String french) { return fr ? french : en; }
-
-    // ------------------------------------------------------------------ home runs
-    /** ESPN's last play says "J. Doe homered to left (402 feet)…" (or "home run"). */
-    public static boolean isHomeRunPlay(String lastPlay) {
-        if (lastPlay == null) return false;
-        String l = lastPlay.toLowerCase(Locale.US);
-        return l.contains("homered") || l.contains("home run") || l.contains("grand slam");
-    }
-    public static String homeRunWord(int runs) {
-        if (runs >= 4) return tr("GRAND SLAM!", "GRAND CHELEM!");
-        if (runs <= 1) return tr("HOME RUN!", "CIRCUIT!");
-        return runs + tr("-RUN HOMER!", " POINTS: CIRCUIT!");
-    }
-    public static boolean isGrandSlamWord(String w) { return "GRAND SLAM!".equals(w) || "GRAND CHELEM!".equals(w); }
-    public static boolean isHomeRunWord(String w) {
-        return w != null && (isGrandSlamWord(w) || w.equals("HOME RUN!") || w.equals("CIRCUIT!") || w.endsWith("-RUN HOMER!") || w.endsWith("CIRCUIT!"));
-    }
-    /** "AARON JUDGE · 427 FT" from the last play, or "" when it isn't there. */
-    private static String homeRunInfo(String lastPlay) {
-        if (!isHomeRunPlay(lastPlay)) return "";
-        String who = "";
-        int i = lastPlay.toLowerCase(Locale.US).indexOf(" homered");
-        if (i > 0) who = lastPlay.substring(0, i).trim();
-        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\d{3}) feet").matcher(lastPlay);
-        String ft = m.find() ? m.group(1) + " FT" : "";
-        return (who + (who.isEmpty() || ft.isEmpty() ? "" : "  ·  ") + ft).toUpperCase(Locale.US);
-    }
     private static final int LIVE = 0xFFFF3B30;
     private static final int AMBER = 0xFFFFB524;
     private static final int GREEN = 0xFF34C759;
@@ -182,6 +158,7 @@ public class ThorView extends View {
     private float fx = -1, fy = -1;                       // centre of the highlighted item
     private long lastStick;
     private final List<RectF> focusables = new ArrayList<>();
+    private final Map<String, List<Float>> oddsHist = new HashMap<>();   // gameId -> away win chance over time (GAME tab graph)
     private final Map<String, Long> popAt = new HashMap<>();   // "gameId:away"/"gameId:home" -> when score changed
     private int page, dateOffset;
     private String leagueLogo;
@@ -205,7 +182,7 @@ public class ThorView extends View {
     private final Runnable autoPage = new Runnable() {
         @Override public void run() {
             int pages = pageCount();
-            if (tab == TAB_SCORES && pages > 1) { page = (page + 1) % pages; invalidate(); }
+            if (tab == TAB_SCORES && pages > 1) goPage((page + 1) % pages, 1);
             postDelayed(this, AUTO_PAGE_MS);
         }
     };
@@ -238,10 +215,9 @@ public class ThorView extends View {
                 if (tab != TAB_SCORES) return false;
                 int pages = pageCount();
                 if (pages < 2) return false;
-                page = (page + (vx < 0 ? 1 : pages - 1)) % pages;
+                goPage((page + (vx < 0 ? 1 : pages - 1)) % pages, vx < 0 ? 1 : -1);
                 removeCallbacks(autoPage);
                 postDelayed(autoPage, AUTO_PAGE_MS * 2);
-                invalidate();
                 return true;
             }
 
@@ -257,6 +233,11 @@ public class ThorView extends View {
     /** A tap at (x, y): from the touchscreen, or the controller's A button on the highlighted item. */
     private boolean handleTap(float x, float y) {
         if (listener == null) return false;
+        if (modeMenuOpen) {
+            for (int i = 0; i < modeRects.size(); i++)
+                if (modeRects.get(i).contains(x, y)) { modeMenuOpen = false; listener.onViewMode(i == 0 ? 0 : 2); invalidate(); return true; }
+            modeMenuOpen = false; invalidate(); return true;
+        }
         if (onboardOpen) {
             for (int i = 0; i < onboardLeagueRects.size(); i++)
                 if (onboardLeagueRects.get(i).contains(x, y)) { openOnboardLeague(onboardLeagues.get(i)); return true; }
@@ -268,6 +249,7 @@ public class ThorView extends View {
         if (syncState > 0) {
             if (syncCancel.contains(x, y)) listener.onSyncCancel();
             else if (syncState == 2) listener.onSyncSeen();
+            else if (syncState == 3) for (int i = 0; i < syncRects.size(); i++) if (syncRects.get(i).contains(x, y)) { listener.onSyncPick(i); break; }
             return true;
         }
         if (delayOpen) {
@@ -287,7 +269,7 @@ public class ThorView extends View {
         if (helpOpen) { helpOpen = false; invalidate(); return true; }
         if (settingsOpen) {
     for (int i = 0; i < sectionRects.size(); i++) {
-        if (sectionRects.get(i).contains(x, y)) { settingsSection = i; selSetting = 0; invalidate(); return true; }
+        if (sectionRects.get(i).contains(x, y)) { settingsSection = i; selSetting = 0; settingsFocus = 0; invalidate(); return true; }
     }
     for (int i = 0; i < settingRects.size(); i++) {
         if (settingRects.get(i).contains(x, y)) {
@@ -306,7 +288,7 @@ public class ThorView extends View {
     }
     pickerOpen = false; invalidate(); return true;
         }
-        if (dualRect.contains(x, y)) { listener.onDualToggle(); return true; }
+        if (dualRect.contains(x, y)) { modeMenuOpen = !modeMenuOpen; invalidate(); return true; }
         if (leagueRect.contains(x, y)) { pickerOpen = true; invalidate(); return true; }
         if (clockRect.contains(x, y)) { settingsOpen = true; invalidate(); return true; }
         if (!topMode) for (int i = 0; i < tabRects.length; i++) {
@@ -362,8 +344,9 @@ public class ThorView extends View {
 
     private RectF selectedRect() {
         if (delayOpen) return sel(delayRects, selDelay);
+        if (syncState == 3) return sel(syncRects, selSync);
         if (onboardOpen) return sel(onboardRects, selOnboard);
-        if (settingsOpen) return sel(settingCells, selSetting);
+        if (settingsOpen) return settingsFocus == 0 ? sel(sectionRects, settingsSection) : sel(settingCells, selSetting);
         if (pickerOpen) return sel(pickerRects, selPicker);
         if (tab == TAB_SCORES) return sel(cardRects, selCard);
         if (tab == TAB_STANDINGS) return sel(hitRects, selRow);
@@ -380,10 +363,11 @@ public class ThorView extends View {
         float rad = Math.min(ring.width(), ring.height()) * 0.22f;
         p.setStyle(Paint.Style.STROKE);
         p.setStrokeWidth(pad * 1.3f);
-        p.setColor(ACCENT);
+        int rc = settingsOpen || onboardOpen ? TEXT : ACCENT;   // white ring on menus (the selected section is already blue)
+        p.setColor(rc);
         c.drawRoundRect(ring, rad, rad, p);
         p.setStyle(Paint.Style.FILL);
-        p.setColor(alpha(ACCENT, 0x22));
+        p.setColor(alpha(rc, 0x18));
         c.drawRoundRect(ring, rad, rad, p);
     }
 
@@ -400,6 +384,11 @@ public class ThorView extends View {
         boolean first = !cursorOn;
         wakeCursor();
         if (first) { invalidate(); return true; }   // first press just shows the selection
+        if (syncState == 3) {
+            selSync = clamp(selSync + dy, Math.max(1, syncRows.size()));
+            invalidate();
+            return true;
+        }
         if (onboardOpen) {
             int cols = onboardCols();
             if (selOnboard < 0) selOnboard = 0;
@@ -414,8 +403,14 @@ public class ThorView extends View {
             return true;
         }
         if (settingsOpen) {
-            if (dx != 0) { settingsSection = clamp(settingsSection + dx, SECTIONS.length); selSetting = 0; }   // ← → sections
-            else selSetting = clamp(selSetting + dy, visibleSettings().size());
+            // console style: sections on the left, rows on the right; → / A goes into the rows, ← / B comes back
+            if (settingsFocus == 0) {
+                if (dy != 0) { settingsSection = clamp(settingsSection + dy, sectionCount()); selSetting = 0; }
+                else if (dx > 0 && !visibleSettings().isEmpty()) { settingsFocus = 1; selSetting = 0; }
+            } else {
+                if (dx < 0) settingsFocus = 0;
+                else if (dy != 0) selSetting = clamp(selSetting + dy, visibleSettings().size());
+            }
         } else if (pickerOpen) {
             int n = leagueLabels.length, rows = n > 8 ? (n + 1) / 2 : n;
             selPicker = clamp(selPicker + (dx != 0 ? dx * rows : dy), n);
@@ -499,6 +494,7 @@ public class ThorView extends View {
             return;
         }
         if (syncState == 2) { listener.onSyncSeen(); return; }
+        if (syncState == 3) { listener.onSyncPick(Math.max(0, selSync)); return; }
         if (syncState == 1) return;
         if (delayOpen) {
             int[] a = selDelay < delayActs.size() ? delayActs.get(selDelay) : null;
@@ -511,6 +507,7 @@ public class ThorView extends View {
         wakeCursor();
         performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
         if (settingsOpen) {
+            if (settingsFocus == 0) { if (!visibleSettings().isEmpty()) { settingsFocus = 1; selSetting = 0; invalidate(); } return; }
             String[] it = sel2(visibleSettings(), selSetting);
             if (it != null) listener.onSetting(Integer.parseInt(it[2]), 1);
         } else if (pickerOpen) {
@@ -543,6 +540,7 @@ public class ThorView extends View {
 
     /** B: close menu → leave big score → back to Scores → hide the selection. Never leaves the app. */
     public boolean controllerBack() {
+        if (settingsOpen && settingsFocus == 1) { settingsFocus = 0; invalidate(); return true; }
         if (onboardOpen) { onboardOpen = false; listener.onOnboardDone(); invalidate(); return true; }
         if (syncState > 0) { listener.onSyncCancel(); return true; }
         if (demoGame != null) { demoGame = null; invalidate(); return true; }
@@ -565,6 +563,7 @@ public class ThorView extends View {
         pickerOpen = false;
         settingsOpen = !settingsOpen;
         selSetting = 0;
+        settingsFocus = 0;
         wakeCursor();
         invalidate();
     }
@@ -617,6 +616,13 @@ public class ThorView extends View {
                 if (!og.home.score.equals(ng.home.score) && !ng.home.score.isEmpty()) popAt.put(ng.id + ":home", now);
             }
         }
+        for (Model.Game ng : g) {
+            if (!ng.isLive() || ng.away.odds < 0) continue;
+            List<Float> hist = oddsHist.get(ng.id);
+            if (hist == null) { hist = new ArrayList<>(); oddsHist.put(ng.id, hist); }
+            if (hist.isEmpty() || Math.abs(hist.get(hist.size() - 1) - ng.away.odds) > 0.004f) hist.add(ng.away.odds);
+            if (hist.size() > 300) hist.remove(0);
+        }
         games = g;
         if (page >= pageCount()) page = 0;
         invalidate();
@@ -664,16 +670,29 @@ public class ThorView extends View {
     public void setSaver(boolean on) { saverOn = on; invalidate(); }
     public void toggleSettings() { openSettings(); }
     public boolean closeOverlays() {
-        boolean any = settingsOpen || pickerOpen || helpOpen || delayOpen || celebrating();
-        settingsOpen = pickerOpen = helpOpen = delayOpen = false; celebGame = null; invalidate();
+        boolean any = modeMenuOpen || settingsOpen || pickerOpen || helpOpen || delayOpen || celebrating();
+        modeMenuOpen = settingsOpen = pickerOpen = helpOpen = delayOpen = false; celebGame = null; invalidate();
         return any;
     }
     public void nextPage(int dir) {
         int pages = pageCount();
-        page = ((page + dir) % pages + pages) % pages;
+        goPage(((page + dir) % pages + pages) % pages, dir);
+    }
+
+    // slide between pages of game cards
+    private int pageFrom = -1, pageDir;
+    private long pageAt;
+    private static final long PAGE_ANIM_MS = 320;
+
+    private void goPage(int to, int dir) {
+        if (to == page) return;
+        pageFrom = page;
+        pageDir = dir >= 0 ? 1 : -1;
+        pageAt = System.currentTimeMillis();
+        page = to;
         invalidate();
     }
-    private boolean overlayOpen() { return onboardOpen || settingsOpen || pickerOpen || helpOpen || delayOpen || syncState > 0 || celebrating(); }
+    private boolean overlayOpen() { return modeMenuOpen || onboardOpen || settingsOpen || pickerOpen || helpOpen || delayOpen || syncState > 0 || celebrating(); }
 
     private boolean saverActive() {
         return saverOn && !topMode && System.currentTimeMillis() - lastTouch > 10 * 60_000 && !anyLive() && !celebrating();
@@ -683,7 +702,15 @@ public class ThorView extends View {
     public void setDual(boolean on) { dual = on; invalidate(); }
 
     public void openDelay() { delayOpen = true; settingsOpen = pickerOpen = false; invalidate(); }
-    public void setSync(int state, long since) { syncState = state; syncSince = since; if (state > 0) delayOpen = false; invalidate(); }
+    public void setSync(int state, long since) {
+        if (state == 3 && syncState != 3) { selSync = 0; wakeCursor(); }
+        syncState = state; syncSince = since; if (state > 0) delayOpen = false; invalidate();
+    }
+
+    private List<String[]> syncRows = new ArrayList<>();
+    private final List<RectF> syncRects = new ArrayList<>();
+    private int selSync;
+    public void setSyncMoments(List<String[]> rows) { syncRows = rows; invalidate(); }
 
     public void showHelp() { helpOpen = true; settingsOpen = false; invalidate(); }
     public void closeSettings() { settingsOpen = false; invalidate(); }
@@ -691,6 +718,50 @@ public class ThorView extends View {
     public void flash(String gameId) {
         flashUntil.put(gameId, System.currentTimeMillis() + FLASH_MS);
         invalidate();
+    }
+
+    // ------------------------------------------------------------------ notifications
+    /** A small card (bottom-right) for your other teams' games: score or result, with the team logo. */
+    private static final class Note {
+        final String logo, abbr, title, line; final int color; final long at;
+        Note(String logo, String abbr, int color, String title, String line) {
+            this.logo = logo; this.abbr = abbr; this.color = color; this.title = title; this.line = line; this.at = System.currentTimeMillis();
+        }
+    }
+    private final List<Note> notes = new ArrayList<>();
+    private static final long NOTE_MS = 9000;
+
+    public void notifyCard(Model.Side side, String title, String line) {
+        notes.add(0, new Note(side.logo, side.abbr, side.color, title, line));
+        while (notes.size() > 3) notes.remove(notes.size() - 1);
+        invalidate();
+    }
+
+    private void drawNotes(Canvas c, int w, int h) {
+        if (notes.isEmpty()) return;
+        long now = System.currentTimeMillis();
+        for (int i = notes.size() - 1; i >= 0; i--) if (now - notes.get(i).at > NOTE_MS) notes.remove(i);
+        float nh = h * 0.115f, nw = w * 0.42f, gap = w * 0.016f;
+        float y = h - gap;
+        for (Note n : notes) {
+            long t = now - n.at;
+            float k = Math.min(1f, Math.min(t / 260f, (NOTE_MS - t) / 320f));
+            float x = w - gap - nw + (1 - k) * (nw + gap * 2);
+            RectF r = new RectF(x, y - nh, x + nw, y);
+            p.setShadowLayer(nh * 0.25f, 0, nh * 0.08f, 0xAA000000);
+            p.setColor(0xFF181B22);
+            c.drawRoundRect(r, nh * 0.22f, nh * 0.22f, p);
+            p.clearShadowLayer();
+            p.setShader(new LinearGradient(r.left, 0, r.right, 0, alpha(n.color, 0x66), alpha(n.color, 0x00), Shader.TileMode.CLAMP));
+            c.drawRoundRect(r, nh * 0.22f, nh * 0.22f, p);
+            p.setShader(null);
+            logo(c, n.logo, n.abbr, n.color, r.left + nh * 0.55f, r.centerY(), nh * 0.66f);
+            float tx = r.left + nh * 1.05f;
+            text(c, n.title, tx, r.top + nh * 0.36f, nh * 0.3f, tfBlack, TEXT, Paint.Align.LEFT, r.right - tx - gap);
+            text(c, n.line, tx, r.top + nh * 0.7f, nh * 0.24f, tfMed, 0xFFC9CDD3, Paint.Align.LEFT, r.right - tx - gap);
+            y -= nh + gap * 0.6f;
+        }
+        postInvalidateOnAnimation();
     }
 
     public void banner(String text, int color) {
@@ -707,43 +778,13 @@ public class ThorView extends View {
     }
 
     public void celebrate(Model.Game g, Model.Side side, String word) {
-        celebrate(g, side, word, CELEB_FULL, System.currentTimeMillis());
-    }
-
-    /** One screen shows it all. In two-screen mode the party is split: top = logo + word, bottom = score + scorer. */
-    public static final int CELEB_FULL = 0, CELEB_TOP = 1, CELEB_BOTTOM = 2;
-    private int celebPart = CELEB_FULL;
-
-    public void celebrate(Model.Game g, Model.Side side, String word, int part, long start) {
         celebGame = g; celebSide = side; celebWord = word;
         celebScorer = "";
         boolean home = side == g.home;
         for (Model.Goal goal : g.goals) if (goal.home == home && !goal.red) celebScorer = goal.who;
-        celebPart = part;
-        celebStart = start;   // same start on both screens so the confetti falls from one into the other
-        // the score card keeps flashing after the party (otherwise it flashed hidden under it)
-        flashUntil.put(g.id, start + CELEBRATION_MS + FLASH_MS);
+        celebStart = System.currentTimeMillis();
         invalidate();
     }
-
-    /**
-     * Score that just changed on the Board: it blinks amber for 4 s. If a goal celebration covered the Board,
-     * the blinking starts when the celebration ends (before, it happened under the party and nobody saw it).
-     * Returns 0 = normal, 1 = bright (amber) phase, 2 = dim phase.
-     */
-    private int scoreBlink(Model.Game g, boolean home) {
-        Long pa = popAt.get(g.id + ":" + (home ? "home" : "away"));
-        if (pa == null) return 0;
-        long now = System.currentTimeMillis(), start = pa;
-        if (celebGame != null && celebGame.id.equals(g.id) && celebStart + CELEBRATION_MS > pa && celebStart - pa < 60_000)
-            start = Math.max(pa, celebStart + CELEBRATION_MS);
-        long t = now - start;
-        if (t < 0) { postInvalidateDelayed(250); return 0; }
-        if (t >= SCORE_BLINK_MS) return 0;
-        postInvalidateOnAnimation();
-        return (t / 250) % 2 == 0 ? 1 : 2;
-    }
-    private static final long SCORE_BLINK_MS = 4000;
 
     private boolean celebrating() {
         return celebGame != null && System.currentTimeMillis() - celebStart < CELEBRATION_MS;
@@ -876,6 +917,7 @@ public class ThorView extends View {
         final int w = getWidth(), h = getHeight();
         if (w == 0 || h == 0) return;
         frame++;
+        tickerOn = false;
         hitRects.clear();
         hitAbbrs.clear();
         cardRects.clear();
@@ -914,7 +956,10 @@ public class ThorView extends View {
                     : leagueInfo != null && leagueInfo.mine() && favorites.isEmpty() ? tr("Long-press any team in any league to add it here", "Appuyez longuement sur une équipe pour l'ajouter ici")
                     : myTeamsOnly || leagueInfo != null && leagueInfo.mine() ? tr("No games for your teams", "Aucun match pour vos équipes") : tr("No games", "Aucun match");
                 drawEmpty(c, w, bodyTop, h, m);
-            } else drawScores(c, w, h, bodyTop);
+            } else if (dualBottom()) drawWall(c, w, h, bodyTop);
+            else drawScores(c, w, h, bodyTop);
+        } else if (tab == TAB_BOARD && dualBottom() && demoGame == null && boardGame() != null && !"racing".equals(boardGame().sport)) {
+            drawCompanion(c, boardGame(), w, h, top);
         } else if (tab == TAB_BOARD) {
             Model.Game g = demoGame != null ? demoGame : boardGame();
             if (g == null) drawEmpty(c, w, top, h, message != null ? message : "No games today");
@@ -943,9 +988,11 @@ public class ThorView extends View {
         }
 
         drawBanner(c, w, h, top);
+        drawNotes(c, w, h);
         if (pickerOpen) drawPicker(c, w, h);
         if (settingsOpen) drawSettings(c, w, h);
         if (onboardOpen) drawOnboarding(c, w, h);
+        if (modeMenuOpen) drawModeMenu(c, w, h);
         if (helpOpen) drawHelp(c, w, h);
         if (delayOpen) drawDelayPanel(c, w, h);
         if (syncState > 0) drawSync(c, w, h);
@@ -953,6 +1000,8 @@ public class ThorView extends View {
             drawCelebration(c, w, h);
             postInvalidateOnAnimation();
         }
+        if (ticker != null && (!tickerOn || celebrating() || pickerOpen || settingsOpen || helpOpen || delayOpen || syncState > 0 || modeMenuOpen))
+            ticker.set(null, 0, 0);   // something covers the bottom of the screen: hide the moving line
         if (selCard >= cardRects.size()) selCard = Math.max(0, cardRects.size() - 1);
         if (selRow >= hitRects.size() && tab == TAB_STANDINGS) selRow = Math.max(0, hitRects.size() - 1);
         if (cursorOn && !celebrating() && !helpOpen && !topMode) drawCursor(c);
@@ -1044,7 +1093,9 @@ public class ThorView extends View {
         r1.set(segRight - segW, cy - segH / 2, segRight, cy + segH / 2);
         p.setColor(0xFF161920);
         c.drawRoundRect(r1, segH / 2, segH / 2, p);
-        String[] labels = {tr("SCORES", "SCORES"), tr("BOARD", "TABLEAU"), tr("STANDINGS", "CLASSEMENT")};
+        String[] labels = dualBottom()
+            ? new String[]{tr("LIVE", "EN DIRECT"), tr("GAME", "MATCH"), tr("STANDINGS", "CLASSEMENT")}
+            : new String[]{tr("SCORES", "SCORES"), tr("BOARD", "TABLEAU"), tr("STANDINGS", "CLASSEMENT")};
         int nTabs = leagueInfo != null && leagueInfo.mine() ? 2 : 3;   // MY TEAMS: no standings tab
         float inset = segH * 0.09f;
         float segEach = segW / nTabs;
@@ -1075,6 +1126,373 @@ public class ThorView extends View {
 
         p.setColor(HAIRLINE);
         c.drawRect(0, hh - 1, w, hh, p);
+    }
+
+    // ------------------------------------------------------------------ two-screen bottom: GAME + LIVE (option)
+    private boolean companion = true;   // two screens always come with GAME + LIVE below
+    public void setCompanion(boolean on) { companion = on; invalidate(); }
+    /** Bottom screen while the top screen shows the Board, with "Game info" on. */
+    private boolean dualBottom() { return dual && !topMode && companion; }
+
+    private String status(Model.Game g) {
+        if (g.isLive()) return g.detail.isEmpty() ? "LIVE" : g.detail.toUpperCase();
+        if (g.isFinal()) return g.detail.isEmpty() ? "FINAL" : g.detail.toUpperCase();
+        return g.startMs > 0 ? (DateUtils.isToday(g.startMs) ? "" : DateFormat.format("EEE ", g.startMs).toString().toUpperCase()) + fmtTime(g.startMs) : g.detail;
+    }
+
+    /** LIVE: every game of the league as scoreboard tiles; the one on top is outlined. Tap = show it on top. */
+    private void drawWall(Canvas c, int w, int h, float top) {
+        List<Model.Game> list = shownGames();
+        float gap = w * 0.014f;
+        int cols = 3, rowsN = Math.max(3, Math.min(5, (list.size() + cols - 1) / cols));
+        float tileH = (h - top - gap) / rowsN, tw = (w - gap * (cols + 1)) / cols;
+        int perPage = cols * rowsN, pages = Math.max(1, (list.size() + perPage - 1) / perPage), pg = Math.min(page, pages - 1);
+        Model.Game onTop = boardGame();
+        long now = System.currentTimeMillis();
+        for (int k = 0; k < perPage && pg * perPage + k < list.size(); k++) {
+            Model.Game g = list.get(pg * perPage + k);
+            float x = gap + (k % cols) * (tw + gap), y = top + (k / cols) * tileH;
+            RectF r = new RectF(x, y + gap * 0.3f, x + tw, y + tileH - gap * 0.3f);
+            float rad = r.height() * 0.14f;
+            p.setShader(new LinearGradient(r.left, 0, r.right, 0, alpha(g.away.color, g.isLive() ? 0x60 : 0x30), alpha(g.home.color, g.isLive() ? 0x60 : 0x30), Shader.TileMode.CLAMP));
+            c.drawRoundRect(r, rad, rad, p);
+            p.setShader(null);
+            p.setColor(0xB0101218);
+            c.drawRoundRect(r, rad, rad, p);
+            boolean isTop = onTop != null && g.id.equals(onTop.id);
+            if (isTop || g.isLive()) {
+                p.setStyle(Paint.Style.STROKE);
+                p.setStrokeWidth(Math.max(2f, r.height() * 0.022f));
+                p.setColor(isTop ? ACCENT : alpha(LIVE, 0x99));
+                c.drawRoundRect(r, rad, rad, p);
+                p.setStyle(Paint.Style.FILL);
+            }
+            cardRects.add(r);
+            cardIds.add(g.id);
+            float rh = r.height(), ls = Math.min(rh * 0.22f, tw * 0.13f), padX = Math.min(rh, tw) * 0.1f;
+            boolean pre = "pre".equals(g.state);
+            for (int sd = 0; sd < 2; sd++) {
+                Model.Side s2 = sd == 0 ? g.away : g.home;
+                float cy = r.top + rh * (sd == 0 ? 0.3f : 0.58f);
+                logo(c, s2.logo, s2.abbr, s2.color, r.left + padX + ls / 2, cy, ls);
+                boolean lost = g.isFinal() && !s2.winner && (g.away.winner || g.home.winner);
+                text(c, star(s2.abbr), r.left + padX * 1.6f + ls, cy, ls * 0.62f, tfBlack, lost ? MUTED : TEXT, Paint.Align.LEFT, tw * 0.5f);
+                if (!pre) {
+                    Long pa = popAt.get(g.id + ":" + (sd == 0 ? "away" : "home"));
+                    boolean pop = pa != null && now - pa < 20000;
+                    text(c, s2.score.isEmpty() ? "0" : s2.score, r.right - padX, cy, ls * 0.95f, tfBlack, pop ? AMBER : lost ? MUTED : TEXT, Paint.Align.RIGHT, tw * 0.3f);
+                    if (pop) postInvalidateDelayed(1000);
+                }
+            }
+            String st = isTop ? tr("ON TOP  ·  ", "EN HAUT  ·  ") + status(g) : status(g);
+            text(c, st, r.left + padX, r.top + rh * 0.84f, ls * 0.48f, tfCond, isTop ? ACCENT : g.isLive() ? 0xFFFF6B5E : MUTED, Paint.Align.LEFT, tw - padX * 2);
+        }
+        if (pages > 1) text(c, (pg + 1) + " / " + pages, w / 2f, h - gap * 0.6f, gap * 0.9f, tfCond, DIM, Paint.Align.CENTER, w);
+    }
+
+    /** GAME: the game on the top screen, in more detail. Same look as the Board: team colors, big numbers, no boxes in boxes. */
+    private void drawCompanion(Canvas c, Model.Game g, int w, int h, float top) {
+        float gap = w * 0.02f, H = h - top;
+        int ac = Leds.vivid(g.away.color), hc = Leds.vivid(g.home.color);
+
+        // --- header band in team colors
+        RectF band = new RectF(gap * 0.8f, top, w - gap * 0.8f, top + H * 0.2f);
+        float br = band.height() * 0.2f;
+        p.setShader(new LinearGradient(band.left, 0, band.right, 0, new int[]{alpha(g.away.color, 0xC0), 0xFF0E1015, alpha(g.home.color, 0xC0)}, new float[]{0f, 0.5f, 1f}, Shader.TileMode.CLAMP));
+        c.drawRoundRect(band, br, br, p);
+        p.setShader(null);
+        float bh = band.height(), ls = bh * 0.66f;
+        for (int sd = 0; sd < 2; sd++) {
+            Model.Side s2 = sd == 0 ? g.away : g.home;
+            boolean left = sd == 0;
+            float lx = left ? band.left + bh * 0.55f : band.right - bh * 0.55f;
+            logo(c, s2.logo, s2.abbr, s2.color, lx, band.centerY(), ls);
+            float nx = left ? lx + ls * 0.72f : lx - ls * 0.72f;
+            Paint.Align al = left ? Paint.Align.LEFT : Paint.Align.RIGHT;
+            text(c, star(s2.abbr), nx, band.top + bh * 0.4f, bh * 0.25f, tfBlack, favorites.contains(s2.abbr) ? ACCENT : TEXT, al, w * 0.15f);
+            text(c, s2.record, nx, band.top + bh * 0.68f, bh * 0.15f, tfMed, 0xCCFFFFFF, al, w * 0.15f);
+            if (!"pre".equals(g.state)) {
+                boolean lost = g.isFinal() && !s2.winner && (g.away.winner || g.home.winner);
+                p.setTypeface(tfCond);
+                p.setTextSize(bh * 0.15f);
+                float half = (p.measureText(status(g)) + bh * 0.4f) / 2 + bh * 0.18f;   // keep clear of the clock pill
+                text(c, s2.score.isEmpty() ? "0" : s2.score, left ? band.centerX() - half : band.centerX() + half, band.centerY(), bh * 0.6f, tfBlack,
+                    lost ? MUTED : TEXT, left ? Paint.Align.RIGHT : Paint.Align.LEFT, w * 0.12f);
+            }
+        }
+        String st = status(g);
+        p.setTypeface(tfCond);
+        p.setTextSize(bh * 0.15f);
+        float pw = p.measureText(st) + bh * 0.4f;
+        RectF pill = new RectF(band.centerX() - pw / 2, band.centerY() - bh * 0.14f, band.centerX() + pw / 2, band.centerY() + bh * 0.14f);
+        p.setColor(g.isLive() ? LIVE : 0xFF262A33);
+        c.drawRoundRect(pill, pill.height() / 2, pill.height() / 2, p);
+        text(c, st, pill.centerX(), pill.centerY(), bh * 0.15f, tfCond, TEXT, Paint.Align.CENTER, pw);
+
+        float by = band.bottom + gap * 1.2f, bb = h - gap * 0.8f;
+        float splitX = w * 0.54f;
+
+        // ================= left column: field (NFL), scoring, last play, score by period
+        float lx0 = gap * 0.8f, lx1 = splitX - gap, ly = by;
+        if ("football".equals(g.sport) && g.isLive() && (!g.downText.isEmpty() || !g.driveText.isEmpty())) {   // the field itself is on the top screen
+            sectionLabel(c, tr("DRIVE", "SÉRIE"), lx0, ly, H);
+            if (!g.downText.isEmpty()) text(c, g.downText, lx0, ly + H * 0.06f, H * 0.045f, tfBlack, g.redZone ? LIVE : AMBER, Paint.Align.LEFT, lx1 - lx0);
+            if (!g.driveText.isEmpty()) text(c, g.driveText, lx0, ly + H * 0.11f, H * 0.026f, tfMed, 0xFFC9CDD3, Paint.Align.LEFT, lx1 - lx0);
+            ly += H * 0.15f;
+        }
+        boolean hasLines = !g.away.lines.isEmpty();
+        float lineH = hasLines ? H * 0.15f : 0;
+        // top players live in the left column (the last play is already on the top screen)
+        List<String[]> leaders = new ArrayList<>(g.leaderLines);
+        if (leaders.isEmpty()) {
+            if (!g.away.leader.isEmpty()) leaders.add(new String[]{g.away.abbr, "", g.away.leader, ""});
+            if (!g.home.leader.isEmpty()) leaders.add(new String[]{g.home.abbr, "", g.home.leader, ""});
+        }
+        float leadRowH = H * 0.046f;
+        int leadN = Math.min(leaders.size(), 4);
+        float leadH = leadN == 0 ? 0 : H * 0.05f + leadRowH * leadN + gap * 0.6f;
+        List<Model.Goal> goals = new ArrayList<>(g.goals);
+        Collections.reverse(goals);   // newest first
+        sectionLabel(c, goals.isEmpty() ? tr("LAST PLAY", "DERNIER JEU") : tr("SCORING", "POINTS"), lx0, ly, H);
+        float ty = ly + H * 0.04f;
+        if (goals.isEmpty()) {
+            String msg = !g.lastPlay.isEmpty() ? g.lastPlay : !g.headline.isEmpty() ? g.headline
+                : "pre".equals(g.state) ? tr("Starts ", "Début ") + status(g) : tr("No scoring yet", "Aucun point pour l'instant");
+            wrapText(c, msg, lx0, ty + H * 0.03f, lx1 - lx0, H * 0.034f, TEXT, 4);
+        }
+        float room = bb - lineH - leadH - ty;
+        int nEv = goals.size();
+        float evH = nEv == 0 ? 0 : Math.max(H * 0.068f, Math.min(H * 0.095f, room / Math.max(1, nEv)));
+        int maxEv = nEv == 0 ? 0 : (int) (room / evH);
+        for (int i = 0; i < Math.min(maxEv, nEv); i++) {
+            Model.Goal gl = goals.get(i);
+            Model.Side s2 = gl.home ? g.home : g.away;
+            float ey = ty + i * evH, ecy = ey + evH * 0.46f;
+            if (i == 0) {   // newest: soft team glow
+                p.setShader(new LinearGradient(lx0, 0, lx1, 0, alpha(s2.color, 0x55), alpha(s2.color, 0x00), Shader.TileMode.CLAMP));
+                c.drawRoundRect(new RectF(lx0, ey, lx1, ey + evH * 0.92f), evH * 0.2f, evH * 0.2f, p);
+                p.setShader(null);
+            }
+            p.setColor(gl.red ? LIVE : (gl.home ? hc : ac));
+            c.drawRoundRect(new RectF(lx0, ey + evH * 0.14f, lx0 + evH * 0.07f, ey + evH * 0.78f), 3, 3, p);
+            logo(c, s2.logo, s2.abbr, s2.color, lx0 + evH * 0.55f, ecy, evH * 0.56f);
+            float tx = lx0 + evH * 1.0f;
+            text(c, (gl.red ? tr("Red card · ", "Carton rouge · ") : "") + gl.who, tx, ey + evH * (gl.extra.isEmpty() ? 0.46f : 0.33f), evH * 0.3f, tfBlack, TEXT, Paint.Align.LEFT, (lx1 - tx) * 0.72f);
+            if (!gl.extra.isEmpty()) text(c, gl.extra, tx, ey + evH * 0.66f, evH * 0.2f, tfMed, MUTED, Paint.Align.LEFT, (lx1 - tx) * 0.74f);
+            text(c, gl.time, lx1 - evH * 0.2f, ecy, evH * 0.22f, tfCond, MUTED, Paint.Align.RIGHT, (lx1 - tx) * 0.26f);
+            if (i < Math.min(maxEv, nEv) - 1) { p.setColor(HAIRLINE); c.drawRect(tx, ey + evH * 0.94f, lx1, ey + evH * 0.94f + 1, p); }
+        }
+        if (leadN > 0) {
+            float ly2 = bb - lineH - leadH + gap * 0.3f;
+            sectionLabel(c, tr("TOP PLAYERS", "MEILLEURS JOUEURS"), lx0, ly2, H);
+            ly2 += H * 0.045f;
+            for (int k = 0; k < leadN; k++) {
+                String[] L = leaders.get(k);
+                Model.Side s2 = L[0].equals(g.home.abbr) ? g.home : g.away;
+                float cy = ly2 + leadRowH * (k + 0.5f);
+                logo(c, s2.logo, s2.abbr, s2.color, lx0 + leadRowH * 0.35f, cy, leadRowH * 0.62f);
+                float nx = lx0 + leadRowH * 0.85f;
+                float px = nx;
+                if (!L[1].isEmpty()) { text(c, L[1].toUpperCase(Locale.US), nx, cy, leadRowH * 0.3f, tfCond, MUTED, Paint.Align.LEFT, (lx1 - lx0) * 0.22f); px = lx0 + (lx1 - lx0) * 0.28f; }
+                text(c, L[2], px, cy, leadRowH * 0.4f, tfBlack, TEXT, Paint.Align.LEFT, (lx1 - px) * 0.42f);
+                if (!L[3].isEmpty()) text(c, L[3], lx1, cy, leadRowH * 0.32f, tfMed, 0xFFC9CDD3, Paint.Align.RIGHT, (lx1 - lx0) * 0.34f);
+            }
+        }
+        if (hasLines) drawLineTable(c, g, new RectF(lx0, bb - lineH, lx1, bb));
+
+        // divider
+        p.setColor(HAIRLINE);
+        c.drawRect(splitX, by, splitX + 1, bb, p);
+
+        // ================= right column: win chance + graph, shot map, team stats, leaders
+        float rx0 = splitX + gap, rx1 = w - gap * 0.8f, ry = by;
+        boolean hockeyMap = "hockey".equals(g.sport) && !g.shots.isEmpty() && shotMap;
+        if (g.away.odds >= 0 && g.home.odds >= 0) {
+            sectionLabel(c, tr("WIN CHANCE", "CHANCES DE VICTOIRE"), rx0, ry, H);
+            String src = g.oddsSource + (g.winHist.size() >= 3 && !"ESPN".equals(g.oddsSource) ? tr(" · CHART ESPN", " · GRAPHE ESPN") : "");
+            if (!src.isEmpty()) text(c, src, rx1, ry, H * 0.022f, tfMed, DIM, Paint.Align.RIGHT, (rx1 - rx0) * 0.6f);
+            float big = H * 0.065f, cy = ry + H * 0.08f;
+            int pa = Math.round(g.away.odds * 100), ph = Math.round(g.home.odds * 100);
+            text(c, pa + "%", rx0, cy, big, tfBlack, pa >= ph ? TEXT : MUTED, Paint.Align.LEFT, (rx1 - rx0) * 0.4f);
+            text(c, ph + "%", rx1, cy, big, tfBlack, ph > pa ? TEXT : MUTED, Paint.Align.RIGHT, (rx1 - rx0) * 0.4f);
+            text(c, g.away.abbr, rx0, cy + big * 0.78f, H * 0.022f, tfCond, MUTED, Paint.Align.LEFT, w);
+            text(c, g.home.abbr, rx1, cy + big * 0.78f, H * 0.022f, tfCond, MUTED, Paint.Align.RIGHT, w);
+            // the graph needs the whole game: ESPN keeps the full win-probability history, so use it for the
+            // curve when it exists (Polymarket only gives the current price, so its curve starts flat)
+            List<Float> hist = g.winHist.size() >= 3 ? new ArrayList<>(g.winHist) : oddsHist.get(g.id);
+            if (g.winHist.size() >= 3 && !"ESPN".equals(g.oddsSource)) hist.add(g.away.odds);   // curve ends on the number shown
+            float gh = hockeyMap ? 0.13f : 0.24f;
+            RectF gr = new RectF(rx0, cy + big * 1.05f, rx1, cy + big * 1.05f + H * gh);
+            drawOddsGraph(c, g, gr, hist, ac, hc);
+            ry = gr.bottom + gap * 1.2f;
+        }
+        if (hockeyMap) {
+            sectionLabel(c, tr("SHOT MAP", "CARTE DES TIRS"), rx0, ry, H);
+            float rw = rx1 - rx0, rh = rw * 85f / 200f;
+            RectF rink = new RectF(rx0, ry + H * 0.045f, rx1, ry + H * 0.045f + rh);
+            drawRink(c, g, rink);
+            ry = rink.bottom + gap * 1.2f;
+        }
+        List<String[]> rows = new ArrayList<>(g.teamStats);
+        if (rows.isEmpty()) {
+            if (g.away.shots >= 0) rows.add(new String[]{tr("Shots", "Tirs"), "" + g.away.shots, "" + g.home.shots});
+            if (g.away.saves >= 0) rows.add(new String[]{tr("Saves", "Arrêts"), "" + g.away.saves, "" + g.home.saves});
+            if (g.awayTimeouts >= 0) rows.add(new String[]{tr("Timeouts", "Temps morts"), "" + g.awayTimeouts, "" + g.homeTimeouts});
+        }
+        if (!rows.isEmpty() && ry < bb - H * 0.08f) {
+            sectionLabel(c, tr("TEAM STATS", "STATS D'ÉQUIPE"), rx0, ry, H);
+            ry += H * 0.035f;
+            float avail = bb - ry;
+            int n = Math.min(rows.size(), Math.max(1, (int) (avail / (H * 0.05f))));
+            float rowH = Math.min(H * 0.075f, avail / n);
+            for (int k = 0; k < n; k++) {
+                String[] r = rows.get(k);
+                float cy = ry + rowH * 0.42f;
+                float vs = Math.min(rowH * 0.5f, H * 0.036f);
+                text(c, r[1], rx0, cy, vs, tfBlack, TEXT, Paint.Align.LEFT, (rx1 - rx0) * 0.26f);
+                text(c, r[2], rx1, cy, vs, tfBlack, TEXT, Paint.Align.RIGHT, (rx1 - rx0) * 0.26f);
+                text(c, r[0].toUpperCase(Locale.US), (rx0 + rx1) / 2, cy - rowH * 0.06f, Math.min(rowH * 0.28f, H * 0.02f), tfCond, MUTED, Paint.Align.CENTER, (rx1 - rx0) * 0.44f);
+                float a = num(r[1]), b2 = num(r[2]);
+                if (a >= 0 && b2 >= 0 && a + b2 > 0) {   // diverging bars from the middle
+                    float mx = Math.max(a, b2), mid = (rx0 + rx1) / 2, half = (rx1 - rx0) * 0.22f, yb = cy + rowH * 0.22f, bh2 = rowH * 0.08f;
+                    p.setColor(0xFF22252D);
+                    c.drawRoundRect(new RectF(mid - half, yb, mid + half, yb + bh2), bh2 / 2, bh2 / 2, p);
+                    p.setColor(ac);
+                    c.drawRoundRect(new RectF(mid - half * a / mx, yb, mid - 2, yb + bh2), bh2 / 2, bh2 / 2, p);
+                    p.setColor(hc);
+                    c.drawRoundRect(new RectF(mid + 2, yb, mid + half * b2 / mx, yb + bh2), bh2 / 2, bh2 / 2, p);
+                }
+                ry += rowH;
+            }
+        }
+    }
+
+    /** First number in a stat ("54.3%" -> 54.3, "28-61" -> -1 when it is a ratio we can't compare well). */
+    private static float num(String s) {
+        if (s == null) return -1;
+        String t = s.replace("%", "").trim();
+        if (t.contains(":") || t.contains("/")) return -1;
+        if (t.matches("\\d+-\\d+")) return -1;
+        try { return Float.parseFloat(t); } catch (Exception e) { return -1; }
+    }
+
+    /**
+     * Win chance over the game: the line is the left team's chance. Above the 50% line the area takes the
+     * left team's color, below it the right team's, so you see who had the momentum and when.
+     */
+    private void drawOddsGraph(Canvas c, Model.Game g, RectF r, List<Float> hist, int ac, int hc) {
+        float rad = r.height() * 0.1f;
+        p.setColor(0xFF111318);
+        c.drawRoundRect(r, rad, rad, p);
+        List<Float> pts = new ArrayList<>();
+        if (hist != null) pts.addAll(hist);
+        if (pts.isEmpty()) pts.add(g.away.odds);
+        if (pts.size() == 1) pts.add(0, pts.get(0));
+        int n = pts.size();
+        float padX = r.height() * 0.08f, padY = r.height() * 0.1f;
+        float x0 = r.left + padX, x1 = r.right - padX, y0 = r.top + padY, y1 = r.bottom - padY, mid = (y0 + y1) / 2;
+        // 50% line (dashed) and 25/75 guides
+        p.setColor(0x30FFFFFF);
+        for (float x = x0; x < x1; x += r.height() * 0.06f) c.drawRect(x, mid - 0.75f, Math.min(x1, x + r.height() * 0.03f), mid + 0.75f, p);
+        p.setColor(0x12FFFFFF);
+        c.drawRect(x0, y0 + (y1 - y0) * 0.25f, x1, y0 + (y1 - y0) * 0.25f + 1, p);
+        c.drawRect(x0, y0 + (y1 - y0) * 0.75f, x1, y0 + (y1 - y0) * 0.75f + 1, p);
+        // zoom on the action: the scale grows with the biggest swing away from 50%
+        float span = 0.12f;
+        for (float v : pts) span = Math.max(span, Math.abs(v - 0.5f) + 0.04f);
+        span = Math.min(0.5f, span);
+        Path line = new Path(), area = new Path();
+        float lx = x0, ly = mid;
+        for (int i = 0; i < n; i++) {
+            float x = x0 + (x1 - x0) * i / (n - 1f);
+            float y = mid - (y1 - y0) / 2f * Math.max(-1f, Math.min(1f, (pts.get(i) - 0.5f) / span));
+            if (i == 0) { line.moveTo(x, y); area.moveTo(x, mid); area.lineTo(x, y); }
+            else {   // smooth: curve through the midpoints
+                float cx = (lx + x) / 2;
+                line.cubicTo(cx, ly, cx, y, x, y);
+                area.cubicTo(cx, ly, cx, y, x, y);
+            }
+            lx = x; ly = y;
+        }
+        area.lineTo(x1, mid);
+        area.close();
+        c.save();
+        c.clipRect(r.left, r.top, r.right, mid);
+        p.setShader(new LinearGradient(0, y0, 0, mid, alpha(ac, 0x99), alpha(ac, 0x10), Shader.TileMode.CLAMP));
+        c.drawPath(area, p);
+        c.restore();
+        c.save();
+        c.clipRect(r.left, mid, r.right, r.bottom);
+        p.setShader(new LinearGradient(0, mid, 0, y1, alpha(hc, 0x10), alpha(hc, 0x99), Shader.TileMode.CLAMP));
+        c.drawPath(area, p);
+        c.restore();
+        p.setShader(null);
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeCap(Paint.Cap.ROUND);
+        p.setStrokeJoin(Paint.Join.ROUND);
+        p.setStrokeWidth(Math.max(2.5f, r.height() * 0.022f));
+        p.setColor(TEXT);
+        c.drawPath(line, p);
+        p.setStrokeCap(Paint.Cap.BUTT);
+        p.setStrokeJoin(Paint.Join.MITER);
+        p.setStyle(Paint.Style.FILL);
+        // live end point
+        int lead = pts.get(n - 1) >= 0.5f ? ac : hc;
+        float pulse = g.isLive() ? (float) (0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 300.0)) : 0f;
+        p.setColor(alpha(lead, (int) (0x55 * pulse)));
+        c.drawCircle(lx, ly, r.height() * (0.05f + 0.04f * pulse), p);
+        p.setColor(TEXT);
+        c.drawCircle(lx, ly, r.height() * 0.035f, p);
+        p.setColor(lead);
+        c.drawCircle(lx, ly, r.height() * 0.022f, p);
+        if (g.isLive()) postInvalidateDelayed(60);
+        // side labels
+        text(c, g.away.abbr, x0 + padX * 0.4f, y0 + r.height() * 0.06f, r.height() * 0.085f, tfCond, alpha(TEXT, 0x99), Paint.Align.LEFT, r.width() * 0.3f);
+        text(c, g.home.abbr, x0 + padX * 0.4f, y1 - r.height() * 0.06f, r.height() * 0.085f, tfCond, alpha(TEXT, 0x99), Paint.Align.LEFT, r.width() * 0.3f);
+        text(c, "50%", x0 + padX * 0.4f, mid - r.height() * 0.06f, r.height() * 0.07f, tfCond, alpha(TEXT, 0x55), Paint.Align.LEFT, r.width() * 0.2f);
+    }
+
+    private void sectionLabel(Canvas c, String s, float x, float y, float H) {
+        text(c, s, x, y, H * 0.024f, tfCond, MUTED, Paint.Align.LEFT, getWidth());
+    }
+
+    /** Score by period. */
+    private void drawLineTable(Canvas c, Model.Game g, RectF r) {
+        int n = Math.max(g.away.lines.size(), g.home.lines.size());
+        if (n == 0) return;
+        p.setColor(0xFF14161B);
+        c.drawRoundRect(r, r.height() * 0.14f, r.height() * 0.14f, p);
+        float pad = r.height() * 0.12f;
+        float nameW = r.width() * 0.2f, totW = r.width() * 0.14f, colW = (r.width() - nameW - totW - pad * 2) / n, rh = (r.height() - pad) / 3f;
+        float x0 = r.left + pad, y0 = r.top + pad * 0.5f;
+        for (int i = 0; i < n; i++)
+            text(c, String.valueOf(i + 1), x0 + nameW + colW * (i + 0.5f), y0 + rh * 0.5f, rh * 0.36f, tfCond, DIM, Paint.Align.CENTER, colW);
+        text(c, "T", r.right - pad - totW / 2, y0 + rh * 0.5f, rh * 0.36f, tfCond, DIM, Paint.Align.CENTER, totW);
+        for (int sd = 0; sd < 2; sd++) {
+            Model.Side s2 = sd == 0 ? g.away : g.home;
+            float cy = y0 + rh * (1.5f + sd);
+            text(c, s2.abbr, x0, cy, rh * 0.42f, tfBlack, MUTED, Paint.Align.LEFT, nameW);
+            for (int i = 0; i < n; i++)
+                text(c, i < s2.lines.size() ? s2.lines.get(i) : "·", x0 + nameW + colW * (i + 0.5f), cy, rh * 0.42f, tfMed, TEXT, Paint.Align.CENTER, colW);
+            text(c, s2.score.isEmpty() ? "0" : s2.score, r.right - pad - totW / 2, cy, rh * 0.48f, tfBlack, TEXT, Paint.Align.CENTER, totW);
+        }
+    }
+
+    /** Simple word wrap. */
+    private void wrapText(Canvas c, String s, float x, float y, float maxW, float size, int col, int maxLines) {
+        p.setTypeface(tfMed);
+        p.setTextSize(size);
+        StringBuilder line = new StringBuilder();
+        int lines = 0;
+        for (String wd : s.split("\\s+")) {
+            String tryL = line.length() == 0 ? wd : line + " " + wd;
+            if (p.measureText(tryL) > maxW && line.length() > 0) {
+                text(c, line.toString(), x, y + lines * size * 1.35f, size, tfMed, col, Paint.Align.LEFT, maxW);
+                if (++lines >= maxLines) return;
+                line = new StringBuilder(wd);
+            } else line = new StringBuilder(tryL);
+        }
+        if (line.length() > 0) text(c, line.toString(), x, y + lines * size * 1.35f, size, tfMed, col, Paint.Align.LEFT, maxW);
     }
 
     private void drawEmpty(Canvas c, int w, float top, int h, String msg) {
@@ -1117,6 +1535,10 @@ public class ThorView extends View {
         text(c, tr("Tap to wake", "Touchez pour réveiller"), w / 2f, h * 0.9f, h * 0.028f, tfReg, 0xFF2E3138, Paint.Align.CENTER, w);
     }
 
+    /** Top screen: the scrolling line lives in its own view (see TickerView). */
+    public TickerView ticker;
+    private boolean tickerOn;
+
     private void drawTicker(Canvas c, Model.Game cur, int w, int h, int top) {
         StringBuilder sb = new StringBuilder();
         for (Model.Game g : games) {
@@ -1126,20 +1548,11 @@ public class ThorView extends View {
             if ("pre".equals(g.state)) sb.append("@ ").append(g.home.abbr).append("  ").append(g.startMs > 0 ? fmtTime(g.startMs) : g.detail);
             else sb.append(g.away.score).append(" – ").append(g.home.score).append(' ').append(g.home.abbr).append("  ").append(g.isLive() ? g.detail : tr("FINAL", "FINAL"));
         }
-        if (sb.length() == 0) return;
-        float th = h - top;
+        if (sb.length() == 0) { if (ticker != null) ticker.set(null, 0, 0); return; }
         p.setColor(0xFF0C0E13);
         c.drawRect(0, top, w, h, p);
-        p.setTypeface(tfCond);
-        p.setTextSize(th * 0.45f);
-        String s = sb.toString() + "      •      ";
-        float tw = p.measureText(s);
-        float off = (System.currentTimeMillis() / 12f) % tw;
-        c.save();
-        c.clipRect(0, top, w, h);
-        for (float x = -off; x < w; x += tw) text(c, s, x, top + th / 2, th * 0.45f, tfCond, MUTED, Paint.Align.LEFT, tw + 10);
-        c.restore();
-        postInvalidateDelayed(40);
+        tickerOn = true;
+        if (ticker != null) ticker.set(sb.toString() + "      •      ", top, h);   // the ticker view scrolls it on its own
     }
 
     // ------------------------------------------------------------------ banner
@@ -1340,11 +1753,64 @@ public class ThorView extends View {
             total == 0 ? TEXT : 0xFF000000, Paint.Align.CENTER, onboardDoneRect.width());
     }
 
+    // ------------------------------------------------------------------ view mode menu (the ▭ button)
+    private boolean modeMenuOpen;
+    private final List<RectF> modeRects = new ArrayList<>();
+
+    private int viewMode() { return dual ? 1 : 0; }
+
+    /** Small menu under the two-screen button: one screen / two screens classic / two screens + game info. */
+    private void drawModeMenu(Canvas c, int w, int h) {
+        modeRects.clear();
+        p.setColor(0x99000000);
+        c.drawRect(0, 0, w, h, p);
+        String[][] items = {
+            {tr("One screen", "Un écran"), tr("Top screen free for your game or stream", "Écran du haut libre pour ton jeu ou stream")},
+            {tr("Two screens", "Deux écrans"), tr("Board on top, game info and live games below", "Tableau en haut, infos du match et matchs en direct en bas")},
+        };
+        float mw = w * 0.56f, rh = h * 0.115f, gap = w * 0.016f;
+        float x = Math.max(gap, Math.min(w - gap - mw, dualRect.centerX() - mw / 2)), y = dualRect.bottom + gap;
+        RectF panel = new RectF(x, y, x + mw, y + rh * items.length + gap);
+        p.setShadowLayer(gap, 0, gap * 0.3f, 0xAA000000);
+        p.setColor(0xFF181B22);
+        c.drawRoundRect(panel, rh * 0.25f, rh * 0.25f, p);
+        p.clearShadowLayer();
+        int cur = viewMode();
+        for (int i = 0; i < items.length; i++) {
+            RectF r = new RectF(x + gap * 0.5f, y + gap * 0.5f + i * rh, x + mw - gap * 0.5f, y + gap * 0.5f + (i + 1) * rh);
+            if (i == cur) { p.setColor(alpha(ACCENT, 0x33)); c.drawRoundRect(r, rh * 0.2f, rh * 0.2f, p); }
+            // icon: one or two stacked screens
+            float ix = r.left + rh * 0.5f, ih = rh * 0.5f, iw = ih * 0.9f;
+            p.setStyle(Paint.Style.STROKE);
+            p.setStrokeWidth(Math.max(2f, rh * 0.03f));
+            p.setColor(i == cur ? ACCENT : MUTED);
+            if (i == 0) c.drawRoundRect(new RectF(ix - iw / 2, r.centerY(), ix + iw / 2, r.centerY() + ih * 0.45f), 4, 4, p);
+            else {
+                c.drawRoundRect(new RectF(ix - iw / 2, r.centerY() - ih * 0.5f, ix + iw / 2, r.centerY() - ih * 0.05f), 4, 4, p);
+                c.drawRoundRect(new RectF(ix - iw / 2, r.centerY() + ih * 0.05f, ix + iw / 2, r.centerY() + ih * 0.5f), 4, 4, p);
+            }
+            p.setStyle(Paint.Style.FILL);
+            text(c, items[i][0], r.left + rh * 1.05f, r.top + rh * 0.38f, rh * 0.26f, tfBlack, i == cur ? ACCENT : TEXT, Paint.Align.LEFT, r.width() - rh * 1.3f);
+            text(c, items[i][1], r.left + rh * 1.05f, r.top + rh * 0.7f, rh * 0.17f, tfMed, MUTED, Paint.Align.LEFT, r.width() - rh * 1.3f);
+            modeRects.add(r);
+        }
+    }
+
     // ------------------------------------------------------------------ settings panel
     private static final String[][] SECTIONS = {
         {"General", "Général"}, {"Goals & alerts", "Buts & alertes"}, {"Stick lights", "Lumières"},
         {"Scores & Board", "Scores & tableau"}, {"App", "Appli"}};
-    private int settingsSection;
+    private int sectionCount() { return SECTIONS.length; }
+    private int settingsSection, settingsFocus;   // focus 0 = sections, 1 = rows
+
+    /** L1 / R1 while Settings is open: previous / next section. */
+    public boolean settingsShift(int dir) {
+        if (!settingsOpen) return false;
+        settingsSection = ((settingsSection + dir) % sectionCount() + sectionCount()) % sectionCount();
+        selSetting = 0;
+        invalidate();
+        return true;
+    }
     private String appVersion = "";
     private final List<RectF> sectionRects = new ArrayList<>();
 
@@ -1352,6 +1818,7 @@ public class ThorView extends View {
 
     /** Items of the section on screen. */
     private List<String[]> visibleSettings() {
+        if (settingsSection >= sectionCount()) settingsSection = 0;
         List<String[]> out = new ArrayList<>();
         for (String[] it : settingItems) if (it.length > 4 && Integer.parseInt(it[4]) == settingsSection) out.add(it);
         return out;
@@ -1375,6 +1842,8 @@ public class ThorView extends View {
         p.setTextSize(headH * 0.4f);
         float titleW = p.measureText(tr("Settings", "Réglages"));
         text(c, "ThorSport " + appVersion, gap * 2.4f + titleW, headH * 0.58f, headH * 0.2f, tfMed, DIM, Paint.Align.LEFT, w * 0.3f);
+        if (cursorOn) text(c, settingsFocus == 0 ? tr("↑↓ section   →/A open   B close", "↑↓ section   →/A ouvrir   B fermer")
+                : tr("↑↓ move   A change   ←/B back", "↑↓ bouger   A changer   ←/B retour"), w * 0.6f, headH * 0.55f, headH * 0.17f, tfCond, MUTED, Paint.Align.CENTER, w * 0.34f);
         RectF done = new RectF(w - gap * 1.5f - headH * 1.9f, headH * 0.22f, w - gap * 1.5f, headH * 0.88f);
         p.setColor(ACCENT);
         c.drawRoundRect(done, done.height() / 2, done.height() / 2, p);
@@ -1383,8 +1852,8 @@ public class ThorView extends View {
 
         // sections (left)
         float sideW = w * 0.3f, top = headH + gap * 0.4f, bottom = h - gap;
-        float sh = Math.min(h * 0.12f, (bottom - top) / SECTIONS.length);
-        for (int i = 0; i < SECTIONS.length; i++) {
+        float sh = Math.min(h * 0.12f, (bottom - top) / sectionCount());
+        for (int i = 0; i < sectionCount(); i++) {
             RectF r = new RectF(gap, top + i * sh + sh * 0.08f, gap + sideW, top + (i + 1) * sh - sh * 0.08f);
             boolean on = i == settingsSection;
             p.setColor(on ? ACCENT : 0xFF171A21);
@@ -1552,7 +2021,33 @@ public class ThorView extends View {
         c.drawRect(-10, -10, w + 10, h + 10, p);
         float bh = h * 0.08f;
         syncCancel.set(w / 2f - w * 0.12f, h * 0.84f, w / 2f + w * 0.12f, h * 0.84f + bh);
-        if (syncState == 1) {
+        if (syncState == 3) {   // pick the moment your TV shows
+            syncRects.clear();
+            float gap = w * 0.03f;
+            text(c, tr("WHAT DOES YOUR TV SHOW RIGHT NOW?", "QU'EST-CE QUE TA TV MONTRE MAINTENANT?"), w / 2f, h * 0.07f, h * 0.042f, tfBlack, TEXT, Paint.Align.CENTER, w * 0.94f);
+            text(c, tr("Tap the clock that matches your stream. Scores here are live, so it may spoil a little.",
+                    "Touche l'heure de match que montre ton stream. Les scores ici sont en direct."), w / 2f, h * 0.125f, h * 0.026f, tfMed, MUTED, Paint.Align.CENTER, w * 0.94f);
+            float top = h * 0.17f, bottom = h * 0.81f, rh = h * 0.085f;
+            int n = Math.min(syncRows.size(), (int) ((bottom - top) / rh));
+            if (n == 0) {
+                float pulse = (float) (0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 400.0));
+                p.setColor(alpha(ACCENT, (int) (60 + 120 * pulse)));
+                c.drawCircle(w / 2f, h * 0.42f, h * 0.06f, p);
+                text(c, tr("Watching the live game… the clocks appear here in a few seconds", "Lecture du match en direct… les heures apparaissent ici dans quelques secondes"),
+                    w / 2f, h * 0.58f, h * 0.03f, tfMed, MUTED, Paint.Align.CENTER, w * 0.9f);
+            }
+            for (int i = 0; i < n; i++) {
+                String[] r = syncRows.get(i);
+                RectF row = new RectF(gap, top + i * rh + rh * 0.08f, w - gap, top + (i + 1) * rh - rh * 0.08f);
+                p.setColor(i == 0 ? 0xFF1E222B : 0xFF14161B);
+                c.drawRoundRect(row, row.height() * 0.3f, row.height() * 0.3f, p);
+                float rr = row.height();
+                text(c, r[0], row.left + rr * 0.4f, row.centerY(), rr * 0.46f, tfBlack, i == 0 ? AMBER : TEXT, Paint.Align.LEFT, row.width() * 0.38f);
+                text(c, r[1], row.centerX() + row.width() * 0.06f, row.centerY(), rr * 0.38f, tfBlack, 0xFFC9CDD3, Paint.Align.CENTER, row.width() * 0.4f);
+                text(c, i == 0 ? tr("LIVE NOW", "EN DIRECT") : r[2], row.right - rr * 0.4f, row.centerY(), rr * 0.3f, tfCond, i == 0 ? LIVE : MUTED, Paint.Align.RIGHT, row.width() * 0.2f);
+                syncRects.add(row);
+            }
+        } else if (syncState == 1) {
             float pulse = (float) (0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 400.0));
             p.setColor(alpha(ACCENT, (int) (60 + 120 * pulse)));
             c.drawCircle(w / 2f, h * 0.32f, h * 0.08f, p);
@@ -1660,9 +2155,33 @@ public class ThorView extends View {
     }
 
     private void drawScores(Canvas c, int w, int h, float top) {
-        List<Model.Game> list = shownGames();
         int pages = pageCount();
         if (page >= pages) page = 0;
+        long t = System.currentTimeMillis() - pageAt;
+        if (pageFrom >= 0 && pageFrom < pages && t < PAGE_ANIM_MS) {
+            float k = t / (float) PAGE_ANIM_MS;
+            k = 1 - (1 - k) * (1 - k) * (1 - k);   // ease out
+            int keep = cardRects.size();
+            c.save();
+            c.clipRect(0, top, w, h);
+            c.translate(-pageDir * w * k, 0);
+            drawScoresPage(c, w, h, top, pageFrom, pages, false);
+            c.restore();
+            while (cardRects.size() > keep) { cardRects.remove(cardRects.size() - 1); cardIds.remove(cardIds.size() - 1); }
+            c.save();
+            c.clipRect(0, top, w, h);
+            c.translate(pageDir * w * (1 - k), 0);
+            drawScoresPage(c, w, h, top, page, pages, true);
+            c.restore();
+            postInvalidateOnAnimation();
+        } else {
+            pageFrom = -1;
+            drawScoresPage(c, w, h, top, page, pages, true);
+        }
+    }
+
+    private void drawScoresPage(Canvas c, int w, int h, float top, int page, int pages, boolean dots) {
+        List<Model.Game> list = shownGames();
         int from = page * GAMES_PER_PAGE;
         List<Model.Game> pg = list.subList(from, Math.min(list.size(), from + GAMES_PER_PAGE));
         int m = pg.size();
@@ -1689,7 +2208,7 @@ public class ThorView extends View {
             else drawCard(c, pg.get(i), x, y, cw, ch);
         }
 
-        if (pages > 1) {
+        if (pages > 1 && dots) {
             float dy = h - dotsH / 2f - gap / 2f;
             float rr = dotsH * 0.14f, spacing = rr * 4f;
             float start = w / 2f - (pages - 1) * spacing / 2f;
@@ -1997,7 +2516,11 @@ public class ThorView extends View {
 
         float lx = hero.left + sw * 4.2f, lw = hero.width() * 0.56f;
         String kicker = (g.note.isEmpty() ? "" : g.note.toUpperCase() + "   ") + (g.away.abbr.equals("LAST") ? tr("LAST RACE", "DERNIÈRE COURSE") : g.away.name.toUpperCase());
-        text(c, kicker, lx, hero.top + hero.height() * 0.22f, H * 0.03f, tfCond, 0xFFFF6B5E, Paint.Align.LEFT, lw);
+        if (!g.flag.isEmpty() && logos != null && logos.get(g.flag) != null) {   // host country flag
+            float fs = H * 0.05f;
+            logo(c, g.flag, "", 0, lx + fs / 2, hero.top + hero.height() * 0.22f, fs);
+            text(c, kicker, lx + fs * 1.25f, hero.top + hero.height() * 0.22f, H * 0.03f, tfCond, 0xFFFF6B5E, Paint.Align.LEFT, lw - fs * 1.25f);
+        } else text(c, kicker, lx, hero.top + hero.height() * 0.22f, H * 0.03f, tfCond, 0xFFFF6B5E, Paint.Align.LEFT, lw);
         text(c, g.event.toUpperCase(), lx, hero.top + hero.height() * 0.5f, H * 0.07f, tfBlack, TEXT, Paint.Align.LEFT, lw);
         if (!g.venue.isEmpty()) text(c, g.venue, lx, hero.top + hero.height() * 0.78f, H * 0.028f, tfReg, MUTED, Paint.Align.LEFT, lw);
 
@@ -2075,11 +2598,22 @@ public class ThorView extends View {
                 c.drawRoundRect(pos, rh * 0.12f, rh * 0.12f, p);
                 text(c, String.valueOf(i + 1), pos.centerX(), pos.centerY(), rh * 0.44f, tfBlack, i < 3 ? 0xFF000000 : TEXT, Paint.Align.CENTER, pos.width());
                 int tc = i < res.resultColors.size() ? res.resultColors.get(i) : MUTED;
-                p.setColor(tc);
-                c.drawRoundRect(new RectF(pos.right + rh * 0.18f, pos.top, pos.right + rh * 0.28f, pos.bottom), 3, 3, p);
                 String[] nm = res.results.get(i).split("\\s+", 2);
                 String[] info = i < res.resultInfo.size() ? res.resultInfo.get(i).split("\\|", -1) : new String[]{"", ""};
-                float nx = pos.right + rh * 0.45f;
+                // team badge in the team's color with its short code
+                String code = info.length > 2 ? info[2] : "";
+                RectF badge = new RectF(pos.right + rh * 0.16f, pos.top, pos.right + rh * 0.16f + rh * 1.05f, pos.bottom);
+                p.setColor(tc);
+                c.drawRoundRect(badge, rh * 0.12f, rh * 0.12f, p);
+                int tr2c = (Color.red(tc) * 299 + Color.green(tc) * 587 + Color.blue(tc) * 114) / 1000 > 150 ? 0xFF000000 : 0xFFFFFFFF;
+                text(c, code, badge.centerX(), badge.centerY(), rh * 0.27f, tfBlack, tr2c, Paint.Align.CENTER, badge.width() * 0.9f);
+                // nationality flag
+                String fl = i < res.resultFlags.size() ? res.resultFlags.get(i) : "";
+                float nx = badge.right + rh * 0.2f;
+                if (!fl.isEmpty()) {
+                    logo(c, fl, "", 0, nx + rh * 0.3f, row.top + rh * 0.38f, rh * 0.5f);
+                    nx += rh * 0.72f;
+                }
                 String family = nm.length > 1 ? nm[1] : nm[0];
                 text(c, family, nx, row.top + rh * 0.38f, rh * 0.36f, tfBlack, TEXT, Paint.Align.LEFT, row.width() * 0.5f);
                 text(c, info[0], nx, row.top + rh * 0.76f, rh * 0.23f, tfMed, MUTED, Paint.Align.LEFT, row.width() * 0.5f);
@@ -2436,8 +2970,11 @@ public class ThorView extends View {
         boolean lost = g.isFinal() && !s.winner && (g.away.winner || g.home.winner);
         int col = "–".equals(score) || lost ? DIM : TEXT;
         float size = Math.min(ph * 0.36f, pw * 0.46f);
-        int blink = scoreBlink(g, s == g.home);
-        if (blink > 0) { size *= 1.12f; col = blink == 1 ? AMBER : TEXT; }
+        Long pa = popAt.get(g.id + ":" + (s == g.home ? "home" : "away"));
+        if (pa != null) {
+            long t = System.currentTimeMillis() - pa;
+            if (t < 900) { size *= 1 + 0.3f * (float) Math.sin(Math.PI * t / 900.0); col = AMBER; postInvalidateOnAnimation(); }
+        }
         p.setShadowLayer(ph * 0.02f, 0, ph * 0.006f, 0x99000000);
         text(c, score, cx, y + ph * 0.79f, size, tfBlack, col, Paint.Align.CENTER, pw * 0.95f);
         p.clearShadowLayer();
@@ -2563,10 +3100,10 @@ public class ThorView extends View {
             logo(c, s.logo, s.abbr, s.color, lx, r.centerY() - topH * 0.06f, ls);
             text(c, star(s.abbr), lx, r.bottom - topH * 0.11f, topH * 0.13f, tfCond, TEXT, Paint.Align.CENTER, ls * 1.4f);
             String sc = s.score.isEmpty() ? "0" : s.score;
-            int blink = scoreBlink(g, !left);
+            Long pa = popAt.get(g.id + ":" + (left ? "away" : "home"));
             float size = topH * 0.62f;
             int col = TEXT;
-            if (blink > 0) { size *= 1.12f; col = blink == 1 ? AMBER : TEXT; }
+            if (pa != null && System.currentTimeMillis() - pa < 900) { size *= 1.2f; col = AMBER; postInvalidateOnAnimation(); }
             text(c, sc, left ? r.right - gap * 1.5f : r.left + gap * 1.5f, r.centerY(), size, tfBlack, col,
                 left ? Paint.Align.RIGHT : Paint.Align.LEFT, pw * 0.5f);
         }
@@ -2855,10 +3392,10 @@ public class ThorView extends View {
                 }
             }
             String sc = s.score.isEmpty() ? "0" : s.score;
-            int blink = scoreBlink(g, !left);
+            Long pa = popAt.get(g.id + ":" + (left ? "away" : "home"));
             float size = topH * 0.58f;
             int col = TEXT;
-            if (blink > 0) { size *= 1.12f; col = blink == 1 ? AMBER : TEXT; }
+            if (pa != null && System.currentTimeMillis() - pa < 900) { size *= 1.2f; col = AMBER; postInvalidateOnAnimation(); }
             text(c, sc, left ? r.right - gap * 1.5f : r.left + gap * 1.5f, r.centerY() - topH * 0.06f, size, tfBlack, col,
                 left ? Paint.Align.RIGHT : Paint.Align.LEFT, pw * 0.45f);
         }
@@ -3071,10 +3608,10 @@ public class ThorView extends View {
             logo(c, s.logo, s.abbr, s.color, lx, r.centerY() - topH * 0.08f, ls);
             text(c, star(s.abbr), lx, r.bottom - topH * 0.12f, topH * 0.13f, tfCond, TEXT, Paint.Align.CENTER, ls * 1.8f);
             String sc = s.score.isEmpty() ? "0" : s.score;
-            int blink = scoreBlink(g, !left);
+            Long pa = popAt.get(g.id + ":" + (left ? "away" : "home"));
             float size = topH * 0.6f;
             int col = g.isFinal() && !s.winner && (g.away.winner || g.home.winner) ? DIM : TEXT;
-            if (blink > 0) { size *= 1.12f; col = blink == 1 ? AMBER : TEXT; }
+            if (pa != null && System.currentTimeMillis() - pa < 900) { size *= 1.2f; col = AMBER; postInvalidateOnAnimation(); }
             float sx = left ? r.right - gap * 1.5f : r.left + gap * 1.5f;
             text(c, sc, sx, r.centerY() - topH * 0.08f, size, tfBlack, col, left ? Paint.Align.RIGHT : Paint.Align.LEFT, pw * 0.45f);
             if (s.shots >= 0)
@@ -3348,14 +3885,9 @@ public class ThorView extends View {
         p.setColor(alpha(0xFF000000, (int) (240 * fade)));
         c.drawRect(0, 0, w, h, p);
 
-        // Split over two screens: think of one tall canvas (top screen above the bottom one).
-        boolean split = celebPart != CELEB_FULL;
-        float H = split ? h * 2f : h;                       // height of the whole (virtual) canvas
-        float oy = celebPart == CELEB_BOTTOM ? h : 0;       // where this screen starts in it
-
         double pulse = 0.5 + 0.5 * Math.sin(t * 2 * Math.PI / 420.0);
         int a = (int) ((70 + 160 * pulse) * fade);
-        p.setShader(new RadialGradient(w / 2f, (split ? H * 0.45f : h * 0.4f) - oy, Math.max(w, H) * 0.8f,
+        p.setShader(new RadialGradient(w / 2f, h * 0.4f, Math.max(w, h) * 0.8f,
             alpha(s.color, a), alpha(s.color, a / 5), Shader.TileMode.CLAMP));
         c.drawRect(0, 0, w, h, p);
         p.setShader(null);
@@ -3375,9 +3907,9 @@ public class ThorView extends View {
         int[] colors = {s.color, TEXT, AMBER, alpha(s.color, 0xFF) ^ 0x00202020};
         for (int i = 0; i < 90; i++) {
             float x0 = rnd.nextFloat() * w;
-            float speed = H * (0.25f + rnd.nextFloat() * 0.35f);
-            float yy = -H * 0.1f - rnd.nextFloat() * H * 0.6f + speed * t / 1000f - oy;
-            if (yy > h * 1.05f || yy < -h * 0.05f) continue;
+            float speed = h * (0.25f + rnd.nextFloat() * 0.35f);
+            float yy = -h * 0.1f - rnd.nextFloat() * h * 0.6f + speed * t / 1000f;
+            if (yy > h * 1.05f) continue;
             float xx = x0 + (float) Math.sin(t / 300.0 + i) * w * 0.02f;
             float sz = h * (0.008f + rnd.nextFloat() * 0.01f);
             p.setColor(alpha(colors[i % colors.length], (int) (255 * fade)));
@@ -3387,125 +3919,21 @@ public class ThorView extends View {
             c.restore();
         }
 
-        boolean homer = isHomeRunWord(celebWord);
-        if (homer) drawHomeRun(c, w, h, H, oy, t, fade, s.color, isGrandSlamWord(celebWord));
+        float k = Math.min(1f, t / 520f);
+        bmpPaint.setAlpha((int) (255 * fade));
+        logo(c, s.logo, s.abbr, s.color, w / 2f, h * 0.33f, h * 0.4f * Math.max(0.01f, easeOutBack(k)));
+        bmpPaint.setAlpha(255);
 
-        // home run: the ball flies first, then the logo and the word land
-        long tt = homer ? Math.max(0, t - 800) : t;
-        float k = Math.min(1f, tt / 520f);
-        float beat = 1 + 0.05f * (float) Math.sin(t * 2 * Math.PI / 420.0);
+        float ws = h * 0.16f * (1 + 0.05f * (float) Math.sin(t * 2 * Math.PI / 420.0));
+        p.setShadowLayer(h * 0.025f, 0, h * 0.008f, 0xCC000000);
+        text(c, celebWord, w / 2f, h * 0.66f, ws, tfBlack, alpha(TEXT, (int) (255 * fade)), Paint.Align.CENTER, w * 0.95f);
         Model.Game g = celebGame;
         String line = g.away.abbr + "  " + g.away.score + "  –  " + g.home.score + "  " + g.home.abbr;
+        text(c, line, w / 2f, h * 0.8f, h * 0.07f, tfCond, alpha(TEXT, (int) (230 * fade)), Paint.Align.CENTER, w * 0.9f);
         String sub = (celebScorer.isEmpty() ? "" : celebScorer.toUpperCase() + "  ·  ") + g.detail.toUpperCase();
-        if (homer) {
-            String info = homeRunInfo(g.lastPlay);
-            sub = info.isEmpty() ? g.detail.toUpperCase() : info;
-        }
-        int wordCol = homer && isGrandSlamWord(celebWord) ? AMBER : TEXT;
-        if (homer && tt == 0) { p.clearShadowLayer(); return; }   // only the ball for now
-        p.setShadowLayer(h * 0.025f, 0, h * 0.008f, 0xCC000000);
-
-        if (celebPart == CELEB_TOP) {
-            // top screen: big logo + the word
-            bmpPaint.setAlpha((int) (255 * fade));
-            logo(c, s.logo, s.abbr, s.color, w / 2f, h * 0.36f, h * 0.5f * Math.max(0.01f, easeOutBack(k)));
-            bmpPaint.setAlpha(255);
-            text(c, celebWord, w / 2f, h * 0.86f, h * 0.22f * beat, tfBlack, alpha(wordCol, (int) (255 * fade)), Paint.Align.CENTER, w * 0.95f);
-        } else if (celebPart == CELEB_BOTTOM) {
-            // bottom screen: the new score, big, then who scored
-            float pop = Math.max(0.01f, easeOutBack(Math.min(1f, Math.max(0f, (tt - 250) / 520f))));   // lands just after the top
-            text(c, line, w / 2f, h * 0.5f, h * 0.17f * pop, tfBlack, alpha(TEXT, (int) (255 * fade)), Paint.Align.CENTER, w * 0.95f);
-            if (!sub.isEmpty())
-                text(c, sub, w / 2f, h * 0.72f, h * 0.065f, tfCond, alpha(AMBER, (int) (230 * fade)), Paint.Align.CENTER, w * 0.92f);
-        } else {
-            bmpPaint.setAlpha((int) (255 * fade));
-            logo(c, s.logo, s.abbr, s.color, w / 2f, h * 0.33f, h * 0.4f * Math.max(0.01f, easeOutBack(k)));
-            bmpPaint.setAlpha(255);
-            text(c, celebWord, w / 2f, h * 0.66f, h * 0.16f * beat, tfBlack, alpha(wordCol, (int) (255 * fade)), Paint.Align.CENTER, w * 0.95f);
-            text(c, line, w / 2f, h * 0.8f, h * 0.07f, tfCond, alpha(TEXT, (int) (230 * fade)), Paint.Align.CENTER, w * 0.9f);
-            if (!sub.isEmpty())
-                text(c, sub, w / 2f, h * 0.89f, h * 0.045f, tfCond, alpha(AMBER, (int) (230 * fade)), Paint.Align.CENTER, w * 0.9f);
-        }
+        if (!sub.isEmpty())
+            text(c, sub, w / 2f, h * 0.89f, h * 0.045f, tfCond, alpha(AMBER, (int) (230 * fade)), Paint.Align.CENTER, w * 0.9f);
         p.clearShadowLayer();
-    }
-
-    /**
-     * Home run: the ball leaves the plate (bottom left), flies up with a glowing trail and out of the park
-     * (top right), then fireworks in the team's colors. In two-screen mode it flies from the bottom screen into the top one.
-     * H = height of the whole canvas (2 screens when split), oy = where this screen starts in it.
-     */
-    private void drawHomeRun(Canvas c, int w, int h, float H, float oy, long t, float fade, int teamColor, boolean slam) {
-        p.setStyle(Paint.Style.FILL);
-        final float FLY = 1100f;
-        float x0 = w * 0.16f, y0 = H * 0.9f, cx = w * 0.42f, cy = -H * 0.3f, x1 = w * 1.12f, y1 = -H * 0.12f;
-
-        // the ball and its trail
-        if (t < FLY + 300) {
-            for (int i = 14; i >= 0; i--) {
-                float u = (t - i * 22) / FLY;
-                if (u < 0 || u > 1) continue;
-                float iu = 1 - u;
-                float bx = iu * iu * x0 + 2 * iu * u * cx + u * u * x1;
-                float by = iu * iu * y0 + 2 * iu * u * cy + u * u * y1 - oy;
-                float r = h * 0.035f * (1 - 0.55f * u) * (i == 0 ? 1f : 1f - i / 16f);
-                if (i == 0) {
-                    p.setShader(new RadialGradient(bx, by, r * 3.2f, alpha(AMBER, (int) (170 * fade)), 0x00000000, Shader.TileMode.CLAMP));
-                    c.drawCircle(bx, by, r * 3.2f, p);
-                    p.setShader(null);
-                    p.setColor(alpha(0xFFFFFFFF, (int) (255 * fade)));
-                    c.drawCircle(bx, by, r, p);
-                    p.setColor(alpha(0xFFE0333E, (int) (220 * fade)));   // seams
-                    p.setStyle(Paint.Style.STROKE);
-                    p.setStrokeWidth(r * 0.12f);
-                    c.drawArc(new RectF(bx - r * 1.5f, by - r * 0.7f, bx - r * 0.2f, by + r * 0.7f), -60, 120, false, p);
-                    c.drawArc(new RectF(bx + r * 0.2f, by - r * 0.7f, bx + r * 1.5f, by + r * 0.7f), 120, 120, false, p);
-                    p.setStyle(Paint.Style.FILL);
-                } else {
-                    p.setColor(alpha(i % 2 == 0 ? AMBER : 0xFFFFFFFF, (int) (150 * fade * (1 - i / 15f))));
-                    c.drawCircle(bx, by, r, p);
-                }
-            }
-            // the bat hit: a quick white flash at the plate
-            if (t < 220) {
-                float k = t / 220f;
-                p.setColor(alpha(0xFFFFFFFF, (int) (200 * (1 - k) * fade)));
-                c.drawCircle(x0, y0 - oy, h * (0.05f + 0.25f * k), p);
-            }
-        }
-
-        // fireworks
-        Random rnd = new Random(celebStart * 31 + 5);
-        int bursts = slam ? 10 : 6;
-        int[] cols = {teamColor, AMBER, 0xFFFFFFFF, slam ? 0xFFFFC400 : teamColor};
-        for (int b = 0; b < bursts; b++) {
-            float bx = w * (0.15f + rnd.nextFloat() * 0.7f);
-            float byV = H * (0.08f + rnd.nextFloat() * (H > h ? 0.6f : 0.4f));   // virtual y
-            float R = h * (0.16f + rnd.nextFloat() * 0.1f);
-            int col = cols[b % cols.length];
-            long start = (long) (FLY - 200 + b * (slam ? 300 : 420));
-            float k = (t - start) / 1300f;
-            if (k < 0 || k > 1) continue;
-            float by = byV - oy;
-            if (by < -R * 1.5f || by > h + R * 1.5f) continue;
-            float spread = 1 - (1 - k) * (1 - k);
-            float drop = h * 0.09f * k * k;
-            int al = (int) (255 * (1 - k) * fade);
-            if (k < 0.12f) {   // the bang
-                p.setColor(alpha(0xFFFFFFFF, (int) (220 * (1 - k / 0.12f) * fade)));
-                c.drawCircle(bx, by, R * 0.35f, p);
-            }
-            for (int i = 0; i < 30; i++) {
-                double ang = i * 2 * Math.PI / 30 + b;
-                float px = bx + (float) Math.cos(ang) * R * spread;
-                float py = by + (float) Math.sin(ang) * R * spread + drop;
-                p.setColor(alpha(i % 3 == 0 ? 0xFFFFFFFF : col, al));
-                c.drawCircle(px, py, h * 0.009f * (1.2f - k * 0.6f), p);
-                // a little sparkle line back toward the center
-                p.setColor(alpha(col, al / 3));
-                c.drawCircle(bx + (float) Math.cos(ang) * R * spread * 0.75f, by + (float) Math.sin(ang) * R * spread * 0.75f + drop * 0.8f, h * 0.005f, p);
-            }
-        }
-        if (t < CELEBRATION_MS) postInvalidateOnAnimation();
     }
 
     // ------------------------------------------------------------------ standings

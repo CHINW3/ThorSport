@@ -2,13 +2,10 @@ package com.gregoire.thorstandings;
 
 import android.content.Context;
 import android.media.AudioAttributes;
-import android.media.AudioFocusRequest;
-import android.media.AudioManager;
 import android.media.AudioFormat;
 import android.media.AudioTrack;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
-import android.util.Log;
 
 /**
  * An arena-style goal horn synthesized in code (no audio file needed):
@@ -53,31 +50,7 @@ public final class Horn {
 
     public static void play(Context ctx, boolean sound) { play(ctx, sound, 0.7f); }
 
-    /** Bat crack (a short, sharp burst) then a pause, put in front of the horn for home runs. */
-    private static short[] crackPcm;
-    private static synchronized short[] withCrack() {
-        if (crackPcm != null) return crackPcm;
-        short[] horn = buffer();
-        int crackN = (int) (RATE * 0.09), gap = (int) (RATE * 0.28);
-        short[] out = new short[crackN + gap + horn.length];
-        java.util.Random rnd = new java.util.Random(7);
-        double prev = 0;
-        for (int i = 0; i < crackN; i++) {
-            double t = (double) i / RATE;
-            double noise = rnd.nextDouble() * 2 - 1;
-            double hp = noise - prev * 0.6; prev = noise;                 // brighter, "woody" crack
-            double tone = Math.sin(2 * Math.PI * 1150 * t) * 0.5;          // the bat's ring
-            double env = Math.exp(-t * 55);
-            out[i] = (short) (Math.max(-1, Math.min(1, (hp + tone) * env)) * Short.MAX_VALUE * 0.9);
-        }
-        System.arraycopy(horn, 0, out, crackN + gap, horn.length);
-        crackPcm = out;
-        return crackPcm;
-    }
-
-    public static void play(Context ctx, boolean sound, float volume) { play(ctx, sound, volume, false); }
-
-    public static void play(Context ctx, boolean sound, float volume, boolean batCrack) {
+    public static void play(Context ctx, boolean sound, float volume) {
         try {
             Vibrator vib = ctx.getSystemService(Vibrator.class);
             if (vibrate && vib != null && vib.hasVibrator()) {
@@ -85,42 +58,26 @@ public final class Horn {
             }
         } catch (Exception ignored) { }
         if (!sound) return;
-        final Context app = ctx.getApplicationContext();
         new Thread(() -> {
-            AudioManager am = app.getSystemService(AudioManager.class);
-            AudioAttributes attrs = new AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_MEDIA)
-                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build();
-            // Ask the game / video on the other screen to lower its sound while the horn plays.
-            AudioFocusRequest focus = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
-                .setAudioAttributes(attrs).build();
-            AudioTrack track = null;
             try {
-                if (am != null) am.requestAudioFocus(focus);
-                short[] data = batCrack ? withCrack() : buffer();
-                // Streaming mode: some devices silently refuse a big "static" buffer (that was a source of no sound).
-                int min = AudioTrack.getMinBufferSize(RATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);
-                track = new AudioTrack.Builder()
-                    .setAudioAttributes(attrs)
+                short[] data = buffer();
+                AudioTrack track = new AudioTrack.Builder()
+                    .setAudioAttributes(new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
                     .setAudioFormat(new AudioFormat.Builder()
                         .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
                         .setSampleRate(RATE)
                         .setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
-                    .setBufferSizeInBytes(Math.max(min, RATE))   // ~0.5 s
-                    .setTransferMode(AudioTrack.MODE_STREAM)
+                    .setBufferSizeInBytes(data.length * 2)
+                    .setTransferMode(AudioTrack.MODE_STATIC)
                     .build();
-                if (track.getState() != AudioTrack.STATE_INITIALIZED) throw new IllegalStateException("audio not ready");
+                track.write(data, 0, data.length);
                 track.setVolume(volume);
                 track.play();
-                track.write(data, 0, data.length);   // blocks until everything is queued
-                Thread.sleep(400);                   // let the tail finish
-                track.stop();
-            } catch (Exception e) {
-                Log.w("ThorSport", "Goal horn could not play", e);
-            } finally {
-                if (track != null) track.release();
-                if (am != null) am.abandonAudioFocusRequest(focus);
-            }
+                Thread.sleep(3400);
+                track.release();
+            } catch (Exception ignored) { }
         }).start();
     }
 }
