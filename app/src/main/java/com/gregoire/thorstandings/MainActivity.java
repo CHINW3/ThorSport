@@ -1268,14 +1268,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
     private static int primary(Model.Side s) {
         int a = s.ledA != 0 ? s.ledA : s.color, b = s.ledB;
         if (b != 0 && ledScore(a) < 0.25f && ledScore(b) > ledScore(a)) return b;
-        // Very dark main color (navy like the Bears, Patriots, Astros…): pushed to full brightness on an LED it
-        // becomes a plain bright blue that doesn't look like the team. Use the bright second color (orange…) instead.
-        if (b != 0 && maxChannel(a) < 90 && maxChannel(b) >= 120 && ledScore(b) >= 0.5f) return b;
         return a;
-    }
-
-    private static int maxChannel(int c) {
-        return Math.max(Color.red(c), Math.max(Color.green(c), Color.blue(c)));
     }
 
     /** 0 = black or grey (useless on an LED), 1 = strong color. */
