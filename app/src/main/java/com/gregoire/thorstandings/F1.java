@@ -31,6 +31,39 @@ public final class F1 {
         TEAM.put("cadillac", 0xFFD4AF37);
     }
 
+    /** Short team codes for the badges. */
+    private static final Map<String, String> CODE = new HashMap<>();
+    /** Driver nationality (Jolpica) and circuit country -> ISO code for the flags. */
+    private static final Map<String, String> ISO = new HashMap<>();
+    static {
+        String[] codes = {"red_bull", "RBR", "ferrari", "FER", "mercedes", "MER", "mclaren", "MCL", "aston_martin", "AMR",
+            "alpine", "ALP", "williams", "WIL", "rb", "RB", "racing_bulls", "RB", "sauber", "SAU", "audi", "AUD", "haas", "HAA", "cadillac", "CAD"};
+        for (int i = 0; i < codes.length; i += 2) CODE.put(codes[i], codes[i + 1]);
+        String[] iso = {
+            "British", "gb", "UK", "gb", "United Kingdom", "gb", "Dutch", "nl", "Netherlands", "nl", "Monegasque", "mc", "Monaco", "mc",
+            "Spanish", "es", "Spain", "es", "Mexican", "mx", "Mexico", "mx", "Australian", "au", "Australia", "au",
+            "Canadian", "ca", "Canada", "ca", "Thai", "th", "Japanese", "jp", "Japan", "jp", "Chinese", "cn", "China", "cn",
+            "German", "de", "Germany", "de", "French", "fr", "France", "fr", "Danish", "dk", "Finnish", "fi", "American", "us",
+            "USA", "us", "United States", "us", "Italian", "it", "Italy", "it", "New Zealander", "nz", "Argentine", "ar", "Argentinian", "ar",
+            "Brazilian", "br", "Brazil", "br", "Belgian", "be", "Belgium", "be", "Austrian", "at", "Austria", "at", "Swiss", "ch",
+            "Polish", "pl", "Russian", "ru", "Swedish", "se", "Indonesian", "id", "Hungary", "hu", "Azerbaijan", "az", "Singapore", "sg",
+            "Saudi Arabia", "sa", "Bahrain", "bh", "UAE", "ae", "United Arab Emirates", "ae", "Qatar", "qa", "Portugal", "pt", "Turkey", "tr",
+            "Korea", "kr", "Malaysia", "my", "India", "in", "Russia", "ru", "Vietnam", "vn", "South Africa", "za", "Madrid", "es"};
+        for (int i = 0; i < iso.length; i += 2) ISO.put(iso[i], iso[i + 1]);
+    }
+
+    static String teamCode(String id, String name) {
+        String c = CODE.get(id);
+        if (c != null) return c;
+        return name.length() > 3 ? name.substring(0, 3).toUpperCase(Locale.US) : name.toUpperCase(Locale.US);
+    }
+
+    /** Flag image for a nationality or country name ("" if unknown). */
+    static String flag(String natOrCountry) {
+        String iso = natOrCountry == null ? null : ISO.get(natOrCountry.trim());
+        return iso == null ? "" : "https://flagcdn.com/w160/" + iso + ".png";
+    }
+
     static int teamColor(String id) {
         Integer c = TEAM.get(id);
         return c == null ? 0xFF8B919C : c;
@@ -91,12 +124,16 @@ public final class F1 {
             JSONObject loc = circ == null ? null : circ.optJSONObject("Location");
             if (loc != null) venue += " · " + loc.optString("locality", "") + ", " + loc.optString("country", "");
             String round = tr("Round ", "Manche ") + wk.optString("round", "");
+            String hostFlag = loc == null ? "" : flag(loc.optString("country", ""));
             for (String[] s : SESSIONS) {
                 JSONObject so = wk.optJSONObject(s[0]);
                 if (so == null) continue;
-                sb.games.add(session(wk, s[1], s[2], parseTime(so), Integer.parseInt(s[3]), name, venue, round, now));
+                Model.Game sg = session(wk, s[1], s[2], parseTime(so), Integer.parseInt(s[3]), name, venue, round, now);
+                sg.flag = hostFlag;
+                sb.games.add(sg);
             }
             Model.Game race = session(wk, "RACE", "Grand Prix", parseTime(wk), 120, name, venue, round, now);
+            race.flag = hostFlag;
             // the race just finished and Jolpica already has it: show the results on the race card
             if (last != null && last.optString("round").equals(wk.optString("round"))) fillResults(race, last);
             sb.games.add(race);
@@ -105,6 +142,9 @@ public final class F1 {
             Model.Game g = session(last, "LAST", tr("Last race", "Dernière course"), parseTime(last), 120,
                 last.optString("raceName", "").replace("Grand Prix", "GP"), "", tr("Round ", "Manche ") + last.optString("round", ""), now);
             g.state = "post";
+            JSONObject lc = last.optJSONObject("Circuit");
+            JSONObject ll = lc == null ? null : lc.optJSONObject("Location");
+            if (ll != null) g.flag = flag(ll.optString("country", ""));
             fillResults(g, last);
             sb.games.add(g);
         }
@@ -159,7 +199,8 @@ public final class F1 {
             JSONObject fl = r.optJSONObject("FastestLap");
             if (fl != null && "1".equals(fl.optString("rank"))) gap += "  · FL";
             g.results.add(code + "  " + fam);
-            g.resultInfo.add(team + "|" + gap);
+            g.resultInfo.add(team + "|" + gap + "|" + teamCode(c == null ? "" : c.optString("constructorId", ""), team));
+            g.resultFlags.add(d == null ? "" : flag(d.optString("nationality", "")));
             g.resultColors.add(teamColor(c == null ? "" : c.optString("constructorId", "")));
         }
         g.state = "post";
@@ -184,6 +225,8 @@ public final class F1 {
                     JSONObject c = cs == null || cs.length() == 0 ? null : cs.optJSONObject(0);
                     Model.Team t = new Model.Team();
                     t.abbr = d == null ? "" : d.optString("code", "");
+                    t.logo = d == null ? null : flag(d.optString("nationality", ""));
+                    if (t.logo != null && t.logo.isEmpty()) t.logo = null;
                     t.name = (d == null ? "" : d.optString("familyName", "")) + (c == null ? "" : "  ·  " + c.optString("name", ""));
                     t.color = teamColor(c == null ? "" : c.optString("constructorId", ""));
                     t.vals = new String[]{e.optString("wins", "0"), e.optString("points", "0")};
@@ -206,7 +249,7 @@ public final class F1 {
                     JSONObject c = e.optJSONObject("Constructor");
                     String name = c == null ? "" : c.optString("name", "");
                     Model.Team t = new Model.Team();
-                    t.abbr = name.length() > 3 ? name.substring(0, 3).toUpperCase(Locale.US) : name.toUpperCase(Locale.US);
+                    t.abbr = teamCode(c == null ? "" : c.optString("constructorId", ""), name);
                     t.name = name;
                     t.color = teamColor(c == null ? "" : c.optString("constructorId", ""));
                     t.vals = new String[]{e.optString("wins", "0"), e.optString("points", "0")};

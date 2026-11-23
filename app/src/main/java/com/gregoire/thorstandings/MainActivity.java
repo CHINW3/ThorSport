@@ -172,7 +172,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         nightMode = prefs.getBoolean("night", false);
         hideFinal = prefs.getBoolean("hideFinal", false);
         shotMap = prefs.getBoolean("shotMap", true);
-        companion = prefs.getBoolean("companion", true);
+        companion = true;   // only one two-screen mode now: Board on top, GAME + LIVE below
         Leds.setBrightness(LED_BRIS[ledBri]);
         quietHours = prefs.getBoolean("quiet", false);
         bigStandings = prefs.getBoolean("bigStandings", true);
@@ -355,7 +355,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
             case KeyEvent.KEYCODE_BUTTON_START: v.openSettings(); return true;
             case KeyEvent.KEYCODE_BUTTON_SELECT: v.openLeaguePicker(); return true;
             case KeyEvent.KEYCODE_BUTTON_THUMBL: refresh(true); return true;
-            case KeyEvent.KEYCODE_BUTTON_THUMBR: onViewMode(!dual ? 1 : companion ? 0 : 2); return true;   // R3 cycles the 3 view modes
+            case KeyEvent.KEYCODE_BUTTON_THUMBR: onViewMode(dual ? 0 : 2); return true;   // R3: one screen / two screens
             default: return false;
         }
     }
@@ -576,7 +576,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         prefs.edit().putString("boardGame", gameId).apply();
         all(v -> v.setBoardGameId(gameId));
         updateLeds();
-        if (openBoard && !dual) onTabTap(ThorView.TAB_BOARD);   // in two-screen mode the Board is already on top
+        if (openBoard) onTabTap(ThorView.TAB_BOARD);   // two screens: the bottom jumps to GAME for the game you picked
     }
 
     // ------------------------------------------------------------------ spoiler delay
@@ -637,19 +637,9 @@ public class MainActivity extends Activity implements ThorView.Listener {
     // ------------------------------------------------------------------ two-screen mode
     @Override public void onDualToggle() { setDual(!dual); }
 
-    /** ▭ menu (and R3): 0 = one screen, 1 = two screens classic, 2 = two screens + game info. */
+    /** ▭ menu (and R3): 0 = one screen, anything else = two screens (Board on top, GAME + LIVE below). */
     @Override public void onViewMode(int mode) {
-        boolean wantCompanion = mode == 2;
-        if (wantCompanion != companion) {
-            companion = wantCompanion;
-            prefs.edit().putBoolean("companion", companion).apply();
-            all(v -> v.setCompanion(companion));
-        }
         if ((mode > 0) != dual) setDual(mode > 0);
-        else if (dual) {   // already two screens: just move the bottom to the right tab
-            if (companion) { if (tab != ThorView.TAB_STANDINGS) onTabTap(ThorView.TAB_BOARD); }
-            else if (tab == ThorView.TAB_BOARD) onTabTap(ThorView.TAB_SCORES);
-        }
         pushSettings();
     }
 
@@ -757,7 +747,6 @@ public class MainActivity extends Activity implements ThorView.Listener {
         List<String[]> it = new ArrayList<>();
         // 0 GENERAL
         it.add(item(0, t("Two-screen mode", "Mode deux écrans"), onOff(dual), ThorView.SET_DUAL));
-        it.add(item(0, t("Two-screen: bottom shows", "Deux écrans : en bas"), companion ? t("GAME INFO", "INFOS MATCH") : t("CLASSIC", "CLASSIQUE"), ThorView.SET_COMPANION));
         it.add(item(0, t("Spoiler delay", "Délai anti-spoiler"), (delaySec == 0 ? onOff(false) : delaySec + " s") + "  ›", ThorView.SET_DELAY));
         it.add(item(0, t("Language", "Langue"), french ? "FRANÇAIS" : "ENGLISH", ThorView.SET_LANG));
         it.add(item(0, t("Clock", "Horloge"), CLOCK_NAMES[clockMode], ThorView.SET_CLOCK));
@@ -1096,8 +1085,8 @@ public class MainActivity extends Activity implements ThorView.Listener {
 
     /**
      * Stick lights:
-     * · No favorite: left stick = left team, right stick = right team (game on the Board).
-     * · Favorite team: its two main colors (left = main, right = second), all the time.
+     * · Game on the Board without your team: left stick = left team, right stick = right team.
+     * · Game with your team (or no game): your team's two main colors (left = main, right = second).
      * · Two of your favorites playing each other: left team / right team.
      */
     private void updateLeds() {
@@ -1111,6 +1100,12 @@ public class MainActivity extends Activity implements ThorView.Listener {
             return;
         }
         if (g != null && favorites.contains(g.away.abbr) && favorites.contains(g.home.abbr)) {
+            Leds.set(primary(g.away), primary(g.home));
+            return;
+        }
+        // watching a game without your team: the lights follow that game (left team / right team),
+        // otherwise they looked stuck on your favorite's colors while you switched games
+        if (g != null && !favorites.contains(g.away.abbr) && !favorites.contains(g.home.abbr)) {
             Leds.set(primary(g.away), primary(g.home));
             return;
         }

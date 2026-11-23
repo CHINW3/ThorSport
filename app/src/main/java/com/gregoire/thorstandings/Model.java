@@ -75,6 +75,8 @@ public final class Model {
         public final List<String> results = new ArrayList<>();   // F1: finishing order
         public final List<String> resultInfo = new ArrayList<>();  // F1: "Team|gap"
         public final List<Integer> resultColors = new ArrayList<>();
+        public final List<String> resultFlags = new ArrayList<>();   // F1: driver nationality flag URL
+        public String flag = "";                                     // F1: host country flag URL
         public long startMs;
 
         public boolean isLive() { return "in".equals(state); }

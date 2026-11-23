@@ -3,6 +3,7 @@ package com.gregoire.thorstandings;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.Path;
@@ -233,7 +234,7 @@ public class ThorView extends View {
         if (listener == null) return false;
         if (modeMenuOpen) {
             for (int i = 0; i < modeRects.size(); i++)
-                if (modeRects.get(i).contains(x, y)) { modeMenuOpen = false; listener.onViewMode(i); invalidate(); return true; }
+                if (modeRects.get(i).contains(x, y)) { modeMenuOpen = false; listener.onViewMode(i == 0 ? 0 : 2); invalidate(); return true; }
             modeMenuOpen = false; invalidate(); return true;
         }
         if (onboardOpen) {
@@ -1063,7 +1064,7 @@ public class ThorView extends View {
     }
 
     // ------------------------------------------------------------------ two-screen bottom: GAME + LIVE (option)
-    private boolean companion;
+    private boolean companion = true;   // two screens always come with GAME + LIVE below
     public void setCompanion(boolean on) { companion = on; invalidate(); }
     /** Bottom screen while the top screen shows the Board, with "Game info" on. */
     private boolean dualBottom() { return dual && !topMode && companion; }
@@ -1654,7 +1655,7 @@ public class ThorView extends View {
     private boolean modeMenuOpen;
     private final List<RectF> modeRects = new ArrayList<>();
 
-    private int viewMode() { return !dual ? 0 : companion ? 2 : 1; }
+    private int viewMode() { return dual ? 1 : 0; }
 
     /** Small menu under the two-screen button: one screen / two screens classic / two screens + game info. */
     private void drawModeMenu(Canvas c, int w, int h) {
@@ -1663,8 +1664,7 @@ public class ThorView extends View {
         c.drawRect(0, 0, w, h, p);
         String[][] items = {
             {tr("One screen", "Un écran"), tr("Top screen free for your game or stream", "Écran du haut libre pour ton jeu ou stream")},
-            {tr("Two screens · Classic", "Deux écrans · Classique"), tr("Board on top, Scores / Board / Standings below", "Tableau en haut, Scores / Tableau / Classement en bas")},
-            {tr("Two screens · Game info", "Deux écrans · Infos match"), tr("Board on top, GAME + LIVE below", "Tableau en haut, MATCH + EN DIRECT en bas")},
+            {tr("Two screens", "Deux écrans"), tr("Board on top, game info and live games below", "Tableau en haut, infos du match et matchs en direct en bas")},
         };
         float mw = w * 0.56f, rh = h * 0.115f, gap = w * 0.016f;
         float x = Math.max(gap, Math.min(w - gap - mw, dualRect.centerX() - mw / 2)), y = dualRect.bottom + gap;
@@ -1688,7 +1688,6 @@ public class ThorView extends View {
                 c.drawRoundRect(new RectF(ix - iw / 2, r.centerY() + ih * 0.05f, ix + iw / 2, r.centerY() + ih * 0.5f), 4, 4, p);
             }
             p.setStyle(Paint.Style.FILL);
-            if (i == 2) { p.setColor(i == cur ? ACCENT : MUTED); c.drawRect(ix - iw * 0.3f, r.centerY() + ih * 0.2f, ix + iw * 0.3f, r.centerY() + ih * 0.3f, p); }
             text(c, items[i][0], r.left + rh * 1.05f, r.top + rh * 0.38f, rh * 0.26f, tfBlack, i == cur ? ACCENT : TEXT, Paint.Align.LEFT, r.width() - rh * 1.3f);
             text(c, items[i][1], r.left + rh * 1.05f, r.top + rh * 0.7f, rh * 0.17f, tfMed, MUTED, Paint.Align.LEFT, r.width() - rh * 1.3f);
             modeRects.add(r);
@@ -2389,7 +2388,11 @@ public class ThorView extends View {
 
         float lx = hero.left + sw * 4.2f, lw = hero.width() * 0.56f;
         String kicker = (g.note.isEmpty() ? "" : g.note.toUpperCase() + "   ") + (g.away.abbr.equals("LAST") ? tr("LAST RACE", "DERNIÈRE COURSE") : g.away.name.toUpperCase());
-        text(c, kicker, lx, hero.top + hero.height() * 0.22f, H * 0.03f, tfCond, 0xFFFF6B5E, Paint.Align.LEFT, lw);
+        if (!g.flag.isEmpty() && logos != null && logos.get(g.flag) != null) {   // host country flag
+            float fs = H * 0.05f;
+            logo(c, g.flag, "", 0, lx + fs / 2, hero.top + hero.height() * 0.22f, fs);
+            text(c, kicker, lx + fs * 1.25f, hero.top + hero.height() * 0.22f, H * 0.03f, tfCond, 0xFFFF6B5E, Paint.Align.LEFT, lw - fs * 1.25f);
+        } else text(c, kicker, lx, hero.top + hero.height() * 0.22f, H * 0.03f, tfCond, 0xFFFF6B5E, Paint.Align.LEFT, lw);
         text(c, g.event.toUpperCase(), lx, hero.top + hero.height() * 0.5f, H * 0.07f, tfBlack, TEXT, Paint.Align.LEFT, lw);
         if (!g.venue.isEmpty()) text(c, g.venue, lx, hero.top + hero.height() * 0.78f, H * 0.028f, tfReg, MUTED, Paint.Align.LEFT, lw);
 
@@ -2467,11 +2470,22 @@ public class ThorView extends View {
                 c.drawRoundRect(pos, rh * 0.12f, rh * 0.12f, p);
                 text(c, String.valueOf(i + 1), pos.centerX(), pos.centerY(), rh * 0.44f, tfBlack, i < 3 ? 0xFF000000 : TEXT, Paint.Align.CENTER, pos.width());
                 int tc = i < res.resultColors.size() ? res.resultColors.get(i) : MUTED;
-                p.setColor(tc);
-                c.drawRoundRect(new RectF(pos.right + rh * 0.18f, pos.top, pos.right + rh * 0.28f, pos.bottom), 3, 3, p);
                 String[] nm = res.results.get(i).split("\\s+", 2);
                 String[] info = i < res.resultInfo.size() ? res.resultInfo.get(i).split("\\|", -1) : new String[]{"", ""};
-                float nx = pos.right + rh * 0.45f;
+                // team badge in the team's color with its short code
+                String code = info.length > 2 ? info[2] : "";
+                RectF badge = new RectF(pos.right + rh * 0.16f, pos.top, pos.right + rh * 0.16f + rh * 1.05f, pos.bottom);
+                p.setColor(tc);
+                c.drawRoundRect(badge, rh * 0.12f, rh * 0.12f, p);
+                int tr2c = (Color.red(tc) * 299 + Color.green(tc) * 587 + Color.blue(tc) * 114) / 1000 > 150 ? 0xFF000000 : 0xFFFFFFFF;
+                text(c, code, badge.centerX(), badge.centerY(), rh * 0.27f, tfBlack, tr2c, Paint.Align.CENTER, badge.width() * 0.9f);
+                // nationality flag
+                String fl = i < res.resultFlags.size() ? res.resultFlags.get(i) : "";
+                float nx = badge.right + rh * 0.2f;
+                if (!fl.isEmpty()) {
+                    logo(c, fl, "", 0, nx + rh * 0.3f, row.top + rh * 0.38f, rh * 0.5f);
+                    nx += rh * 0.72f;
+                }
                 String family = nm.length > 1 ? nm[1] : nm[0];
                 text(c, family, nx, row.top + rh * 0.38f, rh * 0.36f, tfBlack, TEXT, Paint.Align.LEFT, row.width() * 0.5f);
                 text(c, info[0], nx, row.top + rh * 0.76f, rh * 0.23f, tfMed, MUTED, Paint.Align.LEFT, row.width() * 0.5f);
