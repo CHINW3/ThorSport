@@ -26,7 +26,11 @@ public class TopActivity extends Activity {
         getWindow().setDecorFitsSystemWindows(false);
         view = new ThorView(this);
         view.setTopMode(true);
-        setContentView(view);
+        android.widget.FrameLayout root = new android.widget.FrameLayout(this);
+        root.addView(view);
+        view.ticker = new TickerView(this);
+        root.addView(view.ticker);
+        setContentView(root);
         hideBars();
         main.attachTop(view);
     }

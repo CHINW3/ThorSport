@@ -917,6 +917,7 @@ public class ThorView extends View {
         final int w = getWidth(), h = getHeight();
         if (w == 0 || h == 0) return;
         frame++;
+        tickerOn = false;
         hitRects.clear();
         hitAbbrs.clear();
         cardRects.clear();
@@ -999,6 +1000,8 @@ public class ThorView extends View {
             drawCelebration(c, w, h);
             postInvalidateOnAnimation();
         }
+        if (ticker != null && (!tickerOn || celebrating() || pickerOpen || settingsOpen || helpOpen || delayOpen || syncState > 0 || modeMenuOpen))
+            ticker.set(null, 0, 0);   // something covers the bottom of the screen: hide the moving line
         if (selCard >= cardRects.size()) selCard = Math.max(0, cardRects.size() - 1);
         if (selRow >= hitRects.size() && tab == TAB_STANDINGS) selRow = Math.max(0, hitRects.size() - 1);
         if (cursorOn && !celebrating() && !helpOpen && !topMode) drawCursor(c);
@@ -1532,7 +1535,9 @@ public class ThorView extends View {
         text(c, tr("Tap to wake", "Touchez pour réveiller"), w / 2f, h * 0.9f, h * 0.028f, tfReg, 0xFF2E3138, Paint.Align.CENTER, w);
     }
 
-    private static final long TICKER_T0 = System.currentTimeMillis();
+    /** Top screen: the scrolling line lives in its own view (see TickerView). */
+    public TickerView ticker;
+    private boolean tickerOn;
 
     private void drawTicker(Canvas c, Model.Game cur, int w, int h, int top) {
         StringBuilder sb = new StringBuilder();
@@ -1543,21 +1548,11 @@ public class ThorView extends View {
             if ("pre".equals(g.state)) sb.append("@ ").append(g.home.abbr).append("  ").append(g.startMs > 0 ? fmtTime(g.startMs) : g.detail);
             else sb.append(g.away.score).append(" – ").append(g.home.score).append(' ').append(g.home.abbr).append("  ").append(g.isLive() ? g.detail : tr("FINAL", "FINAL"));
         }
-        if (sb.length() == 0) return;
-        float th = h - top;
+        if (sb.length() == 0) { if (ticker != null) ticker.set(null, 0, 0); return; }
         p.setColor(0xFF0C0E13);
         c.drawRect(0, top, w, h, p);
-        p.setTypeface(tfCond);
-        p.setTextSize(th * 0.45f);
-        String s = sb.toString() + "      •      ";
-        float tw = p.measureText(s);
-        // long math: a float of the current time is too coarse and froze the ticker
-        float off = (float) (((System.currentTimeMillis() - TICKER_T0) / 12L) % Math.max(1L, (long) tw));
-        c.save();
-        c.clipRect(0, top, w, h);
-        for (float x = -off; x < w; x += tw) text(c, s, x, top + th / 2, th * 0.45f, tfCond, MUTED, Paint.Align.LEFT, tw + 10);
-        c.restore();
-        postInvalidateDelayed(40);
+        tickerOn = true;
+        if (ticker != null) ticker.set(sb.toString() + "      •      ", top, h);   // the ticker view scrolls it on its own
     }
 
     // ------------------------------------------------------------------ banner
