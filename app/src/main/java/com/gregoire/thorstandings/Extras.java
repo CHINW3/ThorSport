@@ -39,6 +39,12 @@ public final class Extras {
         return a == null ? abbr : a;
     }
 
+    private static String utcDate(long ms) {
+        SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+        f.setTimeZone(TimeZone.getTimeZone("UTC"));
+        return f.format(new Date(ms > 0 ? ms : System.currentTimeMillis()));
+    }
+
     private static String etDate(long ms) {
         SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
         f.setTimeZone(TimeZone.getTimeZone("America/New_York"));
@@ -172,12 +178,18 @@ public final class Extras {
     }
 
     private static float[] fetchPoly(String prefix, Model.Game g) {
-        String date = etDate(g.startMs);
+        // Polymarket dates its slugs by the kickoff day; evening games in North America are already the
+        // next day in UTC (e.g. Sunday Night Football 8:20 PM ET = "...-2026-11-23"), so try both days.
+        String etD = etDate(g.startMs), utcD = utcDate(g.startMs);
+        String[] dates = etD.equals(utcD) ? new String[]{etD} : new String[]{utcD, etD};
         String a1 = g.away.abbr.toLowerCase(Locale.US), h1 = g.home.abbr.toLowerCase(Locale.US);
         String a2 = alt(g.league, g.away.abbr).toLowerCase(Locale.US), h2 = alt(g.league, g.home.abbr).toLowerCase(Locale.US);
-        String[] slugs = a1.equals(a2) && h1.equals(h2)
-            ? new String[]{prefix + "-" + a1 + "-" + h1 + "-" + date}
-            : new String[]{prefix + "-" + a2 + "-" + h2 + "-" + date, prefix + "-" + a1 + "-" + h1 + "-" + date};
+        java.util.List<String> sl = new java.util.ArrayList<>();
+        for (String date : dates) {
+            if (!(a1.equals(a2) && h1.equals(h2))) sl.add(prefix + "-" + a2 + "-" + h2 + "-" + date);
+            sl.add(prefix + "-" + a1 + "-" + h1 + "-" + date);
+        }
+        String[] slugs = sl.toArray(new String[0]);
         for (String slug : slugs) {
             try {
                 JSONArray evs = new JSONArray(Espn.get("https://gamma-api.polymarket.com/events?slug=" + slug));
