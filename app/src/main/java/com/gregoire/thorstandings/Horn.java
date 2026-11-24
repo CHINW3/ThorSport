@@ -24,8 +24,81 @@ public final class Horn {
     /** Settings → Horn length: SHORT plays about 1.2 s instead of the full 3.2 s blast. */
     public static boolean shortHorn;
 
+    /** Settings → Sound → Goal sound: 0 arena horn, 1 deep horn, 2 goal siren, 3 victory chime. */
+    public static int soundType;
+    private static final short[][] cache = new short[4][];
+    public static final String[][] SOUND_NAMES = {{"ARENA HORN", "KLAXON ARÉNA"}, {"DEEP HORN", "KLAXON GRAVE"}, {"GOAL SIREN", "SIRÈNE"}, {"VICTORY CHIME", "CARILLON"}};
+
     private static synchronized short[] buffer() {
-        if (pcm != null) return pcm;
+        int st = Math.max(0, Math.min(3, soundType));
+        if (cache[st] != null) return cache[st];
+        short[] out = st == 0 ? arena() : st == 1 ? deep() : st == 2 ? siren() : chime();
+        cache[st] = out;
+        return out;
+    }
+
+    /** Lower, darker horn: same shape as the arena one, an octave down with more grit. */
+    private static short[] deep() {
+        float seconds = 3.4f;
+        int n = (int) (RATE * seconds);
+        short[] out = new short[n];
+        double[] freqs = {77.78, 98.0, 116.54, 155.56};
+        double[] phase = new double[freqs.length];
+        for (int i = 0; i < n; i++) {
+            double t = (double) i / RATE;
+            double env = Math.min(1.0, t / 0.08);
+            if (t > seconds - 1.0) env *= Math.max(0, (seconds - t) / 1.0);
+            double v = 0;
+            for (int k = 0; k < freqs.length; k++) {
+                phase[k] += 2 * Math.PI * freqs[k] * (1 + 0.003 * Math.sin(2 * Math.PI * 3.0 * t + k)) / RATE;
+                double ph = phase[k] % (2 * Math.PI);
+                v += 0.7 * (ph / Math.PI - 1.0) + 0.3 * Math.sin(2 * phase[k]);
+            }
+            out[i] = (short) (Math.tanh(v * 1.1) * env * 0.8 * Short.MAX_VALUE);
+        }
+        return out;
+    }
+
+    /** Goal siren: a rising and falling wail, like a goal light siren. */
+    private static short[] siren() {
+        float seconds = 3.0f;
+        int n = (int) (RATE * seconds);
+        short[] out = new short[n];
+        double phase = 0, phase2 = 0;
+        for (int i = 0; i < n; i++) {
+            double t = (double) i / RATE;
+            double f = 520 + 380 * (0.5 - 0.5 * Math.cos(2 * Math.PI * t / 1.0));
+            phase += 2 * Math.PI * f / RATE;
+            phase2 += 2 * Math.PI * f * 1.5 / RATE;
+            double env = Math.min(1.0, t / 0.05) * (t > seconds - 0.5 ? Math.max(0, (seconds - t) / 0.5) : 1);
+            double v = 0.7 * Math.sin(phase) + 0.25 * (Math.sin(phase2) >= 0 ? 1 : -1) * 0.5;
+            out[i] = (short) (Math.tanh(v * 1.2) * env * 0.6 * Short.MAX_VALUE);
+        }
+        return out;
+    }
+
+    /** Victory chime: a bright bell arpeggio (softer than a horn). */
+    private static short[] chime() {
+        float seconds = 2.6f;
+        int n = (int) (RATE * seconds);
+        double[] notes = {523.25, 659.25, 783.99, 1046.5};
+        double[] start = {0, 0.14, 0.28, 0.42};
+        float[] acc = new float[n];
+        for (int k = 0; k < notes.length; k++) {
+            int s0 = (int) (start[k] * RATE);
+            for (int i = s0; i < n; i++) {
+                double t = (double) (i - s0) / RATE;
+                double env = Math.exp(-t * 2.2) * Math.min(1, t / 0.005);
+                double v = Math.sin(2 * Math.PI * notes[k] * t) + 0.35 * Math.sin(2 * Math.PI * notes[k] * 2.76 * t) * Math.exp(-t * 6);
+                acc[i] += (float) (v * env * 0.32);
+            }
+        }
+        short[] out = new short[n];
+        for (int i = 0; i < n; i++) out[i] = (short) (Math.tanh(acc[i]) * 0.85 * Short.MAX_VALUE);
+        return out;
+    }
+
+    private static short[] arena() {
         float seconds = 3.2f;
         int n = (int) (RATE * seconds);
         short[] out = new short[n];
@@ -49,16 +122,17 @@ public final class Horn {
             v = Math.tanh(v * 0.9) * env * 0.75;             // soft clipping = horn grit
             out[i] = (short) (v * Short.MAX_VALUE);
         }
-        pcm = out;
-        return pcm;
+        return out;
     }
 
     public static void play(Context ctx, boolean sound) { play(ctx, sound, 0.7f); }
 
     /** Bat crack (a short, sharp burst) then a pause, put in front of the horn for home runs. */
     private static short[] crackPcm;
+    private static int crackType = -1;
     private static synchronized short[] withCrack() {
-        if (crackPcm != null) return crackPcm;
+        if (crackPcm != null && crackType == soundType) return crackPcm;
+        crackType = soundType;
         short[] horn = buffer();
         int crackN = (int) (RATE * 0.09), gap = (int) (RATE * 0.28);
         short[] out = new short[crackN + gap + horn.length];

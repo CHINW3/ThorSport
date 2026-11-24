@@ -72,7 +72,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
     private int standingsLeague = -1;
     private boolean running, sound, myTeamsOnly, lastFailed, ledsOn, autoBoard;
     private int delaySec, hornVol, ledBri;
-    private boolean extraAlerts, notify = true, celebrations, keepOn, nightMode, hideFinal, shotMap;
+    private boolean ledGoal = true, extraAlerts, notify = true, celebrations, keepOn, nightMode, hideFinal, shotMap;
     private BroadcastReceiver updateReceiver;
     private volatile int updatePct = -2;   // -2 idle, -1 downloading (size unknown), 0..100 downloading
     private long resetArmedAt;
@@ -247,6 +247,13 @@ public class MainActivity extends Activity implements ThorView.Listener {
         hornVol = prefs.getInt("hornVol", 1);
         ledBri = prefs.getInt("ledBri", 1);
         celebrations = prefs.getBoolean("celebrations", true);
+        ThorView.fxFlash = prefs.getBoolean("fxFlash", true);
+        ThorView.fxBeams = prefs.getBoolean("fxBeams", true);
+        ThorView.fxConfetti = prefs.getBoolean("fxConfetti", true);
+        ThorView.fxFireworks = prefs.getBoolean("fxFireworks", true);
+        ThorView.fxShake = prefs.getBoolean("fxShake", true);
+        Horn.soundType = prefs.getInt("hornSound", 0);
+        ledGoal = prefs.getBoolean("ledGoal", true);
         notify = prefs.getBoolean("otherTeams", true);
         extraAlerts = prefs.getBoolean("extraAlerts", false);   // off: only goals, touchdowns and wins
         keepOn = prefs.getInt("keepMode", prefs.getBoolean("keepOn", true) ? 0 : 2) == 0;   // LIVE GAMES: switched on/off as games go live
@@ -961,53 +968,82 @@ public class MainActivity extends Activity implements ThorView.Listener {
         List<String[]> it = new ArrayList<>();
         // 0 GENERAL
         it.add(item(0, t("Two-screen mode", "Mode deux écrans"), onOff(dual), ThorView.SET_DUAL));
-        it.add(item(0, t("Spoiler delay", "Délai anti-spoiler"), (delaySec == 0 ? onOff(false) : delaySec + " s") + "  ›", ThorView.SET_DELAY));
         it.add(item(0, t("Language", "Langue"), french ? "FRANÇAIS" : "ENGLISH", ThorView.SET_LANG));
-        it.add(item(0, t("Clock", "Horloge"), CLOCK_NAMES[clockMode], ThorView.SET_CLOCK));
-        it.add(item(0, t("Accent color", "Couleur d'accent"), ACCENT_NAMES[accentIdx], ThorView.SET_ACCENT));
-        it.add(item(0, t("Screen brightness", "Luminosité"), Math.round((1 - DIM_LEVELS[dimLevel]) * 100) + "%", ThorView.SET_DIM));
-        it.add(item(0, t("Screensaver clock (10 min)", "Économiseur horloge (10 min)"), onOff(saver), ThorView.SET_SAVER));
-        it.add(item(0, t("Keep screen on", "Garder l'écran allumé"), keepName(), ThorView.SET_KEEP_ON));
         it.add(item(0, t("Open on", "Ouvrir sur"), startLeague == 1 ? t("MY TEAMS", "MES ÉQUIPES") : t("LAST LEAGUE", "DERNIÈRE LIGUE"), ThorView.SET_START_LEAGUE));
         it.add(item(0, t("Live refresh", "Rafraîchissement en direct"), fastLive ? t("FAST (15 s)", "RAPIDE (15 s)") : "NORMAL (30 s)", ThorView.SET_FAST_LIVE));
-        it.add(item(0, t("Menu sounds & vibration", "Sons et vibration des menus"), onOff(menuFx), ThorView.SET_MENU_FX));
-        // 1 GOALS & ALERTS
-        it.add(item(1, t("Goal horn", "Klaxon de but"), onOff(sound), ThorView.SET_HORN));
-        it.add(item(1, t("Horn volume", "Volume du klaxon"), LEVELS[hornVol], ThorView.SET_HORN_VOL));
-        it.add(item(1, t("Horn length", "Durée du klaxon"), Horn.shortHorn ? t("SHORT", "COURT") : t("FULL", "COMPLET"), ThorView.SET_HORN_SHORT));
-        it.add(item(1, t("Mute alerts", "Couper les alertes"), muteLabel(), ThorView.SET_MUTE));
-        it.add(item(1, t("Vibrate on goals", "Vibrer aux buts"), onOff(vibrate), ThorView.SET_VIBRATE));
-        it.add(item(1, t("Goal screen", "Écran de but"), onOff(celebrations), ThorView.SET_CELEB));
-        it.add(item(1, t("Celebrate", "Célébrer"), celebMine ? t("MY TEAMS ONLY", "MES ÉQUIPES") : t("ALL GAMES", "TOUS LES MATCHS"), ThorView.SET_CELEB_MINE));
-        it.add(item(1, t("Game reminder", "Rappel d'avant-match"), reminderIdx == 0 ? onOff(false) : REMIND_MIN[reminderIdx] + " MIN", ThorView.SET_REMINDER));
-        it.add(item(1, t("Your other games", "Tes autres matchs"), onOff(notify), ThorView.SET_OTHER_TEAMS));
-        it.add(item(1, t("Extra alerts (power play, lead change…)", "Alertes extra (avantage, changement de meneur…)"), onOff(extraAlerts), ThorView.SET_EXTRA_ALERTS));
-        it.add(item(1, t("Goal screen length", "Durée de l'écran de but"), CELEB_NAMES[celebLen], ThorView.SET_CELEB_LEN));
-        it.add(item(1, t("Test a goal", "Tester un but"), "▶", ThorView.SET_TEST));
-        if (lastAlertWord != null) it.add(item(1, t("Replay last goal", "Revoir le dernier but"), "▶", ThorView.SET_REPLAY));
-        // 2 STICK LIGHTS
-        it.add(item(2, t("Stick lights", "Lumières des joysticks"), ledsAvailable ? onOff(ledsOn) : "N/A", ThorView.SET_LEDS));
-        it.add(item(2, t("Light brightness", "Intensité des lumières"), LEVELS[ledBri], ThorView.SET_LED_BRI));
+        it.add(item(0, t("Spoiler delay", "Délai anti-spoiler"), (delaySec == 0 ? onOff(false) : delaySec + " s") + "  ›", ThorView.SET_DELAY));
+        // 1 DISPLAY
+        it.add(item(1, t("Screen brightness", "Luminosité"), Math.round((1 - DIM_LEVELS[dimLevel]) * 100) + "%", ThorView.SET_DIM));
+        it.add(item(1, t("Accent color", "Couleur d'accent"), ACCENT_NAMES[accentIdx], ThorView.SET_ACCENT));
+        it.add(item(1, t("Clock", "Horloge"), CLOCK_NAMES[clockMode], ThorView.SET_CLOCK));
+        it.add(item(1, t("Keep screen on", "Garder l'écran allumé"), keepName(), ThorView.SET_KEEP_ON));
+        it.add(item(1, t("Screensaver clock (10 min)", "Économiseur horloge (10 min)"), onOff(saver), ThorView.SET_SAVER));
+        // 2 CELEBRATIONS
         it.add(item(2, t("Test a goal", "Tester un but"), "▶", ThorView.SET_TEST));
-        // 3 SCORES & BOARD
-        it.add(item(3, t("Hide finished games", "Cacher les matchs finis"), onOff(hideFinal), ThorView.SET_HIDE_FINAL));
-        it.add(item(3, t("Standings size", "Taille du classement"), bigStandings ? t("BIG", "GRAND") : t("FIT ALL", "TOUT"), ThorView.SET_STAND_SIZE));
-        it.add(item(3, t("Open Board when my team plays", "Ouvrir le tableau quand mon équipe joue"), onOff(autoBoard), ThorView.SET_AUTOBOARD));
-        it.add(item(3, t("Rotate live games on Board", "Alterner les matchs en direct"), rotateIdx == 0 ? onOff(false) : t("EVERY ", "AUX ") + ROTATE_SEC[rotateIdx] + " s", ThorView.SET_ROTATE));
-        it.add(item(3, t("NHL shot map (rink)", "Carte des tirs LNH"), onOff(shotMap), ThorView.SET_SHOT_MAP));
-        it.add(item(3, t("Baseball field demo", "Démo terrain de baseball"), "▶", ThorView.SET_DEMO_MLB));
-        it.add(item(3, t("Football field demo", "Démo terrain de football"), "▶", ThorView.SET_DEMO_NFL));
-        it.add(item(3, t("Hockey rink demo", "Démo patinoire"), "▶", ThorView.SET_DEMO_NHL));
-        // 4 APP
-        it.add(item(4, t("My teams", "Mes équipes") + " (" + favKeys.size() + ")", t("EDIT  ›", "MODIFIER  ›"), ThorView.SET_MY_TEAMS));
-        it.add(item(4, t("App update", "Mise à jour"), updateLabel(), ThorView.SET_UPDATE));
-        it.add(item(4, t("Help / tips", "Aide / astuces"), "?", ThorView.SET_HELP));
+        if (lastAlertWord != null) it.add(item(2, t("Replay last goal", "Revoir le dernier but"), "▶", ThorView.SET_REPLAY));
+        it.add(item(2, t("Goal screen", "Écran de but"), onOff(celebrations), ThorView.SET_CELEB));
+        it.add(item(2, t("Style", "Style"), fxPresetName(), ThorView.SET_FX_PRESET));
+        it.add(item(2, t("Celebrate", "Célébrer"), celebMine ? t("MY TEAMS ONLY", "MES ÉQUIPES") : t("ALL GAMES", "TOUS LES MATCHS"), ThorView.SET_CELEB_MINE));
+        it.add(item(2, t("Length", "Durée"), CELEB_NAMES[celebLen], ThorView.SET_CELEB_LEN));
+        it.add(item(2, t("Flash & strobe", "Flash et stroboscope"), onOff(ThorView.fxFlash), ThorView.SET_FX_FLASH));
+        it.add(item(2, t("Goal-lamp beams", "Faisceaux de lumière"), onOff(ThorView.fxBeams), ThorView.SET_FX_BEAMS));
+        it.add(item(2, t("Confetti", "Confettis"), onOff(ThorView.fxConfetti), ThorView.SET_FX_CONFETTI));
+        it.add(item(2, t("Fireworks", "Feux d'artifice"), onOff(ThorView.fxFireworks), ThorView.SET_FX_FIREWORKS));
+        it.add(item(2, t("Screen shake", "Écran qui tremble"), onOff(ThorView.fxShake), ThorView.SET_FX_SHAKE));
+        // 3 SOUND
+        it.add(item(3, t("Goal sound", "Son de but"), onOff(sound), ThorView.SET_HORN));
+        it.add(item(3, t("Sound", "Son"), t(Horn.SOUND_NAMES[Horn.soundType][0], Horn.SOUND_NAMES[Horn.soundType][1]) + "  ▶", ThorView.SET_HORN_SOUND));
+        it.add(item(3, t("Volume", "Volume"), LEVELS[hornVol], ThorView.SET_HORN_VOL));
+        it.add(item(3, t("Length", "Durée"), Horn.shortHorn ? t("SHORT", "COURT") : t("FULL", "COMPLET"), ThorView.SET_HORN_SHORT));
+        it.add(item(3, t("Vibrate on goals", "Vibrer aux buts"), onOff(vibrate), ThorView.SET_VIBRATE));
+        it.add(item(3, t("Menu sounds & vibration", "Sons et vibration des menus"), onOff(menuFx), ThorView.SET_MENU_FX));
+        // 4 ALERTS
+        it.add(item(4, t("Mute alerts", "Couper les alertes"), muteLabel(), ThorView.SET_MUTE));
+        it.add(item(4, t("Your other games", "Tes autres matchs"), onOff(notify), ThorView.SET_OTHER_TEAMS));
+        it.add(item(4, t("Game reminder", "Rappel d'avant-match"), reminderIdx == 0 ? onOff(false) : REMIND_MIN[reminderIdx] + " MIN", ThorView.SET_REMINDER));
+        it.add(item(4, t("Extra alerts (power play, lead change…)", "Alertes extra (avantage, changement de meneur…)"), onOff(extraAlerts), ThorView.SET_EXTRA_ALERTS));
+        // 5 STICK LIGHTS
+        it.add(item(5, t("Stick lights", "Lumières des joysticks"), ledsAvailable ? onOff(ledsOn) : "N/A", ThorView.SET_LEDS));
+        it.add(item(5, t("Light brightness", "Intensité des lumières"), LEVELS[ledBri], ThorView.SET_LED_BRI));
+        it.add(item(5, t("Flash on goals", "Clignoter aux buts"), onOff(ledGoal), ThorView.SET_LED_GOAL));
+        it.add(item(5, t("Test a goal", "Tester un but"), "▶", ThorView.SET_TEST));
+        // 6 SCORES & BOARD
+        it.add(item(6, t("Hide finished games", "Cacher les matchs finis"), onOff(hideFinal), ThorView.SET_HIDE_FINAL));
+        it.add(item(6, t("Standings size", "Taille du classement"), bigStandings ? t("BIG", "GRAND") : t("FIT ALL", "TOUT"), ThorView.SET_STAND_SIZE));
+        it.add(item(6, t("Open Board when my team plays", "Ouvrir le tableau quand mon équipe joue"), onOff(autoBoard), ThorView.SET_AUTOBOARD));
+        it.add(item(6, t("Rotate live games on Board", "Alterner les matchs en direct"), rotateIdx == 0 ? onOff(false) : t("EVERY ", "AUX ") + ROTATE_SEC[rotateIdx] + " s", ThorView.SET_ROTATE));
+        it.add(item(6, t("NHL shot map (rink)", "Carte des tirs LNH"), onOff(shotMap), ThorView.SET_SHOT_MAP));
+        it.add(item(6, t("Baseball field demo", "Démo terrain de baseball"), "▶", ThorView.SET_DEMO_MLB));
+        it.add(item(6, t("Football field demo", "Démo terrain de football"), "▶", ThorView.SET_DEMO_NFL));
+        it.add(item(6, t("Hockey rink demo", "Démo patinoire"), "▶", ThorView.SET_DEMO_NHL));
+        // 7 APP
+        it.add(item(7, t("My teams", "Mes équipes") + " (" + favKeys.size() + ")", t("EDIT  ›", "MODIFIER  ›"), ThorView.SET_MY_TEAMS));
+        it.add(item(7, t("App update", "Mise à jour"), updateLabel(), ThorView.SET_UPDATE));
+        it.add(item(7, t("Help / tips", "Aide / astuces"), "?", ThorView.SET_HELP));
         boolean armed = System.currentTimeMillis() - resetArmedAt < 4000;
-        it.add(item(4, t("Clear MY TEAMS", "Vider MES ÉQUIPES") + " (" + favKeys.size() + ")", armed ? t("TAP AGAIN", "TOUCHEZ ENCORE") : t("CLEAR", "VIDER"), ThorView.SET_RESET));
+        it.add(item(7, t("Clear MY TEAMS", "Vider MES ÉQUIPES") + " (" + favKeys.size() + ")", armed ? t("TAP AGAIN", "TOUCHEZ ENCORE") : t("CLEAR", "VIDER"), ThorView.SET_RESET));
         boolean armedSet = System.currentTimeMillis() - settingsResetArmedAt < 4000;
-        it.add(item(4, t("Reset settings", "Réinitialiser les réglages"), armedSet ? t("TAP AGAIN", "TOUCHEZ ENCORE") : t("RESET", "RÉINITIALISER"), ThorView.SET_RESET_SETTINGS));
+        it.add(item(7, t("Reset settings", "Réinitialiser les réglages"), armedSet ? t("TAP AGAIN", "TOUCHEZ ENCORE") : t("RESET", "RÉINITIALISER"), ThorView.SET_RESET_SETTINGS));
         all(v -> v.setAppVersion(Updater.currentVersion(this)));
         all(v -> v.setSettingItems(it));
+    }
+
+    /** 0 FULL (everything), 1 CLEAN (confetti + fireworks, no flashing / shaking), 2 SIMPLE (just the logo and the word), 3 CUSTOM. */
+    private int fxPreset() {
+        boolean f = ThorView.fxFlash, b = ThorView.fxBeams, c = ThorView.fxConfetti, w = ThorView.fxFireworks, s = ThorView.fxShake;
+        if (f && b && c && w && s) return 0;
+        if (!f && !b && c && w && !s) return 1;
+        if (!f && !b && !c && !w && !s) return 2;
+        return 3;
+    }
+
+    private String fxPresetName() {
+        switch (fxPreset()) {
+            case 0: return t("FULL", "COMPLET");
+            case 1: return t("CLEAN (NO FLASH)", "SOBRE (SANS FLASH)");
+            case 2: return t("SIMPLE", "SIMPLE");
+            default: return t("CUSTOM", "PERSONNALISÉ");
+        }
     }
 
     private static String onOff(boolean b) { return b ? "ON" : ThorView.tr("OFF", "OFF"); }
@@ -1093,6 +1129,25 @@ public class MainActivity extends Activity implements ThorView.Listener {
             case ThorView.SET_LED_BRI:
                 ledBri = (ledBri + 1) % LED_BRIS.length; e.putInt("ledBri", ledBri);
                 Leds.setBrightness(LED_BRIS[ledBri]); updateLeds(); break;
+            case ThorView.SET_FX_FLASH: ThorView.fxFlash = !ThorView.fxFlash; e.putBoolean("fxFlash", ThorView.fxFlash); break;
+            case ThorView.SET_FX_BEAMS: ThorView.fxBeams = !ThorView.fxBeams; e.putBoolean("fxBeams", ThorView.fxBeams); break;
+            case ThorView.SET_FX_CONFETTI: ThorView.fxConfetti = !ThorView.fxConfetti; e.putBoolean("fxConfetti", ThorView.fxConfetti); break;
+            case ThorView.SET_FX_FIREWORKS: ThorView.fxFireworks = !ThorView.fxFireworks; e.putBoolean("fxFireworks", ThorView.fxFireworks); break;
+            case ThorView.SET_FX_SHAKE: ThorView.fxShake = !ThorView.fxShake; e.putBoolean("fxShake", ThorView.fxShake); break;
+            case ThorView.SET_FX_PRESET: {   // FULL -> CLEAN -> SIMPLE -> FULL
+                int next = (fxPreset() + 1) % 3;
+                boolean full = next == 0, clean = next == 1;
+                ThorView.fxFlash = full; ThorView.fxShake = full; ThorView.fxBeams = full;
+                ThorView.fxConfetti = full || clean; ThorView.fxFireworks = full || clean;
+                e.putBoolean("fxFlash", ThorView.fxFlash).putBoolean("fxBeams", ThorView.fxBeams).putBoolean("fxConfetti", ThorView.fxConfetti)
+                    .putBoolean("fxFireworks", ThorView.fxFireworks).putBoolean("fxShake", ThorView.fxShake);
+                break;
+            }
+            case ThorView.SET_HORN_SOUND:
+                Horn.soundType = (Horn.soundType + 1) % Horn.SOUND_NAMES.length; e.putInt("hornSound", Horn.soundType);
+                Horn.play(this, true, HORN_VOLS[hornVol]);   // hear it right away
+                break;
+            case ThorView.SET_LED_GOAL: ledGoal = !ledGoal; e.putBoolean("ledGoal", ledGoal); break;
             case ThorView.SET_EXTRA_ALERTS:
                 extraAlerts = !extraAlerts; e.putBoolean("extraAlerts", extraAlerts); break;
             case ThorView.SET_OTHER_TEAMS:
@@ -1738,7 +1793,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
             String prevState = otherStates.put(g.id, g.state);
             if (prevState != null && !prevState.equals(g.state)) {
                 if (g.isFinal()) { noteFinal(g, favs); continue; }
-                if ("pre".equals(prevState) && g.isLive()) {
+                if (extraAlerts && "pre".equals(prevState) && g.isLive()) {
                     Model.Side fav = favs.contains(g.away.abbr) ? g.away : g.home;
                     all(v -> v.notifyCard(fav, t("GAME ON · ", "C'EST PARTI · ") + g.away.abbr + " @ " + g.home.abbr, t("Starting now", "Ça commence")));
                 }
@@ -1780,7 +1835,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
                 }
             }
             int reg = "hockey".equals(g.sport) ? 3 : "baseball".equals(g.sport) ? 9 : "soccer".equals(g.sport) ? 2 : 4;
-            if (watched && g.isLive() && prevPeriod != null && prevPeriod <= reg && g.period > reg && !"soccer".equals(g.sport))
+            if (extraAlerts && watched && g.isLive() && prevPeriod != null && prevPeriod <= reg && g.period > reg && !"soccer".equals(g.sport))
                 all(v -> v.banner(("baseball".equals(g.sport) ? t("EXTRA INNINGS", "MANCHES SUPP.") : t("OVERTIME", "PROLONGATION")) + " · " + g.away.abbr + " " + g.away.score
                     + " – " + g.home.score + " " + g.home.abbr, 0xFFFF3B30));
 
@@ -1788,7 +1843,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
 
             if (prevState != null && !prevState.equals(g.state) && watched) {
                 if ("pre".equals(prevState) && g.isLive()) {
-                    all(v -> v.banner(("hockey".equals(g.sport) ? t("PUCK DROP · ", "MISE AU JEU · ") : t("GAME ON · ", "C'EST PARTI · ")) + g.away.abbr + " @ " + g.home.abbr, 0xFF34C759));
+                    if (extraAlerts) all(v -> v.banner(("hockey".equals(g.sport) ? t("PUCK DROP · ", "MISE AU JEU · ") : t("GAME ON · ", "C'EST PARTI · ")) + g.away.abbr + " @ " + g.home.abbr, 0xFF34C759));
                     if (mine) horn(HORN_VOLS[hornVol] * 0.5f, false);
                     if (mine && autoBoard) {
                         onFollowGame(g.id, true);
@@ -1805,7 +1860,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
                         boolean comeback = wdf != null && wdf[won == g.away ? 0 : 1] >= 2 && !"basketball".equals(g.sport);
                         goalAlert(g, won, comeback ? t("COMEBACK WIN!", "VICTOIRE DE REMONTÉE!") : shutout ? t("SHUTOUT!", "BLANCHISSAGE!") : t("VICTORY!", "VICTOIRE!"), 0xFFFFC400);   // gold lights
                         if (g.series != null && !g.series.isEmpty()) all(v -> v.banner(t("SERIES · ", "SÉRIE · ") + g.series.toUpperCase(Locale.US), 0xFFFFC400));
-                    } else {
+                    } else if (extraAlerts) {   // a final that isn't your team's win: only with Extra alerts
                         all(v -> v.banner(t("FINAL · ", "FINAL · ") + g.away.abbr + " " + g.away.score + " – " + g.home.score + " " + g.home.abbr
                             + (shutout ? t(" · SHUTOUT", " · BLANCHISSAGE") : "") + starOfGame(g), 0xFFFFB524));
                         if (g.series != null && !g.series.isEmpty()) all(v -> v.banner(t("SERIES · ", "SÉRIE · ") + g.series.toUpperCase(Locale.US), 0xFFFFC400));
@@ -1831,7 +1886,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
             }
 
             // upset: the team with under 35 % chance won
-            if (prevState != null && !prevState.equals(g.state) && g.isFinal() && !"racing".equals(g.sport)) {
+            if (extraAlerts && prevState != null && !prevState.equals(g.state) && g.isFinal() && !"racing".equals(g.sport)) {
                 float[] od = lastOdds.get(g.id);
                 Model.Side won = g.away.winner ? g.away : g.home.winner ? g.home : null;
                 if (od != null && won != null && (won == g.away ? od[0] : od[1]) < 0.35f) {
@@ -1842,7 +1897,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
             }
 
             // close game late
-            if (g.isLive() && isClutch(g) && closeAlerted.add(g.id)) {
+            if (extraAlerts && g.isLive() && isClutch(g) && closeAlerted.add(g.id)) {
                 final Model.Game cg = g;
                 all(v -> v.banner(t("CLOSE GAME · ", "MATCH SERRÉ · ") + cg.away.abbr + " " + cg.away.score + " – " + cg.home.score + " " + cg.home.abbr, 0xFFFF9500));
             }
@@ -1889,7 +1944,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         if (celebrateGame == null) return;
         if ("basketball".equals(celebrateGame.sport)) {   // NBA / WNBA: a small celebration for threes
             boolean yours = celebrateGame.involves(favorites) ? favorites.contains(celebrateSide.abbr) : !(celebMine && !favKeys.isEmpty());
-            if (celebrateDelta == 3 && yours) {
+            if (extraAlerts && celebrateDelta == 3 && yours) {
                 final Model.Game tg = celebrateGame;
                 final Model.Side ts = celebrateSide;
                 all(v -> v.banner(t("THREE! ", "TROIS POINTS! ") + ts.abbr + " · " + tg.away.abbr + " " + tg.away.score + " – " + tg.home.score + " " + tg.home.abbr,
@@ -1921,6 +1976,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
             return;
         }
         if (quietFootball || against || (celebMine && !favKeys.isEmpty() && !celebrateGame.involves(favorites))) {
+            if (!extraAlerts) return;   // extra point, 2-pt try, other teams' goals: silent unless Extra alerts
             Model.Game g = celebrateGame;
             final Model.Side scorer = celebrateSide;
             all(v -> v.banner(word.replace("!", "") + " " + scorer.abbr + " · " + g.away.abbr + " " + g.away.score
@@ -2108,7 +2164,8 @@ public class MainActivity extends Activity implements ThorView.Listener {
         else all(v -> v.banner(word + " " + side.abbr + " · " + g.away.abbr + " " + g.away.score + " – " + g.home.score + " " + g.home.abbr, side.color | 0xFF000000));
         boolean homer = ThorView.isHomeRunWord(word);
         horn(HORN_VOLS[hornVol], homer);
-        if (ledsAvailable && ledsOn && homer) {
+        if (!ledGoal) { }
+        else if (ledsAvailable && ledsOn && homer) {
             // the light follows the ball from the left stick to the right one, then the team's colors (gold for a grand slam)
             int a = side.ledA != 0 ? side.ledA : side.color;
             Leds.homeRun(a, ThorView.isGrandSlamWord(word) ? 0xFFFFC400 : second(a, side.ledB));

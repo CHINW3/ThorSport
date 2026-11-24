@@ -65,7 +65,8 @@ public class ThorView extends View {
         SET_TEST = 11, SET_HELP = 12, SET_RESET = 13, SET_DUAL = 14, SET_QUIET = 15, SET_VIBRATE = 16,
         SET_CELEB_LEN = 17, SET_ACCENT = 18, SET_CLOCK = 19, SET_LANG = 20, SET_SAVER = 21, SET_STAND_SIZE = 22, SET_DEMO_MLB = 23, SET_DEMO_NFL = 24, SET_DEMO_NHL = 25, SET_SHOT_MAP = 26, SET_UPDATE = 27, SET_COMPANION = 28, SET_MY_TEAMS = 29, SET_OTHER_TEAMS = 30, SET_MENU_FX = 31,
         SET_MUTE = 32, SET_HORN_SHORT = 33, SET_REPLAY = 34, SET_CELEB_MINE = 35,
-        SET_ROTATE = 38, SET_FAST_LIVE = 39, SET_RESET_SETTINGS = 41, SET_START_LEAGUE = 42, SET_REMINDER = 43, SET_EXTRA_ALERTS = 44;
+        SET_ROTATE = 38, SET_FAST_LIVE = 39, SET_RESET_SETTINGS = 41, SET_START_LEAGUE = 42, SET_REMINDER = 43, SET_EXTRA_ALERTS = 44,
+        SET_FX_FLASH = 45, SET_FX_BEAMS = 46, SET_FX_CONFETTI = 47, SET_FX_FIREWORKS = 48, SET_FX_SHAKE = 49, SET_HORN_SOUND = 50, SET_LED_GOAL = 51, SET_FX_PRESET = 52;
     private static final int GAMES_PER_PAGE = 8;
     private static final long AUTO_PAGE_MS = 10_000;
     private long CELEBRATION_MS = 6500;
@@ -2119,8 +2120,8 @@ public class ThorView extends View {
 
     // ------------------------------------------------------------------ settings panel
     private static final String[][] SECTIONS = {
-        {"General", "Général"}, {"Goals & alerts", "Buts & alertes"}, {"Stick lights", "Lumières"},
-        {"Scores & Board", "Scores & tableau"}, {"App", "Appli"}};
+        {"General", "Général"}, {"Display", "Affichage"}, {"Celebrations", "Célébrations"}, {"Sound", "Son"},
+        {"Alerts", "Alertes"}, {"Stick lights", "Lumières"}, {"Scores & Board", "Scores & tableau"}, {"App", "Appli"}};
     private int sectionCount() { return SECTIONS.length; }
     private int settingsSection, settingsFocus;   // focus 0 = sections, 1 = rows
 
@@ -2205,6 +2206,37 @@ public class ThorView extends View {
         p.setColor(col);
         p.setStrokeWidth(Math.max(2f, s * 0.12f));
         p.setStrokeCap(Paint.Cap.ROUND);
+        if (i == 1) {   // display: a screen
+            p.setStyle(Paint.Style.STROKE);
+            c.drawRoundRect(new RectF(cx - s * 0.46f, cy - s * 0.32f, cx + s * 0.46f, cy + s * 0.22f), s * 0.08f, s * 0.08f, p);
+            c.drawLine(cx - s * 0.2f, cy + s * 0.42f, cx + s * 0.2f, cy + s * 0.42f, p);
+            p.setStyle(Paint.Style.FILL); p.setStrokeCap(Paint.Cap.BUTT);
+            return;
+        }
+        if (i == 2) {   // celebrations: a star
+            Path st = new Path();
+            for (int k = 0; k < 10; k++) {
+                double ang = -Math.PI / 2 + k * Math.PI / 5;
+                float rr = k % 2 == 0 ? s * 0.48f : s * 0.2f;
+                float px = cx + (float) Math.cos(ang) * rr, py = cy + (float) Math.sin(ang) * rr;
+                if (k == 0) st.moveTo(px, py); else st.lineTo(px, py);
+            }
+            st.close();
+            p.setStyle(Paint.Style.FILL);
+            c.drawPath(st, p);
+            p.setStrokeCap(Paint.Cap.BUTT);
+            return;
+        }
+        if (i == 4) {   // alerts: "!" in a circle
+            p.setStyle(Paint.Style.STROKE);
+            c.drawCircle(cx, cy, s * 0.44f, p);
+            p.setStyle(Paint.Style.FILL);
+            c.drawRect(cx - s * 0.05f, cy - s * 0.26f, cx + s * 0.05f, cy + s * 0.08f, p);
+            c.drawCircle(cx, cy + s * 0.22f, s * 0.07f, p);
+            p.setStrokeCap(Paint.Cap.BUTT);
+            return;
+        }
+        i = i == 3 ? 1 : i == 5 ? 2 : i == 6 ? 3 : i == 7 ? 4 : i;   // sound = horn, lights = ring, scores = board, app = info
         switch (i) {
             case 0: {   // sliders
                 p.setStyle(Paint.Style.STROKE);
@@ -4194,6 +4226,9 @@ public class ThorView extends View {
         return 1 + c3 * (float) Math.pow(k - 1, 3) + c1 * (float) Math.pow(k - 1, 2);
     }
 
+    /** Settings → Celebrations: which effects play on the goal screen. */
+    public static boolean fxFlash = true, fxBeams = true, fxConfetti = true, fxFireworks = true, fxShake = true;
+
     private void drawCelebration(Canvas c, int w, int h) {
         long t = System.currentTimeMillis() - celebStart;
         Model.Side s = celebSide;
@@ -4219,7 +4254,7 @@ public class ThorView extends View {
 
         // sweeping light beams
         p.setColor(alpha(0xFFFFFFFF, (int) (28 * fade)));
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < (fxBeams ? 4 : 0); i++) {
             float bx = (float) (((t / 6.0) + i * w / 4.0) % (w * 1.4)) - w * 0.2f;
             c.save();
             c.rotate(18, bx, h / 2f);
@@ -4229,8 +4264,10 @@ public class ThorView extends View {
 
         // confetti
         Random rnd = new Random(celebStart);
-        int[] colors = {s.color, TEXT, AMBER, alpha(s.color, 0xFF) ^ 0x00202020};
-        for (int i = 0; i < 160; i++) {
+        int kind = celebKind();
+        int[] colors = kind == K_WIN || kind == K_OT ? new int[]{0xFFFFC400, 0xFFFFE27A, TEXT, s.color}
+            : new int[]{s.color, TEXT, AMBER, alpha(s.color, 0xFF) ^ 0x00202020};
+        for (int i = 0; i < (fxConfetti ? 160 : 0); i++) {
             float x0 = rnd.nextFloat() * w;
             float speed = H * (0.25f + rnd.nextFloat() * 0.35f);
             float yy = -H * 0.1f - rnd.nextFloat() * H * 0.6f + speed * t / 1000f - oy;
@@ -4246,7 +4283,15 @@ public class ThorView extends View {
 
         boolean homer = isHomeRunWord(celebWord);
         if (homer) drawHomeRun(c, w, h, H, oy, t, fade, s.color, isGrandSlamWord(celebWord));
-        else drawGoalFx(c, w, h, H, oy, t, fade, s.color, "hockey".equals(celebGame.sport));
+        else if (kind == K_WIN) drawVictoryFx(c, w, h, H, oy, t, fade, s.color);
+        else {
+            // each event has its own picture behind the logo, then the usual goal effects
+            if (kind == K_TD) drawTouchdownFx(c, w, h, t, fade, s.color);
+            else if (kind == K_FG) drawFieldGoalFx(c, w, h, t, fade);
+            else if (kind == K_SOCCER) drawNetFx(c, w, h, t, fade);
+            else if (kind == K_OT) drawGoldRays(c, w, h, t, fade);
+            drawGoalFx(c, w, h, H, oy, t, fade, s.color, "hockey".equals(celebGame.sport));
+        }
 
         // home run: the ball flies first, then the logo and the word land
         long tt = homer ? Math.max(0, t - 800) : t;
@@ -4259,7 +4304,7 @@ public class ThorView extends View {
             String info = homeRunInfo(g.lastPlay);
             sub = info.isEmpty() ? g.detail.toUpperCase() : info;
         }
-        int wordCol = homer && isGrandSlamWord(celebWord) ? AMBER : TEXT;
+        int wordCol = homer && isGrandSlamWord(celebWord) || kind == K_WIN || kind == K_OT ? AMBER : TEXT;
         if (homer && tt == 0) { p.clearShadowLayer(); return; }   // only the ball for now
         p.setShadowLayer(h * 0.025f, 0, h * 0.008f, 0xCC000000);
 
@@ -4267,7 +4312,7 @@ public class ThorView extends View {
         float slamK = homer ? 1f : Math.min(1f, tt / 320f);
         float slamScale = homer ? 1f : 1f + 1.6f * (1 - slamK) * (1 - slamK);
         float shake = 0;
-        if (!homer && tt >= 320 && tt < 900) shake = h * 0.028f * (1 - (tt - 320) / 580f);
+        if (fxShake && !homer && tt >= 320 && tt < 900) shake = h * 0.028f * (1 - (tt - 320) / 580f);
         c.save();
         if (shake > 0) c.translate((float) Math.sin(tt * 0.9) * shake, (float) Math.cos(tt * 1.3) * shake * 0.7f);
         int glowCol = alpha(lighten(s.color), (int) (255 * fade));
@@ -4278,7 +4323,7 @@ public class ThorView extends View {
             logo(c, s.logo, s.abbr, s.color, w / 2f, h * 0.36f, h * 0.5f * Math.max(0.01f, easeOutBack(k)));
             bmpPaint.setAlpha(255);
             p.setShadowLayer(h * 0.06f, 0, 0, glowCol);
-            text(c, celebWord, w / 2f, h * 0.86f, h * 0.22f * beat * slamScale, tfBlack, alpha(wordCol, (int) (255 * fade * Math.min(1f, slamK * 2))), Paint.Align.CENTER, w * 0.95f * slamScale);
+            text(c, celebWord, w / 2f, h * 0.86f, fitWord(h * 0.22f, w * 0.92f) * beat * slamScale, tfBlack, alpha(wordCol, (int) (255 * fade * Math.min(1f, slamK * 2))), Paint.Align.CENTER, w * 0.95f * slamScale);
             p.setShadowLayer(h * 0.025f, 0, h * 0.008f, 0xCC000000);
         } else if (celebPart == CELEB_BOTTOM) {
             // bottom screen: the new score, big, then who scored
@@ -4291,7 +4336,7 @@ public class ThorView extends View {
             logo(c, s.logo, s.abbr, s.color, w / 2f, h * 0.33f, h * 0.4f * Math.max(0.01f, easeOutBack(k)));
             bmpPaint.setAlpha(255);
             p.setShadowLayer(h * 0.05f, 0, 0, glowCol);
-            text(c, celebWord, w / 2f, h * 0.66f, h * 0.16f * beat * slamScale, tfBlack, alpha(wordCol, (int) (255 * fade * Math.min(1f, slamK * 2))), Paint.Align.CENTER, w * 0.95f * slamScale);
+            text(c, celebWord, w / 2f, h * 0.66f, fitWord(h * 0.16f, w * 0.92f) * beat * slamScale, tfBlack, alpha(wordCol, (int) (255 * fade * Math.min(1f, slamK * 2))), Paint.Align.CENTER, w * 0.95f * slamScale);
             p.setShadowLayer(h * 0.025f, 0, h * 0.008f, 0xCC000000);
             text(c, line, w / 2f, h * 0.8f, h * 0.07f, tfCond, alpha(TEXT, (int) (230 * fade)), Paint.Align.CENTER, w * 0.9f);
             if (!sub.isEmpty())
@@ -4318,7 +4363,8 @@ public class ThorView extends View {
         int lamp = hockey ? 0xFFFF2020 : lighten(teamColor);
         p.setStyle(Paint.Style.FILL);
         // 1. flash + strobe (first 900 ms)
-        if (t < 80) {
+        if (!fxFlash) { }
+        else if (t < 80) {
             p.setColor(alpha(0xFFFFFFFF, (int) (230 * (1 - t / 80f))));
             c.drawRect(0, 0, w, h, p);
         } else if (t < 900 && ((t - 80) / 110) % 2 == 0) {
@@ -4328,7 +4374,7 @@ public class ThorView extends View {
         // 2. rotating goal-lamp beams from the top centre of the whole canvas
         float lx = w / 2f, ly = -oy - h * 0.02f;
         float len = Math.max(w, H) * 1.4f;
-        for (int i = 0; i < 2; i++) {
+        for (int i = 0; i < (fxBeams ? 2 : 0); i++) {
             double ang = Math.toRadians(90 + 55 * Math.sin(t / 380.0 + i * Math.PI));
             float ex = lx + (float) Math.cos(ang) * len, ey = ly + (float) Math.sin(ang) * len;
             float half = len * 0.09f;
@@ -4356,7 +4402,7 @@ public class ThorView extends View {
             p.setStyle(Paint.Style.FILL);
         }
         // 4. fireworks after the impact
-        drawFireworks(c, w, h, H, oy, t, fade, teamColor, 7, 600, 380, false);
+        if (fxFireworks) drawFireworks(c, w, h, H, oy, t, fade, teamColor, 7, 600, 380, false);
         if (t < CELEBRATION_MS) postInvalidateOnAnimation();
     }
 
@@ -4404,11 +4450,163 @@ public class ThorView extends View {
             }
         }
 
-        drawFireworks(c, w, h, H, oy, t, fade, teamColor, slam ? 10 : 6, (long) (FLY - 200), slam ? 300 : 420, slam);
+        if (fxFireworks) drawFireworks(c, w, h, H, oy, t, fade, teamColor, slam ? 10 : 6, (long) (FLY - 200), slam ? 300 : 420, slam);
         if (t < CELEBRATION_MS) postInvalidateOnAnimation();
     }
 
     /** Fireworks bursts in the team's colors (gold too for a grand slam). Shared by goals and home runs. */
+    // ------------------------------------------------------------------ one look per event
+    private static final int K_GOAL = 0, K_TD = 1, K_FG = 2, K_SOCCER = 3, K_OT = 4, K_WIN = 5;
+
+    /** Text size so the big word fits the screen ("TOUCHDOWN!" shrinks instead of being cut with "…"). */
+    private float fitWord(float size, float maxW) {
+        p.setTypeface(tfBlack); p.setTextSize(size);
+        float tw = p.measureText(celebWord == null ? "" : celebWord);
+        return tw > maxW ? size * maxW / tw : size;
+    }
+
+    private int celebKind() {
+        String wd = celebWord == null ? "" : celebWord.toUpperCase(java.util.Locale.ROOT);
+        if (wd.contains("VICTORY") || wd.contains("VICTOIRE") || wd.contains("SHUTOUT") || wd.contains("BLANCHISSAGE") || wd.contains("GAME WON") || wd.contains("PARTIE GAGN")) return K_WIN;
+        if (wd.contains("OT WINNER") || wd.contains("PROLONGATION")) return K_OT;
+        if (wd.contains("TOUCHDOWN")) return K_TD;
+        if (wd.contains("FIELD GOAL") || wd.contains("PLACEMENT")) return K_FG;
+        if (celebGame != null && "soccer".equals(celebGame.sport)) return K_SOCCER;
+        return K_GOAL;
+    }
+
+    /** Only on the screen that shows the logo (top in two-screen mode). */
+    private boolean logoScreen() { return celebPart != CELEB_BOTTOM; }
+    private float logoY(int h) { return celebPart == CELEB_TOP ? h * 0.36f : h * 0.33f; }
+
+    /** Touchdown: end-zone stripes in the team color and a football spiralling in, leaving a trail. */
+    private void drawTouchdownFx(Canvas c, int w, int h, long t, float fade, int col) {
+        // end-zone diagonal stripes
+        p.setColor(alpha(lighten(col), (int) (34 * fade)));
+        c.save();
+        c.rotate(-20, w / 2f, h / 2f);
+        float step = w * 0.09f;
+        for (float x = -w; x < w * 2; x += step * 2) c.drawRect(x, -h, x + step, h * 2, p);
+        c.restore();
+        if (!logoScreen()) return;
+        // the ball: from the bottom left to the logo, in 700 ms, spinning
+        float k = Math.min(1f, t / 700f);
+        float e = 1 - (1 - k) * (1 - k);
+        float bx = w * 0.05f + (w / 2f - w * 0.05f) * e, by = h * 0.95f + (logoY(h) - h * 0.95f) * e - (float) Math.sin(e * Math.PI) * h * 0.25f;
+        if (k < 1) {
+            for (int i = 1; i <= 8; i++) {   // trail
+                float ke = Math.max(0, e - i * 0.04f);
+                float tx = w * 0.05f + (w / 2f - w * 0.05f) * ke, ty = h * 0.95f + (logoY(h) - h * 0.95f) * ke - (float) Math.sin(ke * Math.PI) * h * 0.25f;
+                p.setColor(alpha(0xFFFFFFFF, (int) (120 * (1 - i / 9f) * fade)));
+                c.drawCircle(tx, ty, h * 0.018f * (1 - i / 10f), p);
+            }
+            float bw = h * 0.15f, bh = h * 0.09f;
+            c.save();
+            c.rotate(-35, bx, by);
+            p.setColor(0xFF8B4A1E);
+            c.drawOval(new RectF(bx - bw / 2, by - bh / 2, bx + bw / 2, by + bh / 2), p);
+            p.setColor(0xFFFFFFFF);
+            c.drawRect(bx - bw * 0.18f, by - h * 0.003f, bx + bw * 0.18f, by + h * 0.003f, p);
+            for (int l = -2; l <= 2; l++) c.drawRect(bx + l * bw * 0.07f - h * 0.002f, by - bh * 0.18f, bx + l * bw * 0.07f + h * 0.002f, by + bh * 0.18f, p);
+            c.restore();
+        }
+    }
+
+    /** Field goal: yellow uprights behind the logo, the ball sails through them and they light up. */
+    private void drawFieldGoalFx(Canvas c, int w, int h, long t, float fade) {
+        if (!logoScreen()) return;
+        float cx = w / 2f, cross = logoY(h) + h * 0.2f, half = h * 0.26f, thick = h * 0.014f;
+        boolean through = t > 900;
+        int post = through ? 0xFFFFE04A : 0xFFE0B020;
+        if (through && (t / 120) % 2 == 0 && t < 1700) post = 0xFFFFFFFF;
+        p.setColor(alpha(post, (int) (230 * fade)));
+        c.drawRect(cx - thick / 2, cross, cx + thick / 2, h * 1.02f, p);                 // base post
+        c.drawRect(cx - half, cross - thick / 2, cx + half, cross + thick / 2, p);       // crossbar
+        c.drawRect(cx - half - thick / 2, -h * 0.02f, cx - half + thick / 2, cross, p);  // uprights
+        c.drawRect(cx + half - thick / 2, -h * 0.02f, cx + half + thick / 2, cross, p);
+        if (t < 1000) {   // the kick: from the bottom, up and away (smaller = farther)
+            float k = t / 1000f;
+            float bx = cx + (float) Math.sin(k * 3) * w * 0.02f, by = h * 1.0f - k * (h * 1.0f - (cross - h * 0.18f));
+            float sz = h * (0.07f - 0.045f * k);
+            c.save();
+            c.rotate(t * 0.8f, bx, by);
+            p.setColor(alpha(0xFF8B4A1E, (int) (255 * fade)));
+            c.drawOval(new RectF(bx - sz, by - sz * 0.62f, bx + sz, by + sz * 0.62f), p);
+            c.restore();
+        }
+    }
+
+    /** Soccer: the net ripples out from where the ball hit (the logo). */
+    private void drawNetFx(Canvas c, int w, int h, long t, float fade) {
+        if (!logoScreen()) return;
+        float cx = w / 2f, cy = logoY(h);
+        float gap = h * 0.05f, amp = h * 0.03f * Math.max(0, 1 - t / 1800f);
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(Math.max(1.5f, h * 0.003f));
+        p.setColor(alpha(0xFFFFFFFF, (int) (70 * fade)));
+        for (float x = -gap; x < w + gap; x += gap) {
+            Path ln = new Path();
+            for (float y = -gap; y <= h + gap; y += gap / 3) {
+                float d = (float) Math.hypot(x - cx, y - cy);
+                float push = (float) Math.sin(d / (h * 0.06f) - t / 90.0) * amp * (float) Math.exp(-d / (h * 0.6f));
+                float px = x + (x - cx) / Math.max(1, d) * push, py = y + (y - cy) / Math.max(1, d) * push;
+                if (y == -gap) ln.moveTo(px, py); else ln.lineTo(px, py);
+            }
+            c.drawPath(ln, p);
+        }
+        for (float y = -gap; y < h + gap; y += gap) {
+            Path ln = new Path();
+            for (float x = -gap; x <= w + gap; x += gap / 3) {
+                float d = (float) Math.hypot(x - cx, y - cy);
+                float push = (float) Math.sin(d / (h * 0.06f) - t / 90.0) * amp * (float) Math.exp(-d / (h * 0.6f));
+                float px = x + (x - cx) / Math.max(1, d) * push, py = y + (y - cy) / Math.max(1, d) * push;
+                if (x == -gap) ln.moveTo(px, py); else ln.lineTo(px, py);
+            }
+            c.drawPath(ln, p);
+        }
+        p.setStyle(Paint.Style.FILL);
+    }
+
+    /** Golden rays turning slowly behind the logo (OT winner, victory). */
+    private void drawGoldRays(Canvas c, int w, int h, long t, float fade) {
+        if (!logoScreen()) return;
+        float cx = w / 2f, cy = logoY(h), len = Math.max(w, h) * 1.2f;
+        for (int i = 0; i < 14; i++) {
+            double a0 = t / 2400.0 + i * Math.PI * 2 / 14, a1 = a0 + Math.PI / 30;
+            Path ray = new Path();
+            ray.moveTo(cx, cy);
+            ray.lineTo(cx + (float) Math.cos(a0) * len, cy + (float) Math.sin(a0) * len);
+            ray.lineTo(cx + (float) Math.cos(a1) * len, cy + (float) Math.sin(a1) * len);
+            ray.close();
+            p.setShader(new RadialGradient(cx, cy, len, alpha(0xFFFFC400, (int) (90 * fade)), alpha(0xFFFFC400, 0), Shader.TileMode.CLAMP));
+            c.drawPath(ray, p);
+        }
+        p.setShader(null);
+    }
+
+    /** Victory: no strobe. Gold rays, a crown over the logo, gold fireworks. */
+    private void drawVictoryFx(Canvas c, int w, int h, float H, float oy, long t, float fade, int teamColor) {
+        drawGoldRays(c, w, h, t, fade);
+        if (logoScreen()) {
+            float cw = h * 0.13f, ch = h * 0.075f;
+            float cx = w / 2f, top = logoY(h) - h * 0.21f - ch;
+            float drop = Math.max(0, 1 - t / 500f) * h * 0.15f;
+            Path cr = new Path();
+            cr.moveTo(cx - cw / 2, top + ch - drop);
+            cr.lineTo(cx - cw / 2, top - drop);
+            cr.lineTo(cx - cw / 4, top + ch * 0.45f - drop);
+            cr.lineTo(cx, top - ch * 0.1f - drop);
+            cr.lineTo(cx + cw / 4, top + ch * 0.45f - drop);
+            cr.lineTo(cx + cw / 2, top - drop);
+            cr.lineTo(cx + cw / 2, top + ch - drop);
+            cr.close();
+            p.setColor(alpha(0xFFFFC400, (int) (255 * fade)));
+            c.drawPath(cr, p);
+        }
+        if (fxFireworks) drawFireworks(c, w, h, H, oy, t, fade, 0xFFFFC400, 9, 300, 300, true);
+        if (t < CELEBRATION_MS) postInvalidateOnAnimation();
+    }
+
     private void drawFireworks(Canvas c, int w, int h, float H, float oy, long t, float fade, int teamColor,
                                int bursts, long firstAt, long gapMs, boolean slam) {
         p.setStyle(Paint.Style.FILL);
