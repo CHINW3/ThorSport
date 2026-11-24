@@ -5,7 +5,6 @@ import android.graphics.Color;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -139,6 +138,8 @@ public final class Espn {
         }
     }
 
+    private static final Map<String, Integer> savedHash = new java.util.concurrent.ConcurrentHashMap<>();
+
     static String get(String url) throws Exception { return get(url, null, null); }
 
     static String get(String url, String header, String value) throws Exception {
@@ -147,18 +148,22 @@ public final class Espn {
         con.setConnectTimeout(10000);
         con.setReadTimeout(15000);
         con.setRequestProperty("User-Agent", "Mozilla/5.0 ThorStandings");
-        StringBuilder sb = new StringBuilder();
-        try (BufferedReader r = new BufferedReader(new InputStreamReader(con.getInputStream(), "UTF-8"))) {
-            String line;
-            while ((line = r.readLine()) != null) sb.append(line);
+        StringBuilder sb = new StringBuilder(16384);
+        try (InputStreamReader r = new InputStreamReader(con.getInputStream(), "UTF-8")) {
+            char[] buf = new char[8192];   // big chunks instead of line by line (ESPN sends one huge line anyway)
+            int n;
+            while ((n = r.read(buf)) > 0) sb.append(buf, 0, n);
         } finally {
             con.disconnect();
         }
         String body = sb.toString();
-        try {
+        // Live games poll every few seconds and the feed is often unchanged: only rewrite the saved copy when it differs
+        // (saves flash writes and battery).
+        Integer h = body.hashCode(), old = savedHash.put(url, h);
+        if (!h.equals(old)) try {
             java.io.File f = cacheFile(url);
             if (f != null) java.nio.file.Files.write(f.toPath(), body.getBytes("UTF-8"));
-        } catch (Exception ignored) { }
+        } catch (Exception ignored) { savedHash.remove(url); }
         return body;
     }
 

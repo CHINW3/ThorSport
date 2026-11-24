@@ -305,6 +305,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         all(v -> v.setLeague(leagueIdx, Espn.LEAGUES[leagueIdx]));
         view.setTab(tab);
         all(v -> v.setSound(sound));
+        all(v -> v.setUpdateWaiting(Updater.newVersion != null));
         view.setMyTeamsOnly(myTeamsOnly);
         all(v -> v.setDim(DIM_LEVELS[dimLevel]));
         all(v -> v.setBoardGameId(boardGameId));

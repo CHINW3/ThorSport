@@ -911,6 +911,9 @@ public class ThorView extends View {
         invalidate();
     }
     public void setSound(boolean on) { sound = on; invalidate(); }
+    private boolean updateWaiting;
+    public void setUpdateWaiting(boolean on) { if (on != updateWaiting) { updateWaiting = on; invalidate(); } }
+
     public void setBattery(int pct, boolean chg) { battery = pct; charging = chg; invalidate(); }
     public void setDim(float d) { dim = d; invalidate(); }
     public void setDateOffset(int d) { dateOffset = d; page = 0; invalidate(); }
@@ -1124,7 +1127,7 @@ public class ThorView extends View {
         return mine;
     }
 
-    @Override protected void onAttachedToWindow() { super.onAttachedToWindow(); postDelayed(autoPage, AUTO_PAGE_MS); }
+    @Override protected void onAttachedToWindow() { super.onAttachedToWindow(); sysFmt = null; postDelayed(autoPage, AUTO_PAGE_MS); }
     @Override protected void onDetachedFromWindow() { removeCallbacks(autoPage); super.onDetachedFromWindow(); }
     @Override public boolean onTouchEvent(MotionEvent e) {
         boolean wasSaver = saverActive();
@@ -1152,9 +1155,8 @@ public class ThorView extends View {
         float size = p.getTextSize();   // too long: shrink it to fit (down to 45%) before ever cutting it with "…"
         p.setTextSize(Math.max(size * 0.45f, size * maxW / tw * 0.99f));
         if (p.measureText(s) <= maxW) return s;
-        int end = s.length();
         float dots = p.measureText("…");
-        while (end > 0 && p.measureText(s, 0, end) + dots > maxW) end--;
+        int end = maxW > dots ? p.breakText(s, true, maxW - dots, null) : 0;
         return end <= 0 ? "" : s.substring(0, end) + "…";
     }
 
@@ -1168,12 +1170,27 @@ public class ThorView extends View {
         c.drawText(fit(s, maxW), x, baseline(cy), p);
     }
 
+    /**
+     * Redraw soon for a purely decorative animation (pulses, the moving football...).
+     * On battery at 20% or less these run at 2 frames a second instead of ~20: same info, much less drain.
+     */
+    private void anim(long ms) {
+        boolean eco = battery >= 0 && battery <= 20 && !charging;
+        postInvalidateDelayed(eco ? Math.max(ms, 500) : ms);
+    }
+
     private static int alpha(int color, int a) { return (color & 0x00FFFFFF) | (Math.max(0, Math.min(255, a)) << 24); }
 
+    // UI thread only, so one copy of each is safe. sysFmt is reset when the phone's 12/24h setting may have changed.
+    private static final java.text.SimpleDateFormat FMT_12 = new java.text.SimpleDateFormat("h:mm a", java.util.Locale.US),
+        FMT_24 = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.US);
+    private java.text.DateFormat sysFmt;
+
     private String fmtTime(long ms) {
-        if (clockMode == 1) return new java.text.SimpleDateFormat("h:mm a", java.util.Locale.US).format(new Date(ms));
-        if (clockMode == 2) return new java.text.SimpleDateFormat("HH:mm", java.util.Locale.US).format(new Date(ms));
-        return DateFormat.getTimeFormat(getContext()).format(new Date(ms));
+        if (clockMode == 1) return FMT_12.format(new Date(ms));
+        if (clockMode == 2) return FMT_24.format(new Date(ms));
+        if (sysFmt == null) sysFmt = DateFormat.getTimeFormat(getContext());
+        return sysFmt.format(new Date(ms));
     }
 
     private String star(String abbr) { return favorites.contains(abbr) ? abbr + "★" : abbr; }
@@ -1380,11 +1397,15 @@ public class ThorView extends View {
         int subCol = battery >= 0 && battery <= 15 && !charging ? LIVE : MUTED;
         if (offline) { sub = "OFFLINE"; subCol = LIVE; }
         text(c, sub, w - pad, cy + hh * 0.22f, hh * 0.19f, tfCond, subCol, Paint.Align.RIGHT, clockW);
+        if (updateWaiting && !loading) {   // a new version is out: small green dot by the clock (tap it → settings)
+            p.setColor(0xFF34C759);
+            c.drawCircle(w - pad - clockW - hh * 0.05f, cy - hh * 0.2f, hh * 0.045f, p);
+        }
         if (loading) {
             float pulse = (float) (0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 120.0));
             p.setColor(alpha(AMBER, (int) (90 + 165 * pulse)));
             c.drawCircle(w - pad - clockW - hh * 0.05f, cy, hh * 0.05f, p);
-            postInvalidateDelayed(60);
+            anim(60);
         }
 
         // Two-screen button: an icon of the Thor's two screens
@@ -1766,7 +1787,7 @@ public class ThorView extends View {
         c.drawCircle(lx, ly, r.height() * 0.035f, p);
         p.setColor(lead);
         c.drawCircle(lx, ly, r.height() * 0.022f, p);
-        if (g.isLive()) postInvalidateDelayed(60);
+        if (g.isLive()) anim(60);
         // side labels
         text(c, g.away.abbr, x0 + padX * 0.4f, y0 + r.height() * 0.06f, r.height() * 0.085f, tfCond, alpha(TEXT, 0x99), Paint.Align.LEFT, r.width() * 0.3f);
         text(c, g.home.abbr, x0 + padX * 0.4f, y1 - r.height() * 0.06f, r.height() * 0.085f, tfCond, alpha(TEXT, 0x99), Paint.Align.LEFT, r.width() * 0.3f);
@@ -3129,7 +3150,7 @@ public class ThorView extends View {
             p.setColor(alpha(LIVE, (int) (80 + 175 * pulse)));
             c.drawRoundRect(box, boxW * 0.08f, boxW * 0.08f, p);
             p.setStyle(Paint.Style.FILL);
-            postInvalidateDelayed(50);
+            anim(50);
         }
         int labelCol = overtime ? LIVE : AMBER;
         float labelY = box.top + boxH * 0.24f;
@@ -4063,7 +4084,7 @@ public class ThorView extends View {
         if (!g.possessionText.isEmpty())
             tag(c, g.possessionText, bx, y + fh * 0.75f, fh * 0.07f, Paint.Align.CENTER, 0xDD101218, TEXT);
         c.restore();
-        postInvalidateDelayed(40);   // keep the ball moving
+        anim(40);   // keep the ball moving
     }
 
 
@@ -4146,7 +4167,7 @@ public class ThorView extends View {
             if (bg != 0xFF22252D) {
                 float pulse = (float) (0.6 + 0.4 * Math.sin(System.currentTimeMillis() / 220.0));
                 p.setShadowLayer(pillH * 0.5f * pulse, 0, 0, bg);
-                postInvalidateDelayed(50);
+                anim(50);
             }
             p.setColor(bg);
             c.drawRoundRect(pill, pillH / 2, pillH / 2, p);
