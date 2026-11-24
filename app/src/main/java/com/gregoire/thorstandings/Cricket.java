@@ -14,6 +14,38 @@ final class Cricket {
 
     private static final String URL = "https://site.web.api.espn.com/apis/v2/scoreboard/header?sport=cricket&lang=en&region=gb";
 
+    /** Flag colors of the cricket nations (stick lights + card tint). Also works for "India A", "England Lions"... */
+    private static final java.util.Map<String, int[]> FLAGS = new java.util.HashMap<>();
+    private static void f(String key, int a, int b) { FLAGS.put(key, new int[]{0xFF000000 | a, 0xFF000000 | b}); }
+    static {
+        f("india", 0xFF9933, 0x138808);        f("australia", 0x00843D, 0xFFCD00);
+        f("england", 0xFFFFFF, 0xCE1124);      f("new zealand", 0x000000, 0xFFFFFF);
+        f("pakistan", 0x01411C, 0xFFFFFF);     f("south africa", 0x007749, 0xFFB81C);
+        f("sri lanka", 0x8D153A, 0xFFBE29);    f("west indies", 0x7B0041, 0xFFC72C);
+        f("bangladesh", 0x006A4E, 0xF42A41);   f("afghanistan", 0x000000, 0xD32011);
+        f("ireland", 0x169B62, 0xFF883E);      f("zimbabwe", 0x006400, 0xFFD200);
+        f("netherlands", 0xAE1C28, 0x21468B);  f("scotland", 0x005EB8, 0xFFFFFF);
+        f("namibia", 0x003580, 0xD21034);      f("nepal", 0xDC143C, 0x003893);
+        f("united arab emirates", 0x00732F, 0xFF0000); f("oman", 0xDB161B, 0x008000);
+        f("united states", 0xB22234, 0x3C3B6E); f("usa", 0xB22234, 0x3C3B6E);
+        f("canada", 0xFF0000, 0xFFFFFF);       f("hong kong", 0xDE2910, 0xFFFFFF);
+    }
+    private static final java.util.Map<String, String> ABBR = new java.util.HashMap<>();
+    static {
+        String[][] a = {{"IND","india"},{"AUS","australia"},{"ENG","england"},{"NZ","new zealand"},{"PAK","pakistan"},{"SA","south africa"},
+            {"SL","sri lanka"},{"WI","west indies"},{"BAN","bangladesh"},{"AFG","afghanistan"},{"IRE","ireland"},{"ZIM","zimbabwe"},
+            {"NED","netherlands"},{"SCO","scotland"},{"NAM","namibia"},{"NEP","nepal"},{"UAE","united arab emirates"},{"OMA","oman"},
+            {"USA","united states"},{"CAN","canada"},{"HK","hong kong"}};
+        for (String[] x : a) ABBR.put(x[0], x[1]);
+    }
+    static int[] flag(String abbr, String name) {
+        String n = name.toLowerCase(java.util.Locale.ROOT);
+        for (java.util.Map.Entry<String, int[]> e : FLAGS.entrySet()) if (n.startsWith(e.getKey())) return e.getValue();
+        String base = abbr.toUpperCase(java.util.Locale.ROOT).split("[- ]")[0];
+        String k = ABBR.get(base);
+        return k == null ? null : FLAGS.get(k);
+    }
+
     static Model.Scoreboard scores(String date, boolean fromCache) throws Exception {
         String url = URL + (date == null ? "" : "&dates=" + date);
         String body = fromCache ? Espn.cached(url) : Espn.get(url);
@@ -53,10 +85,16 @@ final class Cricket {
                     s.name = co.optString("shortDisplayName", co.optString("displayName", s.abbr));
                     s.teamId = co.optString("id", "");
                     s.logo = co.optString("logo", null);
-                    s.score = co.optString("score", "");
+                    String sc = co.optString("score", "").trim();   // "202 & 144 (50.2 ov) (f/o)" -> big "202 & 144", small "50.2 ov · f/o"
+                    int par = sc.indexOf(" (");
+                    s.score = par > 0 ? sc.substring(0, par).trim() : sc;
+                    s.record = par > 0 ? sc.substring(par).replace(") (", " · ").replace("(", "").replace(")", "").trim() : "";
                     s.winner = co.optBoolean("winner", false);
                     String c = co.optString("color", "");
                     try { if (c.length() == 6) s.color = 0xFF000000 | Integer.parseInt(c, 16); } catch (Exception ignored) { }
+                    int[] flag = flag(s.abbr, co.optString("displayName", ""));
+                    if (flag != null) { s.color = flag[0]; s.ledA = flag[0]; s.ledB = flag[1]; }
+                    else { s.ledA = s.color; s.ledB = s.color; }
                 }
                 sb.games.add(g);
             }

@@ -513,9 +513,12 @@ public final class Espn {
     static String fixedLogo(League lg) {
         if (lg.path.startsWith("esports")) return "asset:league/lol.png";
         if (lg.path.endsWith("/pwhl")) return "asset:league/pwhl.png";
+        if (lg.path.startsWith("cricket")) return "asset:league/cricket.png";
+        if (lg.path.endsWith("mens-college-hockey")) return "asset:league/ncaa_hockey.png";
         String packed = OfflineLogos.league(lg.path);
         if (packed != null) return packed;
-        if (lg.path.equals("racing/f1")) return "https://a.espncdn.com/i/teamlogos/leagues/500/f1.png|https://a.espncdn.com/combiner/i?img=/i/teamlogos/leagues/500/f1.png";
+        if (lg.path.equals("racing/f1")) return "asset:league/f1.png";
+        if (lg.path.equals("racing/f1x")) return "https://a.espncdn.com/i/teamlogos/leagues/500/f1.png|https://a.espncdn.com/combiner/i?img=/i/teamlogos/leagues/500/f1.png";
         return null;
     }
 

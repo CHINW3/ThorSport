@@ -64,6 +64,19 @@ public final class F1 {
         return iso == null ? "" : "https://flagcdn.com/w160/" + iso + ".png";
     }
 
+    /** Packed team emblem for a team code ("FER" -> asset:f1/ferrari.png), null if none. */
+    static String emblem(String code) {
+        switch (code) {
+            case "RBR": return "asset:f1/red_bull.png";   case "FER": return "asset:f1/ferrari.png";
+            case "MER": return "asset:f1/mercedes.png";   case "MCL": return "asset:f1/mclaren.png";
+            case "AMR": return "asset:f1/aston_martin.png"; case "ALP": return "asset:f1/alpine.png";
+            case "WIL": return "asset:f1/williams.png";   case "RB": return "asset:f1/rb.png";
+            case "SAU": return "asset:f1/stake.png"; case "AUD": return "asset:f1/audi.png";
+            case "HAA": return "asset:f1/haas.png";       case "CAD": return "asset:f1/cadillac.png";
+            default: return null;
+        }
+    }
+
     static int teamColor(String id) {
         Integer c = TEAM.get(id);
         return c == null ? 0xFF8B919C : c;

@@ -24,7 +24,7 @@ public final class Pwhl {
     /** Team colors (HockeyTech doesn't send them). Unknown teams fall back to grey. */
     private static final Map<String, String> COLORS = new HashMap<>();
     static {
-        COLORS.put("BOS", "1E8C5A"); COLORS.put("MIN", "6B3FA0"); COLORS.put("MTL", "9B2335");
+        COLORS.put("BOS", "1E8C5A"); COLORS.put("MIN", "6B3FA0"); COLORS.put("MTL", "862633");
         COLORS.put("NY", "2BB3B1");  COLORS.put("OTT", "D32F3A"); COLORS.put("TOR", "3A7BD5");
         COLORS.put("SEA", "3F8F8A"); COLORS.put("VAN", "E0B341");
     }
@@ -32,7 +32,17 @@ public final class Pwhl {
     static boolean is(Espn.League lg) { return lg.path.endsWith("/pwhl"); }
 
     /** Bigger logo first, the 50x50 one as a backup (LogoCache tries each, separated by "|"). */
+    private static final Map<String, String> SEEN = new HashMap<>();   // team id -> this season's logo (from the scores feed)
+
     private static String logo(String teamId, String given) {
+        if ("3".equals(teamId)) return "asset:teams/pwhl/mtl.png|https://assets.leaguestat.com/pwhl/logos/3_5.png";   // Montréal Victoire, packed
+        // the season's own logo first (e.g. 3_5.png): the plain "<id>.png" is the old logo (Montréal's was too pink)
+        if ((given == null || given.isEmpty()) && SEEN.containsKey(teamId)) given = SEEN.get(teamId);
+        if (given != null && !given.isEmpty()) {
+            SEEN.put(teamId, given);
+            String full = given.replace("/50x50/", "/");
+            return full + "|" + given + "|https://assets.leaguestat.com/pwhl/logos/" + teamId + ".png";
+        }
         String big = "https://assets.leaguestat.com/pwhl/logos/" + teamId + ".png";
         String small = given != null && !given.isEmpty() ? given : "https://assets.leaguestat.com/pwhl/logos/50x50/" + teamId + ".png";
         return big + "|" + small;

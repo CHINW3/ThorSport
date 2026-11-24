@@ -1144,6 +1144,10 @@ public class ThorView extends View {
     private String fit(String s, float maxW) {
         if (s == null) return "";
         if (maxW <= 0) return "";
+        float tw = p.measureText(s);
+        if (tw <= maxW) return s;
+        float size = p.getTextSize();   // too long: shrink it to fit (down to 45%) before ever cutting it with "…"
+        p.setTextSize(Math.max(size * 0.45f, size * maxW / tw * 0.99f));
         if (p.measureText(s) <= maxW) return s;
         int end = s.length();
         float dots = p.measureText("…");
@@ -1959,9 +1963,13 @@ public class ThorView extends View {
                     c.drawRoundRect(new RectF(r.left + pad, r.top + pad / 2, r.right - pad, r.bottom - pad / 2), rowH * 0.25f, rowH * 0.25f, p);
                 }
                 float ls = rowH * 0.62f, lcx = r.left + rowH * 0.25f + ls / 2;
+                String ball = "asset:league/soccer.png";
+                if (i == ITEM_SOCCER && logos != null && logos.get(ball) != null) { logo(c, ball, "", 0, lcx, r.centerY(), ls * 0.9f); }
+                else {
                 p.setColor(0xFF22252D);
                 c.drawCircle(lcx, r.centerY(), ls * 0.48f, p);
                 text(c, i == ITEM_BACK ? "‹" : "SOC", lcx, r.centerY(), i == ITEM_BACK ? ls * 0.6f : ls * 0.3f, tfBlack, TEXT, Paint.Align.CENTER, ls);
+                }
                 text(c, i == ITEM_BACK ? "BACK" : "SOCCER  ›", r.left + rowH * 0.45f + ls, r.centerY(), rowH * 0.4f, tfBlack, cur ? ACCENT : TEXT, Paint.Align.LEFT, colW - rowH * 0.7f - ls);
                 continue;
             }
@@ -2650,6 +2658,7 @@ public class ThorView extends View {
         hitAbbrs.add(new String[]{g.away.abbr, g.home.abbr});
         cardRects.add(r);
         cardIds.add(g.id);
+        if ("cricket".equals(g.sport)) { drawCricketCard(c, g, r); return; }
 
         float sideW = cw * 0.3f;
         float logoS = Math.min(ch * 0.5f, sideW * 0.66f);
@@ -3002,10 +3011,20 @@ public class ThorView extends View {
                 // team badge in the team's color with its short code
                 String code = info.length > 2 ? info[2] : "";
                 RectF badge = new RectF(pos.right + rh * 0.16f, pos.top, pos.right + rh * 0.16f + rh * 1.05f, pos.bottom);
+                String emb = F1.emblem(code);
+                if (emb != null && logos != null && logos.get(emb) != null) {   // the team's own emblem on a dark tile with a team-color edge
+                    p.setColor(0xFF1B1E25);
+                    c.drawRoundRect(badge, rh * 0.12f, rh * 0.12f, p);
+                    p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(rh * 0.05f); p.setColor(tc);
+                    c.drawRoundRect(badge, rh * 0.12f, rh * 0.12f, p);
+                    p.setStyle(Paint.Style.FILL);
+                    logo(c, emb, "", 0, badge.centerX(), badge.centerY(), badge.height() * 0.82f);
+                } else {
                 p.setColor(tc);
                 c.drawRoundRect(badge, rh * 0.12f, rh * 0.12f, p);
                 int tr2c = (Color.red(tc) * 299 + Color.green(tc) * 587 + Color.blue(tc) * 114) / 1000 > 150 ? 0xFF000000 : 0xFFFFFFFF;
                 text(c, code, badge.centerX(), badge.centerY(), rh * 0.27f, tfBlack, tr2c, Paint.Align.CENTER, badge.width() * 0.9f);
+                }
                 // nationality flag
                 String fl = i < res.resultFlags.size() ? res.resultFlags.get(i) : "";
                 float nx = badge.right + rh * 0.2f;
@@ -3427,7 +3446,57 @@ public class ThorView extends View {
         return ot == 1 ? "OT" : ot + "OT";
     }
 
+    /** Cricket card: one team per row, full score, overs underneath, the match situation at the bottom (never cut). */
+    private void drawCricketCard(Canvas c, Model.Game g, RectF r) {
+        float pad = r.width() * 0.05f, rowH = r.height() * 0.3f;
+        for (int k = 0; k < 2; k++) {
+            Model.Side s = k == 0 ? g.away : g.home;
+            float cy = r.top + pad + rowH * (k + 0.5f);
+            float ls = rowH * 0.72f, lcx = r.left + pad + ls / 2;
+            logo(c, s.logo, s.abbr, s.color, lcx, cy, ls);
+            float nx = lcx + ls * 0.7f, right = r.right - pad;
+            boolean dim = g.isFinal() && !s.winner && (g.away.winner || g.home.winner);
+            int col = dim ? MUTED : TEXT;
+            String sc = s.score.isEmpty() ? "" : s.score;
+            float scW = (right - nx) * 0.62f;
+            text(c, s.abbr, nx, cy - (s.record.isEmpty() ? 0 : rowH * 0.12f), rowH * 0.42f, tfBlack, col, Paint.Align.LEFT, (right - nx) - scW - pad * 0.5f);
+            if (!sc.isEmpty()) text(c, sc, right, cy - (s.record.isEmpty() ? 0 : rowH * 0.12f), rowH * 0.5f, tfBlack, s.winner ? ACCENT : col, Paint.Align.RIGHT, scW);
+            if (!s.record.isEmpty()) text(c, s.record, right, cy + rowH * 0.3f, rowH * 0.24f, tfCond, MUTED, Paint.Align.RIGHT, scW);
+        }
+        float by = r.top + pad + rowH * 2, bh = r.bottom - pad * 0.7f - by;
+        String msg = !g.detail.isEmpty() ? g.detail : g.headline;
+        if (g.state.equals("pre") && msg.isEmpty() && g.startMs > 0) msg = fmtTime(g.startMs);
+        wrapText(c, msg, r.centerX(), by + bh / 2, r.width() - pad * 2, bh, rowH * 0.26f, tfCond, g.isLive() ? AMBER : MUTED);
+    }
+
+    /** Text on up to 3 lines, shrunk until it all fits in the box. */
+    private void wrapText(Canvas c, String s, float cx, float cy, float maxW, float maxH, float size, Typeface tf, int color) {
+        if (s == null || s.isEmpty()) return;
+        p.setTypeface(tf); p.setShader(null); p.setStyle(Paint.Style.FILL);
+        List<String> lines = new ArrayList<>();
+        for (float sz = size; sz > size * 0.4f; sz *= 0.92f) {
+            p.setTextSize(sz);
+            lines.clear();
+            String cur = "";
+            for (String word : s.split(" ")) {
+                String t = cur.isEmpty() ? word : cur + " " + word;
+                if (p.measureText(t) <= maxW || cur.isEmpty()) cur = t; else { lines.add(cur); cur = word; }
+            }
+            if (!cur.isEmpty()) lines.add(cur);
+            boolean wide = false;
+            for (String l : lines) if (p.measureText(l) > maxW) wide = true;
+            if (!wide && lines.size() <= 3 && lines.size() * sz * 1.2f <= maxH) break;
+        }
+        float lh = p.getTextSize() * 1.2f, y0 = cy - lh * (lines.size() - 1) / 2;
+        for (int i = 0; i < lines.size(); i++) text(c, lines.get(i), cx, y0 + i * lh, p.getTextSize(), tf, color, Paint.Align.CENTER, maxW);
+    }
+
     private void drawLineScore(Canvas c, Model.Game g, float x, float y, float tw, float th) {
+        if ("cricket".equals(g.sport)) {   // no innings grid: the match situation, in full
+            String msg = !g.headline.isEmpty() ? g.headline : g.detail;
+            wrapText(c, msg, x + tw / 2, y + th / 2, tw * 0.92f, th * 0.9f, th * 0.2f, tfBlack, g.isLive() ? AMBER : TEXT);
+            return;
+        }
         int n = Math.max(defaultPeriods(g.sport), Math.max(g.away.lines.size(), g.home.lines.size()));
         RectF r = new RectF(x, y, x + tw, y + th);
         p.setStyle(Paint.Style.FILL);
