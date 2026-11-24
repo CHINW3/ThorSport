@@ -6,6 +6,7 @@ import android.media.AudioFocusRequest;
 import android.media.AudioManager;
 import android.media.AudioFormat;
 import android.media.AudioTrack;
+import android.media.MediaPlayer;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.util.Log;
@@ -24,16 +25,91 @@ public final class Horn {
     /** Settings → Horn length: SHORT plays about 1.2 s instead of the full 3.2 s blast. */
     public static boolean shortHorn;
 
-    /** Settings → Sound → Goal sound: 0 arena horn, 1 deep horn, 2 goal siren, 3 victory chime. */
-    public static int soundType;
-    private static final short[][] cache = new short[4][];
-    public static final String[][] SOUND_NAMES = {{"ARENA HORN", "KLAXON ARÉNA"}, {"DEEP HORN", "KLAXON GRAVE"}, {"GOAL SIREN", "SIRÈNE"}, {"VICTORY CHIME", "CARILLON"}};
+    /** Sounds: 0 arena horn, 1 deep horn, 2 goal siren, 3 victory chime, 4 crowd cheer, 5 organ "charge", 6 none. */
+    public static final String[][] SOUND_NAMES = {{"ARENA HORN", "KLAXON ARÉNA"}, {"DEEP HORN", "KLAXON GRAVE"}, {"GOAL SIREN", "SIRÈNE"},
+        {"VICTORY CHIME", "CARILLON"}, {"CROWD CHEER", "FOULE"}, {"ORGAN CHARGE", "ORGUE"}, {"SWISH", "SWISH"}, {"NONE", "AUCUN"}};
+    public static final int NONE = 7;
+    /** Settings → Sound: one sound per event (goal, touchdown, field goal, win, home run, OT winner, other games). */
+    public static final String[][] EVENTS = {{"Goal", "But"}, {"Touchdown", "Touché"}, {"Field goal", "Placement"},
+        {"Win", "Victoire"}, {"Home run", "Circuit"}, {"OT winner", "But en prolongation"}, {"Your other games", "Tes autres matchs"},
+        {"3-pointer", "Panier de 3"}};
+    public static final int EV_GOAL = 0, EV_TD = 1, EV_FG = 2, EV_WIN = 3, EV_HR = 4, EV_OT = 5, EV_OTHER = 6, EV_THREE = 7;
+    public static final int[] DEFAULT_SOUNDS = {0, 1, 5, 3, 4, 2, 3, 6};
+    public static final int[] eventSound = DEFAULT_SOUNDS.clone();
+    public static int soundType;   // the sound being played right now
+    private static final short[][] cache = new short[7][];
 
     private static synchronized short[] buffer() {
-        int st = Math.max(0, Math.min(3, soundType));
+        int st = Math.max(0, Math.min(6, soundType));
         if (cache[st] != null) return cache[st];
-        short[] out = st == 0 ? arena() : st == 1 ? deep() : st == 2 ? siren() : chime();
+        short[] out = st == 0 ? arena() : st == 1 ? deep() : st == 2 ? siren() : st == 3 ? chime() : st == 4 ? crowd() : st == 5 ? organ() : swish();
         cache[st] = out;
+        return out;
+    }
+
+    /** Crowd cheer: filtered noise swelling up and fading, with a few whistles. */
+    private static short[] crowd() {
+        float seconds = 3.2f;
+        int n = (int) (RATE * seconds);
+        short[] out = new short[n];
+        java.util.Random r = new java.util.Random(3);
+        double lp = 0, lp2 = 0;
+        for (int i = 0; i < n; i++) {
+            double t = (double) i / RATE;
+            double noise = r.nextDouble() * 2 - 1;
+            lp += 0.18 * (noise - lp);          // roar
+            lp2 += 0.6 * (noise - lp2);         // hiss
+            double env = Math.min(1, t / 0.35) * (t > seconds - 1.2 ? Math.max(0, (seconds - t) / 1.2) : 1);
+            env *= 0.8 + 0.2 * Math.sin(2 * Math.PI * 1.7 * t);
+            double whistle = 0;
+            if ((t > 0.5 && t < 0.9) || (t > 1.6 && t < 1.9)) whistle = 0.18 * Math.sin(2 * Math.PI * (2400 + 300 * Math.sin(t * 9)) * t);
+            double v = (lp * 2.2 + lp2 * 0.35) * env + whistle * env;
+            out[i] = (short) (Math.max(-1, Math.min(1, v)) * 0.8 * Short.MAX_VALUE);
+        }
+        return out;
+    }
+
+    /** Swish: the net (a quick airy sweep), then a short crowd "ohh!" and a buzzer-style pop. */
+    private static short[] swish() {
+        float seconds = 1.6f;
+        int n = (int) (RATE * seconds);
+        short[] out = new short[n];
+        java.util.Random r = new java.util.Random(11);
+        double hp = 0, prev = 0, lp = 0;
+        for (int i = 0; i < n; i++) {
+            double t = (double) i / RATE;
+            double noise = r.nextDouble() * 2 - 1;
+            hp = 0.85 * (hp + noise - prev); prev = noise;            // bright, airy
+            lp += 0.15 * (noise - lp);                                  // crowd
+            double net = t < 0.35 ? hp * Math.sin(Math.PI * t / 0.35) * 0.9 : 0;
+            double crowd = t > 0.25 ? lp * 2.0 * Math.min(1, (t - 0.25) / 0.2) * Math.max(0, (seconds - t) / (seconds - 0.25)) : 0;
+            double v = net + crowd;
+            out[i] = (short) (Math.max(-1, Math.min(1, v)) * 0.75 * Short.MAX_VALUE);
+        }
+        return out;
+    }
+
+    /** Stadium organ "charge!": da-da-da-DAAA-da-DAAA. */
+    private static short[] organ() {
+        double[][] notes = {{392, 0.16}, {523.25, 0.16}, {659.25, 0.16}, {783.99, 0.42}, {659.25, 0.16}, {783.99, 0.9}};
+        double total = 0;
+        for (double[] nt : notes) total += nt[1] + 0.04;
+        int n = (int) (RATE * total);
+        short[] out = new short[n];
+        int pos = 0;
+        for (double[] nt : notes) {
+            int len = (int) (RATE * nt[1]);
+            for (int i = 0; i < len && pos + i < n; i++) {
+                double t = (double) i / RATE;
+                double env = Math.min(1, t / 0.01) * Math.min(1, (nt[1] - t) / 0.03);
+                double f = nt[0];
+                double v = Math.sin(2 * Math.PI * f * t) + 0.5 * Math.sin(2 * Math.PI * f * 2 * t) + 0.3 * Math.sin(2 * Math.PI * f * 3 * t)
+                    + 0.2 * Math.sin(2 * Math.PI * f * 4 * t);
+                v *= 1 + 0.05 * Math.sin(2 * Math.PI * 6 * t);   // organ vibrato
+                out[pos + i] = (short) (Math.tanh(v * 0.5) * env * 0.75 * Short.MAX_VALUE);
+            }
+            pos += len + (int) (RATE * 0.04);
+        }
         return out;
     }
 
@@ -153,62 +229,103 @@ public final class Horn {
 
     public static void play(Context ctx, boolean sound, float volume) { play(ctx, sound, volume, false); }
 
-    public static void play(Context ctx, boolean sound, float volume, boolean batCrack) {
+    public static void play(Context ctx, boolean sound, float volume, boolean batCrack) { play(ctx, sound, volume, batCrack, EV_GOAL); }
+
+    /** Plays the sound chosen for this event (Settings → Sound). */
+    public static void play(Context ctx, boolean sound, float volume, boolean batCrack, int event) {
         try {
             Vibrator vib = ctx.getSystemService(Vibrator.class);
             if (vibrate && vib != null && vib.hasVibrator()) {
                 vib.vibrate(VibrationEffect.createWaveform(new long[]{0, 220, 120, 220, 120, 500}, -1));
             }
         } catch (Exception ignored) { }
-        if (!sound) return;
+        int type = eventSound[Math.max(0, Math.min(eventSound.length - 1, event))];
+        if (!sound || type == NONE) return;
+        playType(ctx, type, volume, batCrack);
+    }
+
+    /** Plays one sound now (also used to preview it in Settings). */
+    public static void playType(Context ctx, int type, float volume, boolean batCrack) {
+        if (type < 0 || type >= NONE) return;
         final Context app = ctx.getApplicationContext();
         new Thread(() -> {
-            AudioManager am = app.getSystemService(AudioManager.class);
+            short[] data;
+            synchronized (Horn.class) {
+                soundType = type;
+                data = batCrack ? withCrack() : buffer();
+            }
+            int len = data.length;
+            if (shortHorn && type != 5 && type != 6) {   // cut it and fade the last 0.25 s so it doesn't click (the organ tune stays whole)
+                int keep = Math.min(data.length, (batCrack ? data.length - buffer().length : 0) + (int) (RATE * 1.2));
+                short[] cut = java.util.Arrays.copyOf(data, keep);
+                int fadeN = Math.min(keep, (int) (RATE * 0.25));
+                for (int i = 0; i < fadeN; i++) cut[keep - 1 - i] = (short) (cut[keep - 1 - i] * (i / (float) fadeN));
+                data = cut; len = keep;
+            }
             AudioAttributes attrs = new AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_MEDIA)
                 .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build();
-            // Ask the game / video on the other screen to lower its sound while the horn plays.
+            AudioManager am = app.getSystemService(AudioManager.class);
             AudioFocusRequest focus = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
                 .setAudioAttributes(attrs).build();
-            AudioTrack track = null;
+            try { if (am != null) am.requestAudioFocus(focus); } catch (Exception ignored) { }
+            // 1) a WAV file played by MediaPlayer: the most reliable on every device
+            boolean ok = false;
             try {
-                if (am != null) am.requestAudioFocus(focus);
-                short[] data = batCrack ? withCrack() : buffer();
-                int len = data.length;
-                if (shortHorn) {   // cut it and fade the last 0.25 s so it doesn't click
-                    int keep = Math.min(data.length, (batCrack ? data.length - buffer().length : 0) + (int) (RATE * 1.2));
-                    short[] cut = java.util.Arrays.copyOf(data, keep);
-                    int fadeN = Math.min(keep, (int) (RATE * 0.25));
-                    for (int i = 0; i < fadeN; i++) cut[keep - 1 - i] = (short) (cut[keep - 1 - i] * (i / (float) fadeN));
-                    data = cut; len = keep;
-                }
-                // Streaming mode: some devices silently refuse a big "static" buffer (that was a source of no sound).
-                int min = AudioTrack.getMinBufferSize(RATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);
-                track = new AudioTrack.Builder()
-                    .setAudioAttributes(attrs)
-                    .setAudioFormat(new AudioFormat.Builder()
-                        .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                        .setSampleRate(RATE)
-                        .setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
-                    .setBufferSizeInBytes(Math.max(min, RATE))   // ~0.5 s
-                    .setTransferMode(AudioTrack.MODE_STREAM)
-                    .build();
-                if (track.getState() != AudioTrack.STATE_INITIALIZED) throw new IllegalStateException("audio not ready");
-                track.setVolume(volume);
-                track.play();
-                track.write(data, 0, len);   // blocks until everything is queued
-                Thread.sleep(400);                   // let the tail finish
-                track.stop();
+                java.io.File f = new java.io.File(app.getCacheDir(), "sound_" + type + (batCrack ? "_hr" : "") + (shortHorn ? "_s" : "") + ".wav");
+                if (!f.exists() || f.length() < 100) writeWav(f, data, len);
+                MediaPlayer mp = new MediaPlayer();
+                mp.setAudioAttributes(attrs);
+                mp.setDataSource(f.getAbsolutePath());
+                mp.prepare();
+                mp.setVolume(volume, volume);
+                mp.setOnCompletionListener(m -> m.release());
+                mp.start();
+                ok = true;
+                Thread.sleep(len * 1000L / RATE + 300);
             } catch (Exception e) {
-                Log.w("ThorSport", "Goal horn could not play", e);
-            } finally {
-                if (track != null) track.release();
-                if (am != null) am.abandonAudioFocusRequest(focus);
+                Log.w("ThorSport", "MediaPlayer sound failed, trying AudioTrack", e);
             }
+            // 2) fallback: stream the samples
+            if (!ok) {
+                AudioTrack track = null;
+                try {
+                    int min = AudioTrack.getMinBufferSize(RATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);
+                    track = new AudioTrack.Builder()
+                        .setAudioAttributes(attrs)
+                        .setAudioFormat(new AudioFormat.Builder()
+                            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                            .setSampleRate(RATE)
+                            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
+                        .setBufferSizeInBytes(Math.max(min, RATE))
+                        .setTransferMode(AudioTrack.MODE_STREAM)
+                        .build();
+                    track.setVolume(volume);
+                    track.play();
+                    track.write(data, 0, len);
+                    Thread.sleep(400);
+                    track.stop();
+                } catch (Exception e) {
+                    Log.w("ThorSport", "Goal sound could not play", e);
+                } finally {
+                    if (track != null) track.release();
+                }
+            }
+            try { if (am != null) am.abandonAudioFocusRequest(focus); } catch (Exception ignored) { }
         }).start();
     }
 
-    // ------------------------------------------------------------------ menu sounds
+    private static void writeWav(java.io.File f, short[] d, int len) throws java.io.IOException {
+        try (java.io.DataOutputStream o = new java.io.DataOutputStream(new java.io.BufferedOutputStream(new java.io.FileOutputStream(f)))) {
+            int bytes = len * 2;
+            o.writeBytes("RIFF"); o.writeInt(Integer.reverseBytes(36 + bytes)); o.writeBytes("WAVE");
+            o.writeBytes("fmt "); o.writeInt(Integer.reverseBytes(16)); o.writeShort(Short.reverseBytes((short) 1)); o.writeShort(Short.reverseBytes((short) 1));
+            o.writeInt(Integer.reverseBytes(RATE)); o.writeInt(Integer.reverseBytes(RATE * 2)); o.writeShort(Short.reverseBytes((short) 2)); o.writeShort(Short.reverseBytes((short) 16));
+            o.writeBytes("data"); o.writeInt(Integer.reverseBytes(bytes));
+            for (int i = 0; i < len; i++) o.writeShort(Short.reverseBytes(d[i]));
+        }
+    }
+
     private static AudioTrack tickTrack, selectTrack;
 
     /** A short soft "tick" (sine with a fast fade), higher for select. */

@@ -252,7 +252,8 @@ public class MainActivity extends Activity implements ThorView.Listener {
         ThorView.fxConfetti = prefs.getBoolean("fxConfetti", true);
         ThorView.fxFireworks = prefs.getBoolean("fxFireworks", true);
         ThorView.fxShake = prefs.getBoolean("fxShake", true);
-        Horn.soundType = prefs.getInt("hornSound", 0);
+        for (int i = 0; i < Horn.eventSound.length; i++) Horn.eventSound[i] = prefs.getInt("evSound" + i, Horn.DEFAULT_SOUNDS[i]);
+        if (!prefs.contains("evSound0")) Horn.eventSound[Horn.EV_GOAL] = prefs.getInt("hornSound", Horn.DEFAULT_SOUNDS[Horn.EV_GOAL]);   // the 3.21 "Sound" setting
         ledGoal = prefs.getBoolean("ledGoal", true);
         notify = prefs.getBoolean("otherTeams", true);
         extraAlerts = prefs.getBoolean("extraAlerts", false);   // off: only goals, touchdowns and wins
@@ -935,9 +936,22 @@ public class MainActivity extends Activity implements ThorView.Listener {
     }
 
     /** Goal horn + vibration, both silenced by Settings → Mute alerts. */
-    private void horn(float volume, boolean batCrack) {
+    private void horn(float volume, boolean batCrack) { horn(volume, batCrack, Horn.EV_GOAL); }
+
+    private void horn(float volume, boolean batCrack, int event) {
         if (quietNow()) return;
-        Horn.play(this, sound, volume, batCrack);
+        Horn.play(this, sound, volume, batCrack, event);
+    }
+
+    /** Which sound goes with this celebration word (Settings → Sound). */
+    private static int soundEvent(String word, boolean homer) {
+        String w = word == null ? "" : word.toUpperCase(Locale.ROOT);
+        if (homer) return Horn.EV_HR;
+        if (w.contains("VICTORY") || w.contains("VICTOIRE") || w.contains("SHUTOUT") || w.contains("BLANCHISSAGE") || w.contains("GAME WON") || w.contains("PARTIE GAGN")) return Horn.EV_WIN;
+        if (w.contains("OT WINNER") || w.contains("PROLONGATION")) return Horn.EV_OT;
+        if (w.contains("TOUCHDOWN")) return Horn.EV_TD;
+        if (w.contains("FIELD GOAL") || w.contains("PLACEMENT")) return Horn.EV_FG;
+        return Horn.EV_GOAL;
     }
 
     private String muteLabel() {
@@ -992,7 +1006,10 @@ public class MainActivity extends Activity implements ThorView.Listener {
         it.add(item(2, t("Screen shake", "Écran qui tremble"), onOff(ThorView.fxShake), ThorView.SET_FX_SHAKE));
         // 3 SOUND
         it.add(item(3, t("Goal sound", "Son de but"), onOff(sound), ThorView.SET_HORN));
-        it.add(item(3, t("Sound", "Son"), t(Horn.SOUND_NAMES[Horn.soundType][0], Horn.SOUND_NAMES[Horn.soundType][1]) + "  ▶", ThorView.SET_HORN_SOUND));
+        for (int i = 0; i < Horn.EVENTS.length; i++) {   // one sound per event; tapping cycles and plays it
+            int st = Horn.eventSound[i];
+            it.add(item(3, t(Horn.EVENTS[i][0], Horn.EVENTS[i][1]), t(Horn.SOUND_NAMES[st][0], Horn.SOUND_NAMES[st][1]) + (st == Horn.NONE ? "" : "  ▶"), ThorView.SET_EV_SOUND + i));
+        }
         it.add(item(3, t("Volume", "Volume"), LEVELS[hornVol], ThorView.SET_HORN_VOL));
         it.add(item(3, t("Length", "Durée"), Horn.shortHorn ? t("SHORT", "COURT") : t("FULL", "COMPLET"), ThorView.SET_HORN_SHORT));
         it.add(item(3, t("Vibrate on goals", "Vibrer aux buts"), onOff(vibrate), ThorView.SET_VIBRATE));
@@ -1108,6 +1125,15 @@ public class MainActivity extends Activity implements ThorView.Listener {
 
     @Override public void onSetting(int id, int dir) {
         SharedPreferences.Editor e = prefs.edit();
+        if (id >= ThorView.SET_EV_SOUND && id < ThorView.SET_EV_SOUND + Horn.EVENTS.length) {   // Settings → Sound: next sound for this event
+            int ev = id - ThorView.SET_EV_SOUND;
+            int n = Horn.SOUND_NAMES.length;
+            Horn.eventSound[ev] = ((Horn.eventSound[ev] + (dir < 0 ? -1 : 1)) % n + n) % n;
+            e.putInt("evSound" + ev, Horn.eventSound[ev]).apply();
+            Horn.playType(this, Horn.eventSound[ev], HORN_VOLS[hornVol], ev == Horn.EV_HR);   // hear it right away
+            pushSettings();
+            return;
+        }
         switch (id) {
             case ThorView.SET_DELAY:
                 view.closeSettings();
@@ -1143,10 +1169,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
                     .putBoolean("fxFireworks", ThorView.fxFireworks).putBoolean("fxShake", ThorView.fxShake);
                 break;
             }
-            case ThorView.SET_HORN_SOUND:
-                Horn.soundType = (Horn.soundType + 1) % Horn.SOUND_NAMES.length; e.putInt("hornSound", Horn.soundType);
-                Horn.play(this, true, HORN_VOLS[hornVol]);   // hear it right away
-                break;
+            case ThorView.SET_HORN_SOUND: break;
             case ThorView.SET_LED_GOAL: ledGoal = !ledGoal; e.putBoolean("ledGoal", ledGoal); break;
             case ThorView.SET_EXTRA_ALERTS:
                 extraAlerts = !extraAlerts; e.putBoolean("extraAlerts", extraAlerts); break;
@@ -1733,8 +1756,16 @@ public class MainActivity extends Activity implements ThorView.Listener {
 
     // ---- Your other teams: notifications while you watch another game
     /** Score in one of your teams' games (not the one you're watching): a small card + a quick blink. */
+    private final Map<String, String> lastNote = new HashMap<>();
+    private final Map<String, Long> lastNoteAt = new HashMap<>();
+
     private void noteScore(Model.Game g, Model.Side scorer, int delta, Set<String> favs) {
         if (!notify) return;
+        String key = g.away.score + "-" + g.home.score;   // one card per score, never the same one twice
+        if (key.equals(lastNote.put(g.id, key))) return;
+        Long lastAt = lastNoteAt.get(g.id);   // and never more than one card per game every 90 s
+        if (lastAt != null && System.currentTimeMillis() - lastAt < 90_000) return;
+        lastNoteAt.put(g.id, System.currentTimeMillis());
         String word = scoreWord(g, delta);
         if (word == null) return;   // basketball scores too often for cards
         if ("football".equals(g.sport) && delta < 3) return;   // extra point / 2-pt: the touchdown card is enough
@@ -1743,7 +1774,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         String line = g.away.abbr + " " + g.away.score + " – " + g.home.score + " " + g.home.abbr + (g.detail.isEmpty() ? "" : "  ·  " + g.detail);
         all(v -> v.notifyCard(scorer, title, line));
         if (yours && ledsAvailable && ledsOn) Leds.blink(primary(scorer), 2);
-        if (yours) horn(HORN_VOLS[hornVol] * 0.35f, false);
+        if (yours) horn(HORN_VOLS[hornVol] * 0.5f, false, Horn.EV_OTHER);
     }
 
     /** One of your teams' games just ended (while you watch another one). */
@@ -1755,7 +1786,10 @@ public class MainActivity extends Activity implements ThorView.Listener {
             : favs.contains(won.abbr) ? won.abbr + t(" WIN!", " GAGNE!") : fav.abbr + t(" lose", " perd");
         String line = "FINAL  " + g.away.abbr + " " + g.away.score + " – " + g.home.score + " " + g.home.abbr;
         all(v -> v.notifyCard(won != null ? won : fav, title, line));
-        if (won != null && favs.contains(won.abbr) && ledsAvailable && ledsOn) Leds.blink(0xFFFFC400, 3);
+        if (won != null && favs.contains(won.abbr)) {
+            horn(HORN_VOLS[hornVol] * 0.5f, false, Horn.EV_OTHER);
+            if (ledsAvailable && ledsOn) Leds.blink(0xFFFFC400, 3);
+        }
     }
 
     /** Favorite teams in other leagues than the one on screen: checked every 30 s in the background. */
@@ -1789,7 +1823,10 @@ public class MainActivity extends Activity implements ThorView.Listener {
         for (Model.Game g : games) {
             if (!g.involves(favs)) continue;
             int a = g.away.scoreInt(), h = g.home.scoreInt();
-            int[] prev = otherScores.put(g.id, new int[]{a, h});
+            int[] seen = otherScores.get(g.id);
+            int[] prev = seen == null ? null : seen.clone();
+            otherScores.put(g.id, seen == null ? new int[]{a, h} : new int[]{Math.max(a, seen[0]), Math.max(h, seen[1])});
+            if (prev != null) { a = Math.max(a, prev[0]); h = Math.max(h, prev[1]); }
             String prevState = otherStates.put(g.id, g.state);
             if (prevState != null && !prevState.equals(g.state)) {
                 if (g.isFinal()) { noteFinal(g, favs); continue; }
@@ -1817,7 +1854,12 @@ public class MainActivity extends Activity implements ThorView.Listener {
         for (Model.Game g : games) {
             if ("racing".equals(g.sport)) continue;   // F1 sessions have no score to watch
             int a = g.away.scoreInt(), h = g.home.scoreInt();
-            int[] prev = lastScores.put(g.id, new int[]{a, h});
+            // ESPN sometimes sends an older score for a moment (cache): only a score higher than
+            // anything seen before counts, so the same goal never fires twice
+            int[] seen = lastScores.get(g.id);
+            int[] prev = seen == null ? null : seen.clone();
+            lastScores.put(g.id, seen == null ? new int[]{a, h} : new int[]{Math.max(a, seen[0]), Math.max(h, seen[1])});
+            if (prev != null) { a = Math.max(a, prev[0]); h = Math.max(h, prev[1]); }
             String prevState = lastStates.put(g.id, g.state);
             boolean mine = g.involves(favorites);
             boolean onBoard = followed != null && followed.id.equals(g.id);
@@ -1944,10 +1986,11 @@ public class MainActivity extends Activity implements ThorView.Listener {
         if (celebrateGame == null) return;
         if ("basketball".equals(celebrateGame.sport)) {   // NBA / WNBA: a small celebration for threes
             boolean yours = celebrateGame.involves(favorites) ? favorites.contains(celebrateSide.abbr) : !(celebMine && !favKeys.isEmpty());
-            if (extraAlerts && celebrateDelta == 3 && yours) {
+            if (celebrateDelta == 3 && yours) {
                 final Model.Game tg = celebrateGame;
                 final Model.Side ts = celebrateSide;
-                all(v -> v.banner(t("THREE! ", "TROIS POINTS! ") + ts.abbr + " · " + tg.away.abbr + " " + tg.away.score + " – " + tg.home.score + " " + tg.home.abbr,
+                horn(HORN_VOLS[hornVol] * 0.7f, false, Horn.EV_THREE);   // Settings → Sound → 3-pointer
+                if (extraAlerts) all(v -> v.banner(t("THREE! ", "TROIS POINTS! ") + ts.abbr + " · " + tg.away.abbr + " " + tg.away.score + " – " + tg.home.score + " " + tg.home.abbr,
                     ts.color | 0xFF000000));
                 all(v -> v.flash(tg.id));
                 if (ledsAvailable && ledsOn) Leds.blink(primary(ts), 3);
@@ -2163,7 +2206,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         else if (celebrations) view.celebrate(g, side, word);
         else all(v -> v.banner(word + " " + side.abbr + " · " + g.away.abbr + " " + g.away.score + " – " + g.home.score + " " + g.home.abbr, side.color | 0xFF000000));
         boolean homer = ThorView.isHomeRunWord(word);
-        horn(HORN_VOLS[hornVol], homer);
+        horn(HORN_VOLS[hornVol], homer, soundEvent(word, homer));
         if (!ledGoal) { }
         else if (ledsAvailable && ledsOn && homer) {
             // the light follows the ball from the left stick to the right one, then the team's colors (gold for a grand slam)
