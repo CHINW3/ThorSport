@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.27
+- New **INTL** folder in the league menu for national teams: World Cup, UEFA Nations League, Concacaf Nations League, international friendlies, and Olympic hockey (men and women).
+- Group tables for the World Cup, Nations Leagues and Olympic hockey, plus a PLAYOFFS tab showing which teams would go through (and be relegated in the Nations League) if the groups ended today.
+- Olympic hockey cards and stick lights use flag colors (Canada red, Sweden blue and yellow…), and the table shows wins worked out from the IIHF points.
+- Small green dot next to the clock when an app update is waiting (tap the clock → Settings → App update).
+- Battery saver for animations: at 20% battery or less (not charging), the pulses and the moving football slow to 2 frames a second.
+- Faster and lighter: the clock no longer builds a new time formatter every frame, long names are shortened in one step, feeds download in big chunks, and saved copies of the feeds are only rewritten when they change (fewer flash writes during live games).
+
 ## 3.26
 - Two screens: the top screen follows the game under your cursor on LIVE.
 - Switching to another sport opens on LIVE instead of the game page.

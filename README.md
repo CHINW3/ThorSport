@@ -1,4 +1,4 @@
-# ThorSport 3.26
+# ThorSport 3.27
 
 Live sports for the **AYN Thor bottom screen** (1240×1080) and the **Retroid Pocket Duo** (1280×960). Everything is drawn to fill the screen exactly.
 
@@ -17,9 +17,9 @@ Live sports for the **AYN Thor bottom screen** (1240×1080) and the **Retroid Po
 **Updates:** ThorSport checks GitHub for a new version and shows a banner when one is out. Settings → App update downloads and installs it (Android asks once to allow ThorSport to install apps). What changed: [CHANGELOG.md](CHANGELOG.md).
 
 ## Leagues
-★ MY TEAMS · NHL · PWHL · NBA · NFL · MLB · WNBA · F1 · League of Legends · Premier League · MLS · Champions League · La Liga · Bundesliga · Serie A · Ligue 1 · College football (NCAAF) · College basketball (NCAAM, NCAAW) · College hockey · EFL Championship, League One, League Two · Cricket
+★ MY TEAMS · NHL · PWHL · NBA · NFL · MLB · WNBA · F1 · League of Legends · Premier League · MLS · Champions League · La Liga · Bundesliga · Serie A · Ligue 1 · College football (NCAAF) · College basketball (NCAAM, NCAAW) · College hockey · EFL Championship, League One, League Two · Cricket · International: World Cup, UEFA Nations League, Concacaf Nations League, international friendlies, Olympic hockey (men and women)
 
-All soccer leagues are grouped in a **SOCCER** folder in the league menu.
+Club soccer leagues are grouped in a **SOCCER** folder in the league menu, national teams (soccer and hockey) in an **INTL** folder.
 
 ## Two-screen mode
 Tap the **two-screen button** (the little ▭ icon next to the tabs) or Settings → Two-screen mode.
