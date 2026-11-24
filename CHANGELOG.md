@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.23
+- Sounds are much louder: compressed to full scale plus a loudness boost, more on HIGH.
+- LOW and MED volume raised a bit.
+
 ## 3.22
 - **Fixed the same notification coming back over and over**: ESPN sometimes sends an older score for a moment, so a goal looked like it happened again at every refresh (the "GOAL · WPG" card kept popping up). Now only a score higher than anything already seen counts, and a card is never shown twice for the same score (and at most one card per game every 90 seconds).
 - **Sound fixed**: goal sounds now play through Android's media player (a real sound file made on the fly), which works on devices where the old way only vibrated. The old way stays as a backup.
