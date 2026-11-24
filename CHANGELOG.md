@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.26
+- Two screens: the top screen follows the game under your cursor on LIVE.
+- Switching to another sport opens on LIVE instead of the game page.
+- Small "PRESEASON" label on preseason games (cards and Board).
+- Montréal Victoire: stick lights red and navy, deeper red in the logo and card (they looked pink).
+- New cricket icon (bat and ball) and the NCAA hockey banner icon.
+- Team colors fixed: Golden Knights gold (not white), Wild green and red, Canadiens blue card with red/blue lights, Predators gold and navy, Avalanche deep burgundy and blue.
+- My teams: college leagues (130+ teams) are now in pages of big tiles with team names (‹ 1 / 5 ›), instead of tiny tiles.
+
 ## 3.25
 - Cricket redone: one team per row with the full score ("202 & 144"), overs underneath, and the match situation in full at the bottom. The Board shows the situation big instead of an empty innings grid.
 - Text that's too long now shrinks to fit instead of being cut with "…" (everywhere in the app).
