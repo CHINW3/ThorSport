@@ -76,7 +76,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
     private BroadcastReceiver updateReceiver;
     private volatile int updatePct = -2;   // -2 idle, -1 downloading (size unknown), 0..100 downloading
     private long resetArmedAt;
-    private static final float[] HORN_VOLS = {0.35f, 0.7f, 1f};
+    private static final float[] HORN_VOLS = {0.5f, 0.8f, 1f};
     private static final float[] LED_BRIS = {0.3f, 0.7f, 1f};
     private static final String[] LEVELS = {"LOW", "MED", "HIGH"};
     private final Map<String, String> lastDetail = new HashMap<>();

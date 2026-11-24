@@ -262,6 +262,7 @@ public final class Horn {
                 for (int i = 0; i < fadeN; i++) cut[keep - 1 - i] = (short) (cut[keep - 1 - i] * (i / (float) fadeN));
                 data = cut; len = keep;
             }
+            data = loud(data, len);
             AudioAttributes attrs = new AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_MEDIA)
                 .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build();
@@ -272,13 +273,19 @@ public final class Horn {
             // 1) a WAV file played by MediaPlayer: the most reliable on every device
             boolean ok = false;
             try {
-                java.io.File f = new java.io.File(app.getCacheDir(), "sound_" + type + (batCrack ? "_hr" : "") + (shortHorn ? "_s" : "") + ".wav");
+                java.io.File f = new java.io.File(app.getCacheDir(), "loud2_" + type + (batCrack ? "_hr" : "") + (shortHorn ? "_s" : "") + ".wav");
                 if (!f.exists() || f.length() < 100) writeWav(f, data, len);
                 MediaPlayer mp = new MediaPlayer();
                 mp.setAudioAttributes(attrs);
                 mp.setDataSource(f.getAbsolutePath());
                 mp.prepare();
                 mp.setVolume(volume, volume);
+                try {   // extra gain on top of full scale, more at HIGH
+                    android.media.audiofx.LoudnessEnhancer le = new android.media.audiofx.LoudnessEnhancer(mp.getAudioSessionId());
+                    le.setTargetGain((int) (900 * volume));
+                    le.setEnabled(true);
+                    mp.setOnCompletionListener(m -> { try { le.release(); } catch (Exception ignored) { } m.release(); });
+                } catch (Exception ignored) { }
                 mp.setOnCompletionListener(m -> m.release());
                 mp.start();
                 ok = true;
@@ -313,6 +320,17 @@ public final class Horn {
             }
             try { if (am != null) am.abandonAudioFocusRequest(focus); } catch (Exception ignored) { }
         }).start();
+    }
+
+    /** Compress and push to full scale so the sound is loud on small speakers. */
+    static short[] loud(short[] d, int len) {
+        short[] o = new short[d.length];
+        double peak = 1e-6;
+        for (int i = 0; i < len; i++) peak = Math.max(peak, Math.abs(d[i]) / 32767.0);
+        double drive = 2.8 / peak;
+        double norm = Math.tanh(2.8);
+        for (int i = 0; i < len; i++) o[i] = (short) (Math.tanh(d[i] / 32767.0 * drive) / norm * 0.98 * 32767);
+        return o;
     }
 
     private static void writeWav(java.io.File f, short[] d, int len) throws java.io.IOException {
