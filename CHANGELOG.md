@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.22
+- **Fixed the same notification coming back over and over**: ESPN sometimes sends an older score for a moment, so a goal looked like it happened again at every refresh (the "GOAL · WPG" card kept popping up). Now only a score higher than anything already seen counts, and a card is never shown twice for the same score (and at most one card per game every 90 seconds).
+- **Sound fixed**: goal sounds now play through Android's media player (a real sound file made on the fly), which works on devices where the old way only vibrated. The old way stays as a backup.
+- **A sound for every occasion**: Settings → Sound now has one row per event, each with its own sound (tap to change, you hear it right away):
+  - Goal: arena horn · Touchdown: deep horn · Field goal: organ "charge!" · Win: victory chime · Home run: crowd cheer (after the bat crack) · OT winner: goal siren · Your other games: victory chime · 3-pointer: swish
+  - 7 sounds to pick from: arena horn, deep horn, goal siren, victory chime, crowd cheer, organ charge, swish, or none.
+- **NBA / WNBA 3-pointers have a sound**: a net "swish" and a crowd "ohh!" when your team (or the game you watch) hits a three. The "THREE!" banner stays under Extra alerts.
+- Your other team's win now plays its sound too.
+
 ## 3.21
 - **A different celebration for each event**:
   - **Hockey goal**: red goal light, strobe and siren beams (as before).
