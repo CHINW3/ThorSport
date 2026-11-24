@@ -27,11 +27,14 @@ public final class Espn {
         public final String label, path, sortStat, tieStat;
         public final String[] colLabels, statNames;
         public int cut, good, bad; // playoff line after rank `cut`; soccer: top `good` green, bottom `bad` red
+        public String query = "";  // extra scoreboard parameters (college: every Division I game, not just the top 25)
         League(String label, String path, String[] colLabels, String[] statNames, String sortStat, String tieStat) {
             this.label = label; this.path = path; this.colLabels = colLabels;
             this.statNames = statNames; this.sortStat = sortStat; this.tieStat = tieStat;
         }
         League zones(int cut, int good, int bad) { this.cut = cut; this.good = good; this.bad = bad; return this; }
+        League query(String q) { this.query = q; return this; }
+        public boolean college() { return path.contains("college"); }
         public boolean soccer() { return path.startsWith("soccer"); }
         public boolean mine() { return "mine".equals(path); }
     }
@@ -73,6 +76,15 @@ public final class Espn {
         soccer("BUNDESLIGA", "soccer/ger.1", 4, 2),
         soccer("SERIE A", "soccer/ita.1", 4, 3),
         soccer("LIGUE 1", "soccer/fra.1", 4, 3),
+        // college (added at the end so the saved league of existing users doesn't move)
+        new League("NCAAF", "football/college-football",
+            new String[]{"W", "L", "PCT"}, new String[]{"wins", "losses", "winPercent"}, "winPercent", "wins").query("groups=80&limit=300"),
+        new League("NCAAM", "basketball/mens-college-basketball",
+            new String[]{"W", "L", "PCT"}, new String[]{"wins", "losses", "winPercent"}, "winPercent", "wins").query("groups=50&limit=300"),
+        new League("NCAAW", "basketball/womens-college-basketball",
+            new String[]{"W", "L", "PCT"}, new String[]{"wins", "losses", "winPercent"}, "winPercent", "wins").query("groups=50&limit=300"),
+        new League("NCAA HOCKEY", "hockey/mens-college-hockey",
+            new String[]{"W", "L", "T", "PCT"}, new String[]{"wins", "losses", "ties", "winPercent"}, "winPercent", "wins").query("limit=300"),
     };
 
     /** Folder where the last good answer of every feed is kept (instant start + offline). */
@@ -119,7 +131,9 @@ public final class Espn {
     static String standingsUrl(League lg) { return "https://site.api.espn.com/apis/v2/sports/" + lg.path + "/standings"; }
 
     static String scoresUrl(League lg, String date) {
-        return "https://site.api.espn.com/apis/site/v2/sports/" + lg.path + "/scoreboard" + (date == null ? "" : "?dates=" + date);
+        String q = (date == null ? "" : "dates=" + date);
+        if (!lg.query.isEmpty()) q = q.isEmpty() ? lg.query : q + "&" + lg.query;
+        return "https://site.api.espn.com/apis/site/v2/sports/" + lg.path + "/scoreboard" + (q.isEmpty() ? "" : "?" + q);
     }
 
     // ------------------------------------------------------------------ standings
@@ -181,6 +195,8 @@ public final class Espn {
                 }
                 Double sk = num.get(lg.sortStat), tk = num.get(lg.tieStat);
                 t.sortKey = sk == null ? 0 : sk;
+                Double ps = num.get("playoffSeed");
+                t.seed = ps == null ? 0 : (int) Math.round(ps);
                 t.tieKey = tk == null ? 0 : tk;
                 g.teams.add(t);
             }
@@ -316,6 +332,10 @@ public final class Espn {
                     s.ledB = parse(t.optString("alternateColor", ""));
                     s.teamId = t.optString("id", "");
                 }
+                // college: AP / coaches top-25 rank in front of the name ("#9 Texas Tech")
+                JSONObject cr = co.optJSONObject("curatedRank");
+                int rank = cr == null ? 0 : cr.optInt("current", 0);
+                if (lg.college() && rank > 0 && rank <= 25) s.name = "#" + rank + " " + s.name;
                 JSONArray lead = co.optJSONArray("leaders");
                 if (lead != null && lead.length() > 0) {
                     JSONObject cat = lead.optJSONObject(0);

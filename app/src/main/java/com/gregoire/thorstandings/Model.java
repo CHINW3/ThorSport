@@ -10,6 +10,7 @@ public final class Model {
     public static class Team {
         public String abbr, name, logo;
         public int rank;                 // real position in its league table
+        public int seed;                 // ESPN's playoff seed when it gives one (0 = none)
         public int color;                // F1: team color
         public String[] vals;
         public double sortKey, tieKey;

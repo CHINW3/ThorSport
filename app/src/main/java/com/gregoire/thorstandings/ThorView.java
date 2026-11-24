@@ -59,13 +59,13 @@ public class ThorView extends View {
         void onSyncPick(int row);                           // Sync with TV: the moment your TV shows (row 0 = newest)                          // 0 one screen, 1 two screens classic, 2 two screens + game info
     }
 
-    public static final int TAB_SCORES = 0, TAB_BOARD = 1, TAB_STANDINGS = 2;
+    public static final int TAB_SCORES = 0, TAB_BOARD = 1, TAB_STANDINGS = 2, TAB_PLAYOFFS = 3;
     public static final int SET_DELAY = 0, SET_HORN = 1, SET_LEDS = 2, SET_DIM = 3, SET_AUTOBOARD = 4,
         SET_HORN_VOL = 5, SET_LED_BRI = 6, SET_CELEB = 7, SET_KEEP_ON = 8, SET_NIGHT = 9, SET_HIDE_FINAL = 10,
         SET_TEST = 11, SET_HELP = 12, SET_RESET = 13, SET_DUAL = 14, SET_QUIET = 15, SET_VIBRATE = 16,
         SET_CELEB_LEN = 17, SET_ACCENT = 18, SET_CLOCK = 19, SET_LANG = 20, SET_SAVER = 21, SET_STAND_SIZE = 22, SET_DEMO_MLB = 23, SET_DEMO_NFL = 24, SET_DEMO_NHL = 25, SET_SHOT_MAP = 26, SET_UPDATE = 27, SET_COMPANION = 28, SET_MY_TEAMS = 29, SET_OTHER_TEAMS = 30, SET_MENU_FX = 31,
         SET_MUTE = 32, SET_HORN_SHORT = 33, SET_REPLAY = 34, SET_CELEB_MINE = 35,
-        SET_ROTATE = 38, SET_FAST_LIVE = 39, SET_RESET_SETTINGS = 41, SET_START_LEAGUE = 42, SET_REMINDER = 43;
+        SET_ROTATE = 38, SET_FAST_LIVE = 39, SET_RESET_SETTINGS = 41, SET_START_LEAGUE = 42, SET_REMINDER = 43, SET_EXTRA_ALERTS = 44;
     private static final int GAMES_PER_PAGE = 8;
     private static final long AUTO_PAGE_MS = 10_000;
     private long CELEBRATION_MS = 6500;
@@ -132,7 +132,7 @@ public class ThorView extends View {
     // Hit areas
     private final RectF leagueRect = new RectF();
     private final RectF clockRect = new RectF();
-    private final RectF[] tabRects = {new RectF(), new RectF(), new RectF()};
+    private final RectF[] tabRects = {new RectF(), new RectF(), new RectF(), new RectF()};
     private final RectF soundRect = new RectF();
     private final RectF prevRect = new RectF(), nextRect = new RectF(), filterRect = new RectF();
     private final List<RectF> hitRects = new ArrayList<>();
@@ -317,7 +317,7 @@ public class ThorView extends View {
     }
     pickerOpen = false; invalidate(); return true;
         }
-        if (dualRect.contains(x, y)) { modeMenuOpen = !modeMenuOpen; invalidate(); return true; }
+        if (dualRect.contains(x, y)) { listener.onViewMode(dual || topMode ? 0 : 2); performHapticFeedback(1); invalidate(); return true; }   // one tap: one screen <-> two screens
         if (leagueRect.contains(x, y)) { pickerOpen = true; invalidate(); return true; }
         if (clockRect.contains(x, y)) { settingsOpen = true; invalidate(); return true; }
         if (!topMode) for (int i = 0; i < tabRects.length; i++) {
@@ -657,6 +657,231 @@ public class ThorView extends View {
         if (page >= pageCount()) page = 0;
         invalidate();
     }
+    /** Tabs shown for a league: MY TEAMS has 2, F1 and LoL have 3 (no playoffs), the rest 4. */
+    public static int tabCount(Espn.League lg) {
+        if (lg == null) return 3;
+        if (lg.mine()) return 2;
+        if (lg.path.startsWith("racing") || lg.path.startsWith("esports")) return 3;
+        return 4;
+    }
+
+    // ------------------------------------------------------------------ PLAYOFFS tab
+    private Playoffs.Bracket playoffs;
+    private String playoffsMsg;
+
+    public void setPlayoffs(Playoffs.Bracket b, String msg) { playoffs = b; playoffsMsg = msg; invalidate(); }
+
+    private void drawPlayoffs(Canvas c, int w, int h, float top) {
+        Playoffs.Bracket b = playoffs;
+        float H = h, pad = w * 0.02f;
+        float y = top + H * 0.035f;
+        p.setColor(b.live ? LIVE : AMBER);
+        c.drawRoundRect(new RectF(pad, y - H * 0.018f, pad + H * 0.012f, y + H * 0.018f), 4, 4, p);
+        text(c, b.title, pad + H * 0.03f, y, H * 0.032f, tfBlack, TEXT, Paint.Align.LEFT, w * 0.5f);
+        if (!b.subtitle.isEmpty()) text(c, b.subtitle, w - pad, y, H * 0.022f, tfMed, MUTED, Paint.Align.RIGHT, w * 0.44f);
+        float y0 = y + H * 0.04f, y1 = h - H * 0.02f;
+
+        boolean lists = false;
+        for (Playoffs.Section s : b.sections) if (!s.list.isEmpty()) lists = true;
+        if (lists) { drawPlayoffLists(c, b, w, H, pad, y0, y1); return; }
+
+        if (b.live) {   // real playoffs: rounds left to right, linked like a bracket
+            List<List<Playoffs.Match>> cols = new ArrayList<>();
+            List<String> titles = new ArrayList<>();
+            for (Playoffs.Section s : b.sections) { cols.add(s.matches); titles.add(s.title); }
+            drawTree(c, cols, titles, pad, w - pad, y0, y1, false, H);
+            return;
+        }
+        // "if it started today": first round, then empty boxes for the next rounds
+        if (b.sections.size() == 2) {   // two conferences facing each other, the final in the middle
+            float finW = w * 0.16f, mid = w / 2f;
+            for (int side = 0; side < 2; side++) {
+                Playoffs.Section s = b.sections.get(side);
+                List<List<Playoffs.Match>> cols = projectedCols(s);
+                List<String> titles = projectedTitles(s, cols.size());
+                if (side == 0) drawTree(c, cols, titles, pad, mid - finW / 2 - w * 0.012f, y0, y1, false, H);
+                else drawTree(c, cols, titles, mid + finW / 2 + w * 0.012f, w - pad, y0, y1, true, H);
+            }
+            float cy = (y0 + H * 0.05f + y1) / 2, bh = Math.min(H * 0.16f, (y1 - y0) * 0.22f);
+            text(c, tr("FINAL", "FINALE"), mid, cy - bh / 2 - H * 0.03f, H * 0.026f, tfBlack, AMBER, Paint.Align.CENTER, finW);
+            RectF fr = new RectF(mid - finW / 2, cy - bh / 2, mid + finW / 2, cy + bh / 2);
+            drawMatchBox(c, null, fr, H);
+            // lines from both conference champions to the final
+            p.setColor(0xFF3A3F4A);
+            c.drawRect(fr.left - w * 0.012f, cy - 1, fr.left, cy + 1, p);
+            c.drawRect(fr.right, cy - 1, fr.right + w * 0.012f, cy + 1, p);
+        } else {
+            Playoffs.Section s = b.sections.get(0);
+            List<List<Playoffs.Match>> cols = projectedCols(s);
+            drawTree(c, cols, projectedTitles(s, cols.size()), pad, w - pad, y0, y1, false, H);
+        }
+    }
+
+    /** First round in bracket order (1v8 next to 4v5, 2v7 next to 3v6), then empty rounds down to one box. */
+    private static List<List<Playoffs.Match>> projectedCols(Playoffs.Section s) {
+        List<Playoffs.Match> r1 = new ArrayList<>();
+        for (Playoffs.Match m : s.matches) if (!m.note.equals(tr("Wild card", "Match de barrage"))) r1.add(m);
+        if (r1.size() == 4) r1 = new ArrayList<>(java.util.Arrays.asList(r1.get(0), r1.get(3), r1.get(1), r1.get(2)));
+        List<List<Playoffs.Match>> cols = new ArrayList<>();
+        cols.add(r1);
+        int n = r1.size();
+        while (n > 1) {
+            n = (n + 1) / 2;
+            List<Playoffs.Match> next = new ArrayList<>();
+            for (int i = 0; i < n; i++) next.add(null);
+            cols.add(next);
+        }
+        return cols;
+    }
+
+    private static List<String> projectedTitles(Playoffs.Section s, int n) {
+        List<String> t = new ArrayList<>();
+        t.add(s.title);
+        for (int i = 1; i < n; i++) t.add(i == n - 1 && n > 2 ? tr("CONF.", "ASSO.") : tr("ROUND ", "RONDE ") + (i + 1));
+        return t;
+    }
+
+    /** A bracket: column 0 on the outside, each next box centered between its two feeders, joined by lines. */
+    private void drawTree(Canvas c, List<List<Playoffs.Match>> cols, List<String> titles, float x0, float x1, float yTop, float y1, boolean mirror, float H) {
+        int nc = cols.size();
+        if (nc == 0) return;
+        float gapX = (x1 - x0) * (nc > 1 ? 0.045f : 0f);
+        // the first round (real teams) gets more room than the empty rounds after it
+        boolean empties = nc > 1 && cols.get(nc - 1).size() > 0 && cols.get(nc - 1).get(0) == null;
+        float wFirst = empties ? 2.2f : 1f, wSum = wFirst + (nc - 1);
+        float unit = (x1 - x0 - gapX * (nc - 1)) / wSum;
+        float bodyTop = yTop + H * 0.05f;
+        int first = Math.max(1, cols.get(0).size());
+        float slot = (y1 - bodyTop) / first;
+        float bh = Math.min(H * 0.19f, slot * 0.88f);
+        List<float[]> prevCy = null;
+        for (int k = 0; k < nc; k++) {
+            List<Playoffs.Match> col = cols.get(k);
+            float colW = unit * (k == 0 ? wFirst : 1f);
+            float off = k == 0 ? 0 : unit * wFirst + gapX + (k - 1) * (unit + gapX);
+            float cx0 = mirror ? x1 - off - colW : x0 + off, cx1 = cx0 + colW;
+            if (k < titles.size())
+                text(c, titles.get(k), (cx0 + cx1) / 2, yTop + H * 0.018f, H * 0.022f, tfCond, MUTED, Paint.Align.CENTER, colW + gapX * 0.8f);
+            float boxH = col.isEmpty() || col.get(0) != null ? bh : bh * 0.72f;
+            List<float[]> cys = new ArrayList<>();
+            for (int i = 0; i < col.size(); i++) {
+                float cy;
+                if (prevCy != null && prevCy.size() >= 2 * i + 1) {
+                    float a = prevCy.get(2 * i)[0];
+                    float b2 = 2 * i + 1 < prevCy.size() ? prevCy.get(2 * i + 1)[0] : a;
+                    cy = (a + b2) / 2;
+                } else {
+                    float sl = (y1 - bodyTop) / Math.max(1, col.size());
+                    cy = bodyTop + sl * (i + 0.5f);
+                }
+                cys.add(new float[]{cy});
+                RectF r = new RectF(cx0, cy - boxH / 2, cx1, cy + boxH / 2);
+                // connector from the two feeders
+                if (prevCy != null && k > 0) {
+                    p.setColor(0xFF3A3F4A);
+                    float joinX = mirror ? cx1 + gapX / 2 : cx0 - gapX / 2;
+                    float edge = mirror ? cx1 + gapX : cx0 - gapX;
+                    for (int f = 2 * i; f <= 2 * i + 1 && f < prevCy.size(); f++) {
+                        float fy = prevCy.get(f)[0];
+                        c.drawRect(Math.min(edge, joinX), fy - 1, Math.max(edge, joinX), fy + 1, p);
+                        c.drawRect(joinX - 1, Math.min(fy, cy), joinX + 1, Math.max(fy, cy), p);
+                    }
+                    c.drawRect(Math.min(joinX, mirror ? cx1 : cx0), cy - 1, Math.max(joinX, mirror ? cx1 : cx0), cy + 1, p);
+                }
+                drawMatchBox(c, col.get(i), r, H);
+            }
+            prevCy = cys;
+        }
+    }
+
+    /** One matchup box; null = a round still to be decided. */
+    private void drawMatchBox(Canvas c, Playoffs.Match mt, RectF r, float H) {
+        float rad = Math.min(r.height(), r.width()) * 0.12f;
+        if (mt == null) {
+            p.setColor(0xFF111318);
+            c.drawRoundRect(r, rad, rad, p);
+            p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(2); p.setColor(0xFF2A2E37);
+            c.drawRoundRect(r, rad, rad, p);
+            p.setStyle(Paint.Style.FILL);
+            p.setColor(0xFF2A2E37);
+            c.drawRect(r.left + r.width() * 0.08f, r.centerY() - 1, r.right - r.width() * 0.08f, r.centerY() + 1, p);
+            text(c, "TBD", r.centerX(), r.top + r.height() * 0.25f, Math.min(H * 0.02f, r.height() * 0.2f), tfCond, 0xFF4A4F5A, Paint.Align.CENTER, r.width());
+            text(c, "TBD", r.centerX(), r.top + r.height() * 0.75f, Math.min(H * 0.02f, r.height() * 0.2f), tfCond, 0xFF4A4F5A, Paint.Align.CENTER, r.width());
+            return;
+        }
+        boolean mine = favorites.contains(mt.a.abbr) || (!mt.bye && favorites.contains(mt.b.abbr));
+        p.setColor(mine ? 0xFF1E2430 : 0xFF161920);
+        c.drawRoundRect(r, rad, rad, p);
+        if (mine) {
+            p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(2); p.setColor(alpha(AMBER, 0xAA));
+            c.drawRoundRect(r, rad, rad, p);
+            p.setStyle(Paint.Style.FILL);
+        }
+        boolean note = !mt.note.isEmpty() && r.height() > H * 0.09f;
+        float rowsH = r.height() * (note ? 0.78f : 1f);
+        if (mt.bye) {
+            slotRow(c, mt.a, new RectF(r.left, r.top, r.right, r.top + rowsH / 2), false);
+            text(c, mt.note, r.centerX(), r.top + rowsH * 0.75f, Math.min(H * 0.022f, rowsH * 0.22f), tfCond, AMBER, Paint.Align.CENTER, r.width() * 0.9f);
+            return;
+        }
+        slotRow(c, mt.a, new RectF(r.left, r.top, r.right, r.top + rowsH / 2), mt.b.won);
+        p.setColor(HAIRLINE);
+        c.drawRect(r.left + r.width() * 0.05f, r.top + rowsH / 2, r.right - r.width() * 0.05f, r.top + rowsH / 2 + 1, p);
+        slotRow(c, mt.b, new RectF(r.left, r.top + rowsH / 2, r.right, r.top + rowsH), mt.a.won);
+        if (note) text(c, mt.note, r.centerX(), r.top + rowsH + (r.height() - rowsH) * 0.45f, Math.min(H * 0.02f, (r.height() - rowsH) * 0.7f),
+            tfMed, MUTED, Paint.Align.CENTER, r.width() * 0.92f);
+    }
+
+    /** Soccer "if the season ended today": columns of team lists (champion, Europe, relegation). */
+    private void drawPlayoffLists(Canvas c, Playoffs.Bracket b, int w, float H, float pad, float y0, float y1) {
+        int n = b.sections.size();
+        float gap = w * 0.014f;
+        float colW = (w - pad * 2 - gap * (n - 1)) / Math.max(1, n);
+        for (int i = 0; i < n; i++) {
+            Playoffs.Section s = b.sections.get(i);
+            float x0 = pad + i * (colW + gap), x1 = x0 + colW;
+            text(c, s.title, x0 + colW / 2, y0 + H * 0.018f, H * 0.024f, tfCond, MUTED, Paint.Align.CENTER, colW * 0.95f);
+            float cy0 = y0 + H * 0.05f, avail = y1 - cy0;
+            if (!s.list.isEmpty()) {
+                int m = s.list.size();
+                float rh = Math.min(H * 0.085f, avail / m);
+                for (int k = 0; k < m; k++) {
+                    RectF r = new RectF(x0, cy0 + k * rh + rh * 0.06f, x1, cy0 + (k + 1) * rh - rh * 0.06f);
+                    p.setColor(0xFF161920);
+                    c.drawRoundRect(r, rh * 0.18f, rh * 0.18f, p);
+                    p.setColor(s.listColor);
+                    c.drawRoundRect(new RectF(r.left, r.top, r.left + rh * 0.08f, r.bottom), 3, 3, p);
+                    slotRow(c, s.list.get(k), r, false);
+                }
+            } else {
+                int m = s.matches.size();
+                float mh = Math.min(H * 0.16f, avail / Math.max(1, m));
+                for (int k = 0; k < m; k++)
+                    drawMatchBox(c, s.matches.get(k), new RectF(x0, cy0 + k * mh + mh * 0.05f, x1, cy0 + (k + 1) * mh - mh * 0.05f), H);
+            }
+        }
+    }
+
+    /** One team in a playoff box: seed, logo, name, and its number (series wins, score or points). */
+    private void slotRow(Canvas c, Playoffs.Slot t, RectF r, boolean lost) {
+        float rh = r.height(), cy = r.centerY();
+        float size = Math.min(rh * 0.62f, r.width() * 0.16f);
+        float x = r.left + r.width() * 0.04f;
+        int col = lost ? MUTED : TEXT;
+        if (t.seed > 0) {
+            text(c, String.valueOf(t.seed), x + size * 0.25f, cy, size * 0.42f, tfCond, MUTED, Paint.Align.CENTER, size * 0.6f);
+            x += size * 0.55f;
+        }
+        if (t.logo != null || !t.abbr.isEmpty()) logo(c, t.logo, t.abbr, t.color, x + size / 2, cy, size);
+        x += size * 1.15f;
+        boolean wide = r.width() > H_PLAYOFF_WIDE;
+        String nm = wide && !t.name.isEmpty() ? t.name : t.abbr;
+        text(c, nm, x, cy, Math.min(size * 0.5f, rh * 0.36f), tfBlack, col, Paint.Align.LEFT, r.right - x - r.width() * 0.2f);
+        if (!t.wins.isEmpty())
+            text(c, t.wins, r.right - r.width() * 0.05f, cy, Math.min(size * 0.55f, rh * 0.4f), tfBlack, t.won ? AMBER : col, Paint.Align.RIGHT, r.width() * 0.18f);
+    }
+    private static final float H_PLAYOFF_WIDE = 330f;
+
     public void setStandings(String[] c, List<Model.Group> g) {
         boolean fresh = groups.isEmpty() || g.size() != groups.size();
         cols = c; groups = g;
@@ -1059,6 +1284,9 @@ public class ThorView extends View {
                 if (topMode) drawTicker(c, g, w, h, bh);
                 drawSwitchLabel(c, w, top);
             }
+        } else if (tab == TAB_PLAYOFFS) {
+            if (playoffs == null) drawEmpty(c, w, top, h, playoffsMsg != null ? playoffsMsg : tr("Loading…", "Chargement…"));
+            else drawPlayoffs(c, w, h, top);
         } else {
             if (groups.isEmpty()) drawEmpty(c, w, top, h, message != null ? message : "No standings");
             else drawStandings(c, w, h, top);
@@ -1173,20 +1401,20 @@ public class ThorView extends View {
         }
 
         // Segmented tabs
-        float segW = w * 0.42f;
         float segRight = dualRect.left - hh * 0.15f;
+        float segW = Math.min(w * (tabCount(leagueInfo) >= 4 ? 0.54f : 0.42f), segRight - leagueRect.right - hh * 0.15f);   // never under the league name
         r1.set(segRight - segW, cy - segH / 2, segRight, cy + segH / 2);
         p.setColor(0xFF161920);
         c.drawRoundRect(r1, segH / 2, segH / 2, p);
         String[] labels = dualBottom()
-            ? new String[]{tr("LIVE", "EN DIRECT"), tr("GAME", "MATCH"), tr("STANDINGS", "CLASSEMENT")}
-            : new String[]{tr("SCORES", "SCORES"), tr("BOARD", "TABLEAU"), tr("STANDINGS", "CLASSEMENT")};
-        int nTabs = leagueInfo != null && leagueInfo.mine() ? 2 : 3;   // MY TEAMS: no standings tab
+            ? new String[]{tr("LIVE", "EN DIRECT"), tr("GAME", "MATCH"), tr("STANDINGS", "CLASSEMENT"), tr("PLAYOFFS", "SÉRIES")}
+            : new String[]{tr("SCORES", "SCORES"), tr("BOARD", "TABLEAU"), tr("STANDINGS", "CLASSEMENT"), tr("PLAYOFFS", "SÉRIES")};
+        int nTabs = tabCount(leagueInfo);   // MY TEAMS: no standings; F1 / LoL: no playoffs
         float inset = segH * 0.09f;
         float segEach = segW / nTabs;
         float segLeft = r1.left, segTop = r1.top, segBottom = r1.bottom;
         int live = liveCount();
-        for (int i = nTabs; i < 3; i++) tabRects[i].set(0, 0, 0, 0);
+        for (int i = nTabs; i < tabRects.length; i++) tabRects[i].set(0, 0, 0, 0);
         for (int i = 0; i < nTabs; i++) {
             float l = segLeft + i * segEach;
             tabRects[i].set(l, segTop, l + segEach, segBottom);

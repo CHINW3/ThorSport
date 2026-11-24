@@ -72,7 +72,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
     private int standingsLeague = -1;
     private boolean running, sound, myTeamsOnly, lastFailed, ledsOn, autoBoard;
     private int delaySec, hornVol, ledBri;
-    private boolean notify = true, celebrations, keepOn, nightMode, hideFinal, shotMap;
+    private boolean extraAlerts, notify = true, celebrations, keepOn, nightMode, hideFinal, shotMap;
     private BroadcastReceiver updateReceiver;
     private volatile int updatePct = -2;   // -2 idle, -1 downloading (size unknown), 0..100 downloading
     private long resetArmedAt;
@@ -135,6 +135,59 @@ public class MainActivity extends Activity implements ThorView.Listener {
             main.postDelayed(this, nextDelay());
         }
     };
+    // ------------------------------------------------------------------ smooth game clock
+    /** What ESPN last said about a game's clock, so it can run down second by second between refreshes. */
+    private static final class ClockBase {
+        int secs, period; long at; boolean running; String clock, detail;
+    }
+    private final Map<String, ClockBase> clockBase = new HashMap<>();
+
+    private static int clockSecs(String c) {
+        if (c == null) return -1;
+        String[] mmss = c.trim().split(":");
+        if (mmss.length != 2) return -1;   // "45.2" (last NBA minute) or "67'" (soccer): left as ESPN gives it
+        try { return Integer.parseInt(mmss[0]) * 60 + Integer.parseInt(mmss[1].replaceAll("[^0-9].*", "")); } catch (Exception e) { return -1; }
+    }
+
+    /** New data: the clock is "running" if it moved since the last refresh (same period). */
+    private void syncClocks(List<Model.Game> games) {
+        long now = System.currentTimeMillis();
+        for (Model.Game g : games) {
+            boolean counts = "hockey".equals(g.sport) || "basketball".equals(g.sport) || "football".equals(g.sport);
+            int secs = clockSecs(g.clock);
+            if (!counts || !g.isLive() || secs < 0) { clockBase.remove(g.id); continue; }
+            ClockBase old = clockBase.get(g.id);
+            ClockBase b = new ClockBase();
+            b.secs = secs; b.period = g.period; b.at = now; b.clock = g.clock; b.detail = g.detail;
+            b.running = old != null && old.period == g.period && secs < old.secs && secs > 0;
+            clockBase.put(g.id, b);
+        }
+        main.removeCallbacks(smoothClock);
+        main.postDelayed(smoothClock, 1000);
+    }
+
+    private final Runnable smoothClock = new Runnable() {
+        @Override public void run() {
+            if (clockBase.isEmpty()) return;
+            long now = System.currentTimeMillis();
+            boolean changed = false;
+            for (Model.Game g : lastGames) {
+                ClockBase b = clockBase.get(g.id);
+                if (b == null || !b.running) continue;
+                long el = Math.min(45, (now - b.at) / 1000);   // never run ahead more than one refresh
+                int s = (int) Math.max(1, b.secs - el);         // stays on 0:01 until ESPN confirms the end
+                String c = (s / 60) + ":" + (s % 60 < 10 ? "0" : "") + (s % 60);
+                if (!c.equals(g.clock)) {
+                    g.clock = c;
+                    g.detail = b.detail.replace(b.clock, c);
+                    changed = true;
+                }
+            }
+            if (changed) all(v -> v.invalidate());
+            main.postDelayed(this, 1000);
+        }
+    };
+
     private final Runnable clockTick = new Runnable() {
         @Override public void run() { view.invalidate(); main.postDelayed(this, CLOCK_TICK_MS); }
     };
@@ -187,14 +240,15 @@ public class MainActivity extends Activity implements ThorView.Listener {
         myTeamsOnly = prefs.getBoolean("myTeams", false);
         dimLevel = Math.min(prefs.getInt("dim", 0), DIM_LEVELS.length - 1);
         boardGameId = prefs.getString("boardGame", null);
-        delaySec = prefs.getInt("delay", 0);
-        if (System.currentTimeMillis() - prefs.getLong("delayAt", 0) > 4 * 3600_000L) delaySec = 0;   // old delay = another stream
+        delaySec = 0;   // opening the app = no waiting: scores show right away (sync again with your TV if you need it)
+        prefs.edit().putInt("delay", 0).apply();
         ledsOn = prefs.getBoolean("leds", true);
         autoBoard = prefs.getBoolean("autoBoard", true);
         hornVol = prefs.getInt("hornVol", 1);
         ledBri = prefs.getInt("ledBri", 1);
         celebrations = prefs.getBoolean("celebrations", true);
         notify = prefs.getBoolean("otherTeams", true);
+        extraAlerts = prefs.getBoolean("extraAlerts", false);   // off: only goals, touchdowns and wins
         keepOn = prefs.getInt("keepMode", prefs.getBoolean("keepOn", true) ? 0 : 2) == 0;   // LIVE GAMES: switched on/off as games go live
         nightMode = false;   // night dim removed (3.17)
         hideFinal = prefs.getBoolean("hideFinal", false);
@@ -329,6 +383,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         if (!running || (TopActivity.current != null && !leftHome)) return;
         main.removeCallbacks(refreshLoop);
         main.removeCallbacks(delayTick);
+        main.removeCallbacks(smoothClock);
         main.removeCallbacks(favWatch);
         if (ledsAvailable) Leds.restore(this);
     }
@@ -529,7 +584,36 @@ public class MainActivity extends Activity implements ThorView.Listener {
     }
 
     /** MY TEAMS has no standings tab (teams from different leagues can't share a table). */
-    private int tabCount() { return Espn.LEAGUES[leagueIdx].mine() ? 2 : 3; }
+    private int tabCount() { return ThorView.tabCount(Espn.LEAGUES[leagueIdx]); }
+
+    // ------------------------------------------------------------------ PLAYOFFS tab
+    private int playoffsLeague = -1;
+    private long playoffsAt;
+
+    /** Real playoffs from ESPN if the league is in them, else "if the playoffs started today" from the standings. */
+    private void loadPlayoffs(boolean force) {
+        final int idx = leagueIdx;
+        final Espn.League lg = Espn.LEAGUES[idx];
+        if (ThorView.tabCount(lg) < 4) return;
+        if (!force && playoffsLeague == idx && System.currentTimeMillis() - playoffsAt < 60_000) return;
+        if (playoffsLeague != idx) all(v -> v.setPlayoffs(null, null));
+        playoffsLeague = idx; playoffsAt = System.currentTimeMillis();
+        final List<Model.Group> known = standingsLeague == idx ? lastGroups : null;
+        io.execute(() -> {
+            Playoffs.Bracket b = null;
+            try { b = Playoffs.live(lg); } catch (Exception ignored) { }
+            if (b == null) {
+                List<Model.Group> g = known;
+                if (g == null) try { g = fetchStandings(lg, false); } catch (Exception ignored) { }
+                b = Playoffs.project(lg, g);
+            }
+            final Playoffs.Bracket fb = b;
+            final String msg = b != null ? null : lg.college()
+                ? ThorView.tr("The postseason shows up here once it starts", "Les séries s'afficheront ici quand elles commenceront")
+                : ThorView.tr("No playoff data right now", "Pas de données de séries pour l'instant");
+            main.post(() -> { if (idx == leagueIdx) all(v -> v.setPlayoffs(fb, msg)); });
+        });
+    }
 
     @Override public void onTabTap(int t) {
         if (t >= tabCount()) t = ThorView.TAB_SCORES;
@@ -538,6 +622,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         prefs.edit().putInt("tab", tab).apply();
         view.setTab(tab);
         if (tab == ThorView.TAB_STANDINGS) refresh(false);
+        else if (tab == ThorView.TAB_PLAYOFFS) loadPlayoffs(false);
         else restartLoop();
     }
 
@@ -896,6 +981,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         it.add(item(1, t("Celebrate", "Célébrer"), celebMine ? t("MY TEAMS ONLY", "MES ÉQUIPES") : t("ALL GAMES", "TOUS LES MATCHS"), ThorView.SET_CELEB_MINE));
         it.add(item(1, t("Game reminder", "Rappel d'avant-match"), reminderIdx == 0 ? onOff(false) : REMIND_MIN[reminderIdx] + " MIN", ThorView.SET_REMINDER));
         it.add(item(1, t("Your other games", "Tes autres matchs"), onOff(notify), ThorView.SET_OTHER_TEAMS));
+        it.add(item(1, t("Extra alerts (power play, lead change…)", "Alertes extra (avantage, changement de meneur…)"), onOff(extraAlerts), ThorView.SET_EXTRA_ALERTS));
         it.add(item(1, t("Goal screen length", "Durée de l'écran de but"), CELEB_NAMES[celebLen], ThorView.SET_CELEB_LEN));
         it.add(item(1, t("Test a goal", "Tester un but"), "▶", ThorView.SET_TEST));
         if (lastAlertWord != null) it.add(item(1, t("Replay last goal", "Revoir le dernier but"), "▶", ThorView.SET_REPLAY));
@@ -1007,6 +1093,8 @@ public class MainActivity extends Activity implements ThorView.Listener {
             case ThorView.SET_LED_BRI:
                 ledBri = (ledBri + 1) % LED_BRIS.length; e.putInt("ledBri", ledBri);
                 Leds.setBrightness(LED_BRIS[ledBri]); updateLeds(); break;
+            case ThorView.SET_EXTRA_ALERTS:
+                extraAlerts = !extraAlerts; e.putBoolean("extraAlerts", extraAlerts); break;
             case ThorView.SET_OTHER_TEAMS:
                 notify = !notify; e.putBoolean("otherTeams", notify); break;
             case ThorView.SET_CELEB:
@@ -1506,6 +1594,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
     }
 
     private void refresh(boolean force) {
+        if (tab == ThorView.TAB_PLAYOFFS) loadPlayoffs(force);
         final int idx = leagueIdx;
         final int day = dateOffset;
         final String date = dateParam();
@@ -1573,6 +1662,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
             all(v -> v.setLeagueLogo(sbx.leagueLogo));
             if (due.day == 0) checkEvents(games.games, lg);
             lastGames = games.games;
+            syncClocks(games.games);
             rememberColors(games.games);
             all(v -> v.setGames(sbx.games));
             final long dueAt = due.at;
@@ -1683,7 +1773,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
             Integer prevPeriod = lastPeriod.put(g.id, g.period);
             if (watched && g.isLive() && prevDetail != null && !prevDetail.equals(g.detail)) {
                 String up = g.detail.toUpperCase(Locale.US);
-                if ((up.startsWith("END") || up.contains("INTERMISSION") || up.equals("HALFTIME")) && !prevDetail.toUpperCase(Locale.US).equals(up)) {
+                if (extraAlerts && (up.startsWith("END") || up.contains("INTERMISSION") || up.equals("HALFTIME")) && !prevDetail.toUpperCase(Locale.US).equals(up)) {
                     // hockey: the shots so far, the stat everyone checks at the intermission
                     String shots = g.away.shots >= 0 && g.home.shots >= 0 ? t("  ·  SHOTS ", "  ·  TIRS ") + g.away.shots + "–" + g.home.shots : "";
                     all(v -> v.banner(up + " · " + g.away.abbr + " " + g.away.score + " – " + g.home.score + " " + g.home.abbr + shots, 0xFF4DA3FF));
@@ -1694,7 +1784,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
                 all(v -> v.banner(("baseball".equals(g.sport) ? t("EXTRA INNINGS", "MANCHES SUPP.") : t("OVERTIME", "PROLONGATION")) + " · " + g.away.abbr + " " + g.away.score
                     + " – " + g.home.score + " " + g.home.abbr, 0xFFFF3B30));
 
-            if (watched && g.isLive()) liveAlerts(g, prevPeriod, reg);
+            if (extraAlerts && watched && g.isLive()) liveAlerts(g, prevPeriod, reg);
 
             if (prevState != null && !prevState.equals(g.state) && watched) {
                 if ("pre".equals(prevState) && g.isLive()) {
@@ -1725,7 +1815,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
 
             // big swing in the win chance (20+ points since the last update) in the game you watch
             float[] po = lastOdds.get(g.id);
-            if (watched && g.isLive() && po != null && g.away.odds >= 0 && Math.abs(g.away.odds - po[0]) >= 0.2f) {
+            if (extraAlerts && watched && g.isLive() && po != null && g.away.odds >= 0 && Math.abs(g.away.odds - po[0]) >= 0.2f) {
                 boolean awayGains = g.away.odds > po[0];
                 Model.Side up = awayGains ? g.away : g.home;
                 int from = Math.round((awayGains ? po[0] : po[1]) * 100), to = Math.round((awayGains ? g.away.odds : g.home.odds) * 100);
@@ -1763,7 +1853,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
             int[] wd = worstDeficit.get(g.id);   // remember each team's biggest deficit (for COMEBACK WIN!)
             if (wd == null) { wd = new int[]{0, 0}; worstDeficit.put(g.id, wd); }
             wd[0] = Math.max(wd[0], h - a); wd[1] = Math.max(wd[1], a - h);
-            if ((awayUp || homeUp) && watched && !"basketball".equals(g.sport) && !"esports".equals(g.sport)) {
+            if (extraAlerts && (awayUp || homeUp) && watched && !"basketball".equals(g.sport) && !"esports".equals(g.sport)) {
                 int before = prev[0] - prev[1], now = a - h;
                 String sc = g.away.abbr + " " + g.away.score + " – " + g.home.score + " " + g.home.abbr;
                 Model.Side scorerSide = awayUp ? g.away : g.home;
