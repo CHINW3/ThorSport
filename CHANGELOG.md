@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.25
+- Cricket redone: one team per row with the full score ("202 & 144"), overs underneath, and the match situation in full at the bottom. The Board shows the situation big instead of an empty innings grid.
+- Text that's too long now shrinks to fit instead of being cut with "…" (everywhere in the app).
+- Stick lights and card colors use the flag colors in cricket (India orange/green, Australia green/gold…).
+- F1: team emblems (Ferrari horse, McLaren swoosh, Mercedes star…) in the race results instead of letter codes, new F1 logo.
+- PWHL: this season's team logos (Montréal Victoire was showing the old, too-pink one).
+- NCAA Hockey logo in the league menu.
+- New soccer ball icon for the SOCCER folder, cricket logo in the league menu.
+
 ## 3.24
 - Retroid Pocket Duo support: the scoreboard fits its 1280×960 bottom screen, the top screen works like on the Thor. Stick-light settings only show on the Thor.
 - Cricket: every match ESPN lists (Tests, ODIs, T20s, domestic leagues), with live scores.
