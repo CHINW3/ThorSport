@@ -1,5 +1,21 @@
 # Changelog
 
+## 3.21
+- **A different celebration for each event**:
+  - **Hockey goal**: red goal light, strobe and siren beams (as before).
+  - **Touchdown**: end-zone stripes in the team color and a football spiralling in with a trail.
+  - **Field goal**: yellow uprights behind the logo, the kick sails through and the posts light up.
+  - **Soccer goal**: the net ripples out from where the ball hit.
+  - **OT winner**: golden rays turning behind the logo, the word in gold.
+  - **Victory / shutout / comeback win**: no strobe, gold rays, a crown dropping on the logo, gold confetti and gold fireworks.
+  - **Home run / grand slam**: the ball flying out of the park (as before).
+- **Big words always fit**: "TOUCHDOWN!" shrinks to fit instead of being cut with "…".
+- **Settings, reorganized**: 8 sections with their own icons. **General** (two screens, language, open on, refresh, spoiler delay), **Display** (brightness, accent, clock, keep screen on, screensaver), **Celebrations**, **Sound**, **Alerts**, **Stick lights**, **Scores & Board**, **App**.
+- **Celebration options**: **Style** in one tap (FULL, CLEAN without flashing or shaking, SIMPLE with just the logo and the word) or pick each effect yourself: flash & strobe, goal-lamp beams, confetti, fireworks, screen shake. Plus length, all games / my teams only, test and replay.
+- **4 goal sounds**: arena horn, deep horn, goal siren, victory chime (you hear it as soon as you pick it). Plus volume, full / short, vibration.
+- **Stick lights → Flash on goals**: turn off the light show on goals while keeping the team colors.
+- **Even fewer notifications**: by default you now only get goals, touchdowns and field goals (yours and the game you watch), your team's wins, goals against your team, and the cards for your other games. Also moved behind Settings → Goals & alerts → Extra alerts: game start / puck drop, overtime, finals of games your team didn't win, upsets, close games, NBA "THREE!", and the small grey banners for extra points, 2-point tries and other teams' goals.
+
 ## 3.20
 - **New PLAYOFFS tab** (every league except MY TEAMS, F1 and LoL), drawn as a real bracket with lines between the rounds:
   - **In the playoffs** (or up to 3 weeks after): the real bracket from ESPN, one column per round (East and West together), with the series score (BOS 4 – 1), single-game scores (NFL, soccer, college) and two-leg aggregates (Champions League). Your teams are outlined.
