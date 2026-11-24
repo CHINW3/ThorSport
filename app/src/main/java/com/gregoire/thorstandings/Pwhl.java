@@ -24,10 +24,13 @@ public final class Pwhl {
     /** Team colors (HockeyTech doesn't send them). Unknown teams fall back to grey. */
     private static final Map<String, String> COLORS = new HashMap<>();
     static {
-        COLORS.put("BOS", "1E8C5A"); COLORS.put("MIN", "6B3FA0"); COLORS.put("MTL", "862633");
+        COLORS.put("BOS", "1E8C5A"); COLORS.put("MIN", "6B3FA0"); COLORS.put("MTL", "5E0F17");
         COLORS.put("NY", "2BB3B1");  COLORS.put("OTT", "D32F3A"); COLORS.put("TOR", "3A7BD5");
         COLORS.put("SEA", "3F8F8A"); COLORS.put("VAN", "E0B341");
     }
+
+    private static final Map<String, int[]> LEDS = new HashMap<>();
+    static { LEDS.put("MTL", new int[]{0xFFFF0000, 0xFF0000B0}); }   // Victoire: red + navy, no pink
 
     static boolean is(Espn.League lg) { return lg.path.endsWith("/pwhl"); }
 
@@ -116,6 +119,8 @@ public final class Pwhl {
         s.color = color(s.abbr);
         s.ledA = s.color;
         s.ledB = 0xFFFFFFFF;
+        int[] led = LEDS.get(s.abbr);   // LEDs wash dark/mixed colors out (burgundy looked pink): use pure ones
+        if (led != null) { s.ledA = led[0]; s.ledB = led[1]; }
         s.score = o.optInt("GameStatus", 1) == 1 ? "" : o.optString(side + "Goals", "");
         s.record = o.optString(side + "Wins", "0") + "-" + o.optString(side + "RegulationLosses", "0")
             + "-" + o.optString(side + "OTLosses", "0");

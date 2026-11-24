@@ -580,7 +580,8 @@ public class MainActivity extends Activity implements ThorView.Listener {
         dateOffset = 0;
         leagueIdx = idx;
         prefs.edit().putInt("league", leagueIdx).remove("boardGame").apply();
-        if (tab >= tabCount()) { tab = ThorView.TAB_SCORES; prefs.edit().putInt("tab", tab).apply(); view.setTab(tab); }
+        if (tab >= tabCount() || tab == ThorView.TAB_BOARD) { tab = ThorView.TAB_SCORES;   // a new sport opens on LIVE, not on the last game
+            prefs.edit().putInt("tab", tab).apply(); view.setTab(tab); }
         view.setDateOffset(0);
         all(v -> v.setBoardGameId(null));
         favorites = favAbbrs(leagueIdx);
@@ -720,6 +721,15 @@ public class MainActivity extends Activity implements ThorView.Listener {
             if (abbr.equals(g.away.abbr) || abbr.equals(g.home.abbr)) { onFollowGame(g.id, true); return; }
         }
         Toast.makeText(this, "No " + abbr + " game today", Toast.LENGTH_SHORT).show();
+    }
+
+    /** Two screens: moving the cursor on LIVE shows that game on the top screen (no delay change, no tab jump). */
+    @Override public void onCursorGame(String gameId) {
+        if (top == null || gameId == null || gameId.equals(boardGameId)) return;
+        boardGameId = gameId;
+        prefs.edit().putString("boardGame", gameId).apply();
+        all(v -> v.setBoardGameId(gameId));
+        updateLeds();
     }
 
     @Override public void onFollowGame(String gameId, boolean openBoard) {

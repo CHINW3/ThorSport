@@ -46,6 +46,17 @@ public final class Espn {
         return new League(label, path, SOC_COLS, SOC_STATS, "points", "pointDifferential").zones(0, good, bad);
     }
 
+    /** Teams whose ESPN colors look wrong on screen or on the stick lights: {card, light A, light B}. */
+    static final java.util.Map<String, int[]> COLOR_FIX = new java.util.HashMap<>();
+    private static void fix(String key, int card, int a, int b) { COLOR_FIX.put(key, new int[]{0xFF000000 | card, 0xFF000000 | a, 0xFF000000 | b}); }
+    static {
+        fix("hockey/nhl:VGK", 0xB4975A, 0xFFB000, 0xFFB000);   // Golden Knights: gold, not white
+        fix("hockey/nhl:MIN", 0x154734, 0x00A040, 0xFF0000);   // Wild: forest green + red
+        fix("hockey/nhl:MTL", 0x192168, 0xFF0000, 0x0020FF);   // Canadiens: blue card, red/blue lights
+        fix("hockey/nhl:NSH", 0xFFB81C, 0xFFA000, 0x0020A0);   // Predators: gold + navy
+        fix("hockey/nhl:COL", 0x4A0E1F, 0xD0001A, 0x0050FF);   // Avalanche: deep burgundy + blue (was pink)
+    }
+
     public static final League[] LEAGUES = {
         new League("★ MY TEAMS", "mine", new String[0], new String[0], "", ""),
         new League("NHL", "hockey/nhl",
@@ -305,6 +316,8 @@ public final class Espn {
                 if (bat != null) { g.batter = athleteName(bat); g.batterInfo = bat.optString("summary", ""); }
                 if (pit != null) { g.pitcher = athleteName(pit); g.pitcherInfo = pit.optString("summary", ""); }
             }
+            JSONObject seasonObj = ev.optJSONObject("season");
+            g.preseason = seasonObj != null && seasonObj.optInt("type", 2) == 1;
             JSONObject series = comp.optJSONObject("series");
             if (series != null) g.series = series.optString("summary", "");
             JSONArray notes = comp.optJSONArray("notes");
@@ -337,6 +350,8 @@ public final class Espn {
                     s.color = pickColor(t.optString("color", ""), t.optString("alternateColor", ""));
                     s.ledA = parse(t.optString("color", ""));
                     s.ledB = parse(t.optString("alternateColor", ""));
+                    int[] fix = COLOR_FIX.get(lg.path + ":" + s.abbr);   // {card, light A, light B}
+                    if (fix != null) { s.color = fix[0]; s.ledA = fix[1]; s.ledB = fix[2]; }
                     s.teamId = t.optString("id", "");
                 }
                 // college: AP / coaches top-25 rank in front of the name ("#9 Texas Tech")

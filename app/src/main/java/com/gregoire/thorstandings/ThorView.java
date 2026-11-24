@@ -56,6 +56,7 @@ public class ThorView extends View {
         void onOnboardToggle(String leaguePath, String abbr);
         void onOnboardDone();
         void onViewMode(int mode);
+        void onCursorGame(String gameId);                   // two screens: the top shows the game under the cursor
         void onSyncPick(int row);                           // Sync with TV: the moment your TV shows (row 0 = newest)                          // 0 one screen, 1 two screens classic, 2 two screens + game info
     }
 
@@ -272,7 +273,9 @@ public class ThorView extends View {
             for (int i = 0; i < onboardLeagueRects.size(); i++)
                 if (onboardLeagueRects.get(i).contains(x, y)) { openOnboardLeague(onboardLeagues.get(i)); return true; }
             for (int i = 0; i < onboardRects.size(); i++)
-                if (onboardRects.get(i).contains(x, y)) { listener.onOnboardToggle(onboardPath, onboardTeams.get(i).abbr); return true; }
+                if (onboardRects.get(i).contains(x, y) && onboardFirstIdx + i < onboardTeams.size()) { listener.onOnboardToggle(onboardPath, onboardTeams.get(onboardFirstIdx + i).abbr); return true; }
+            if (onboardPages > 1 && obPrev.contains(x, y)) { onboardPage = Math.max(0, onboardPage - 1); selOnboard = -1; invalidate(); return true; }
+            if (onboardPages > 1 && obNext.contains(x, y)) { onboardPage = Math.min(onboardPages - 1, onboardPage + 1); selOnboard = -1; invalidate(); return true; }
             if (onboardDoneRect.contains(x, y)) { onboardOpen = false; listener.onOnboardDone(); invalidate(); }
             return true;
         }
@@ -375,7 +378,7 @@ public class ThorView extends View {
     private RectF selectedRect() {
         if (delayOpen) return sel(delayRects, selDelay);
         if (syncState == 3) return sel(syncRects, selSync);
-        if (onboardOpen) return sel(onboardRects, selOnboard);
+        if (onboardOpen) return sel(onboardRects, selOnboard - onboardFirstIdx);
         if (settingsOpen) return settingsFocus == 0 ? sel(sectionRects, settingsSection) : sel(settingCells, selSetting);
         if (pickerOpen) return sel(pickerRects, selPicker);
         if (tab == TAB_SCORES) return sel(cardRects, selCard);
@@ -451,7 +454,7 @@ public class ThorView extends View {
             if (next >= m && (dx > 0 || dy > 0)) { nextPage(1); selCard = 0; }
             else if (next < 0 && (dx < 0 || dy < 0)) { nextPage(-1); selCard = 99; }
             else selCard = Math.max(0, Math.min(m - 1, next));
-            if (listener != null && !shownGames().isEmpty()) { }
+            if (listener != null) post(() -> { if (tab == TAB_SCORES && selCard >= 0 && selCard < cardIds.size()) listener.onCursorGame(cardIds.get(selCard)); });
         } else if (tab == TAB_STANDINGS) {
             if (dx != 0 && groups.size() > 1) {
                 standGroup = ((standGroup + dx) % groups.size() + groups.size()) % groups.size();
@@ -2030,6 +2033,7 @@ public class ThorView extends View {
 
     private void openOnboardLeague(int idx) {
         onboardLeague = idx;
+        onboardPage = 0;
         onboardPath = Espn.LEAGUES[idx].path;
         onboardTeams = new ArrayList<>();
         onboardLoading = true;
@@ -2048,6 +2052,9 @@ public class ThorView extends View {
     public void setFavKeys(Set<String> keys) { favKeysView = keys; invalidate(); }
 
     private int onboardCols() { return onboardTeams.size() > 25 ? 6 : 5; }
+    // big leagues (college: 130+ teams) get pages of normal-size tiles instead of a wall of tiny ones
+    private int onboardPage, onboardPages = 1, onboardFirstIdx;
+    private final RectF obPrev = new RectF(), obNext = new RectF();
 
     private void drawOnboarding(Canvas c, int w, int h) {
         onboardRects.clear();
@@ -2092,12 +2099,20 @@ public class ThorView extends View {
         if (onboardTeams.isEmpty())
             text(c, onboardLoading ? tr("Loading teams…", "Chargement des équipes…") : tr("No teams found (offline?)", "Aucune équipe (hors ligne ?)"),
                 gx + gw / 2, (top + bottom) / 2, h * 0.035f, tfMed, MUTED, Paint.Align.CENTER, gw);
-        int cols = onboardCols(), rows = Math.max(1, (onboardTeams.size() + cols - 1) / cols);
+        int cols = onboardCols();
+        int maxRows = Math.max(1, (int) ((bottom - top) / (h * 0.145f)));
+        int perPage = cols * maxRows, n = onboardTeams.size();
+        onboardPages = Math.max(1, (n + perPage - 1) / perPage);
+        if (selOnboard >= 0) onboardPage = selOnboard / perPage;
+        onboardPage = Math.max(0, Math.min(onboardPages - 1, onboardPage));
+        onboardFirstIdx = onboardPage * perPage;
+        int rows = Math.max(1, Math.min(maxRows, (n + cols - 1) / cols));
         float tw = gw / cols, th = Math.min((bottom - top) / rows, tw * 0.85f);
-        for (int i = 0; i < onboardTeams.size(); i++) {
+        for (int i = onboardFirstIdx; i < Math.min(n, onboardFirstIdx + perPage); i++) {
             Model.Team t = onboardTeams.get(i);
-            RectF r = new RectF(gx + (i % cols) * tw + tw * 0.04f, top + (i / cols) * th + th * 0.05f,
-                gx + (i % cols + 1) * tw - tw * 0.04f, top + (i / cols + 1) * th - th * 0.05f);
+            int k = i - onboardFirstIdx;
+            RectF r = new RectF(gx + (k % cols) * tw + tw * 0.04f, top + (k / cols) * th + th * 0.05f,
+                gx + (k % cols + 1) * tw - tw * 0.04f, top + (k / cols + 1) * th - th * 0.05f);
             boolean fav = favKeysView.contains(onboardPath + "|" + t.abbr);
             float rr = r.height() * 0.18f;
             p.setColor(fav ? alpha(ACCENT, 0x3A) : 0xFF171A21);
@@ -2112,17 +2127,26 @@ public class ThorView extends View {
             }
             float ls = Math.min(r.height() * 0.48f, r.width() * 0.5f);
             logo(c, t.logo, t.abbr, 0xFF3A3F4A, r.centerX(), r.top + r.height() * 0.4f, ls);
-            text(c, t.abbr, r.centerX(), r.top + r.height() * 0.82f, r.height() * 0.17f, tfBlack, fav ? TEXT : 0xFFC9CDD3, Paint.Align.CENTER, r.width() * 0.92f);
+            text(c, Espn.LEAGUES[onboardLeague].college() && t.name != null && !t.name.isEmpty() ? t.name : t.abbr, r.centerX(), r.top + r.height() * 0.82f, r.height() * 0.17f, tfBlack, fav ? TEXT : 0xFFC9CDD3, Paint.Align.CENTER, r.width() * 0.92f);
             onboardRects.add(r);
         }
 
         // bottom bar
         float bh = h * 0.08f, by = h - gap * 0.6f - bh;
         int total = favKeysView.size();
-        text(c, total == 0 ? tr("Tap a team to add it. Later: long-press any team, or Settings → App → My teams.", "Touche une équipe pour l'ajouter. Plus tard : appui long, ou Réglages → Appli → Mes équipes.")
+        text(c, total == 0 ? (onboardPages > 1 ? tr("Tap a team to add it.", "Touche une équipe pour l'ajouter.") : tr("Tap a team to add it. Later: long-press any team, or Settings → App → My teams.", "Touche une équipe pour l'ajouter. Plus tard : appui long, ou Réglages → Appli → Mes équipes."))
                 : total + (total == 1 ? tr(" team selected", " équipe choisie") : tr(" teams selected", " équipes choisies")),
-            gap * 1.5f, by + bh / 2, bh * 0.3f, tfMed, total == 0 ? MUTED : TEXT, Paint.Align.LEFT, w - bh * 3.6f - gap * 3);
+            gap * 1.5f, by + bh / 2, bh * 0.3f, tfMed, total == 0 ? MUTED : TEXT, Paint.Align.LEFT, w - bh * (onboardPages > 1 ? 9.5f : 3.6f) - gap * 3);
         onboardDoneRect.set(w - gap - bh * 3.2f, by, w - gap, by + bh);
+        if (onboardPages > 1) {   // ‹ 2 / 6 ›  (also L1/R1 or the D-pad past the edge)
+            float pw = bh * 1.3f, mid = onboardDoneRect.left - gap - pw * 2.2f;
+            obPrev.set(mid - pw * 1.6f, by, mid - pw * 0.6f, by + bh);
+            obNext.set(mid + pw * 0.6f, by, mid + pw * 1.6f, by + bh);
+            for (RectF b : new RectF[]{obPrev, obNext}) { p.setColor(0xFF2C303A); c.drawRoundRect(b, bh / 2, bh / 2, p); }
+            text(c, "‹", obPrev.centerX(), obPrev.centerY(), bh * 0.55f, tfBlack, onboardPage > 0 ? TEXT : MUTED, Paint.Align.CENTER, pw);
+            text(c, "›", obNext.centerX(), obNext.centerY(), bh * 0.55f, tfBlack, onboardPage < onboardPages - 1 ? TEXT : MUTED, Paint.Align.CENTER, pw);
+            text(c, (onboardPage + 1) + " / " + onboardPages, mid, by + bh / 2, bh * 0.36f, tfBlack, TEXT, Paint.Align.CENTER, pw * 1.2f);
+        } else { obPrev.set(0, 0, 0, 0); obNext.set(0, 0, 0, 0); }
         p.setColor(total == 0 ? 0xFF2C303A : ACCENT);
         c.drawRoundRect(onboardDoneRect, bh / 2, bh / 2, p);
         text(c, total == 0 ? tr("SKIP", "PASSER") : tr("DONE", "TERMINÉ"), onboardDoneRect.centerX(), onboardDoneRect.centerY(), bh * 0.36f, tfBlack,
@@ -2667,6 +2691,7 @@ public class ThorView extends View {
 
         float cx = r.centerX();
         float centerW = cw - 2 * sideW;
+        if (g.preseason) text(c, tr("PRESEASON", "PRÉSAISON"), cx, y + ch * 0.1f, ch * 0.065f, tfCond, MUTED, Paint.Align.CENTER, centerW);
         if ("pre".equals(g.state)) {
             String time = g.startMs > 0 ? fmtTime(g.startMs) : g.detail;
             text(c, time, cx, y + ch * 0.4f, ch * 0.2f, tfBlack, TEXT, Paint.Align.CENTER, centerW);
@@ -3055,6 +3080,7 @@ public class ThorView extends View {
         float panelW = w * 0.355f;
 
         drawBoardPanel(c, g, g.away, gap, top, panelW, heroH);
+        if (g.preseason) text(c, tr("PRESEASON", "PRÉSAISON"), w / 2f, top + H * 0.025f, H * 0.026f, tfCond, MUTED, Paint.Align.CENTER, w * 0.25f);
         drawBoardPanel(c, g, g.home, w - gap - panelW, top, panelW, heroH);
 
         // ---- center "LED" box: period + clock

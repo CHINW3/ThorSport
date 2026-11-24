@@ -66,6 +66,7 @@ public final class Model {
         public final String[] runners = {"", "", ""};    // baseball: runner names when known
         public String batter = "", batterInfo = "", pitcher = "", pitcherInfo = "";
         public String series = "", note = "", venue = "";
+        public boolean preseason;                        // ESPN season type 1
         public String nhlId = "";
         public int[][] lol;                              // LoL live: {away, home} x {gold, kills, towers, dragons, barons, inhibitors}
         public boolean lolAwayBlue;
