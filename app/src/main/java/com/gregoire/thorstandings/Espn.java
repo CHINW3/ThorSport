@@ -85,6 +85,11 @@ public final class Espn {
             new String[]{"W", "L", "PCT"}, new String[]{"wins", "losses", "winPercent"}, "winPercent", "wins").query("groups=50&limit=300"),
         new League("NCAA HOCKEY", "hockey/mens-college-hockey",
             new String[]{"W", "L", "T", "PCT"}, new String[]{"wins", "losses", "ties", "winPercent"}, "winPercent", "wins").query("limit=300"),
+        // English Football League (under SOCCER in the league menu)
+        soccer("EFL CHAMP", "soccer/eng.2", 2, 3),
+        soccer("EFL LG 1", "soccer/eng.3", 2, 4),
+        soccer("EFL LG 2", "soccer/eng.4", 3, 2),
+        new League("CRICKET", "cricket/all", new String[0], new String[0], "", ""),
     };
 
     /** Folder where the last good answer of every feed is kept (instant start + offline). */
@@ -139,6 +144,7 @@ public final class Espn {
     // ------------------------------------------------------------------ standings
     public static List<Model.Group> standings(League lg, boolean fromCache) throws Exception {
         if (Pwhl.is(lg)) return Pwhl.standings(lg, fromCache);
+        if (Cricket.is(lg)) return new java.util.ArrayList<>();
         String body = fromCache ? cached(standingsUrl(lg)) : get(standingsUrl(lg));
         if (body == null) throw new Exception("No cache");
         JSONObject root = new JSONObject(body);
@@ -230,6 +236,7 @@ public final class Espn {
     /** date = "yyyyMMdd" or null for today. */
     public static Model.Scoreboard scores(League lg, String date, boolean fromCache) throws Exception {
         if (Pwhl.is(lg)) return Pwhl.scores(date, fromCache);
+        if (Cricket.is(lg)) return Cricket.scores(date, fromCache);
         String url = scoresUrl(lg, date);
         String body = fromCache ? cached(url) : get(url);
         if (body == null) throw new Exception("No cache");

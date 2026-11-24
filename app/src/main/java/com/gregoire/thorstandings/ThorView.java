@@ -314,12 +314,12 @@ public class ThorView extends View {
         }
         if (pickerOpen) {
     for (int i = 0; i < pickerRects.size(); i++) {
-        if (pickerRects.get(i).contains(x, y)) { pickerOpen = false; listener.onLeaguePick(i); return true; }
+        if (pickerRects.get(i).contains(x, y)) { pickItem(i); return true; }
     }
-    pickerOpen = false; invalidate(); return true;
+    pickerOpen = false; pickerSoccer = false; invalidate(); return true;
         }
         if (dualRect.contains(x, y)) { listener.onViewMode(dual || topMode ? 0 : 2); performHapticFeedback(1); invalidate(); return true; }   // one tap: one screen <-> two screens
-        if (leagueRect.contains(x, y)) { pickerOpen = true; invalidate(); return true; }
+        if (leagueRect.contains(x, y)) { pickerOpen = true; pickerSoccer = false; invalidate(); return true; }
         if (clockRect.contains(x, y)) { settingsOpen = true; invalidate(); return true; }
         if (!topMode) for (int i = 0; i < tabRects.length; i++) {
     if (tabRects[i].contains(x, y)) { listener.onTabTap(i); return true; }
@@ -442,7 +442,7 @@ public class ThorView extends View {
                 else if (dy != 0) selSetting = wrap(selSetting + dy, visibleSettings().size());   // ↓ on the last row goes back to the top
             }
         } else if (pickerOpen) {
-            int n = leagueLabels.length, rows = n > 8 ? (n + 1) / 2 : n;
+            int n = pickerItems().size(), rows = n > 8 ? (n + 1) / 2 : n;
             selPicker = clamp(selPicker + (dx != 0 ? dx * rows : dy), n);
         } else if (tab == TAB_SCORES) {
             int m = cardRects.size();
@@ -542,8 +542,7 @@ public class ThorView extends View {
             String[] it = sel2(visibleSettings(), selSetting);
             if (it != null) listener.onSetting(Integer.parseInt(it[2]), 1);
         } else if (pickerOpen) {
-            pickerOpen = false;
-            listener.onLeaguePick(selPicker);
+            pickItem(selPicker);
         } else if (tab == TAB_SCORES) {
             if (selCard < cardIds.size()) listener.onFollowGame(cardIds.get(selCard), true);
         } else if (tab == TAB_STANDINGS) {
@@ -585,7 +584,8 @@ public class ThorView extends View {
     public void openLeaguePicker() {
         settingsOpen = false;
         pickerOpen = !pickerOpen;
-        selPicker = leagueIndex;
+        pickerSoccer = false;
+        { List<Integer> it = pickerItems(); int at = it.indexOf(leagueIndex); selPicker = at >= 0 ? at : Math.max(0, it.indexOf(ITEM_SOCCER)); }
         wakeCursor();
         invalidate();
     }
@@ -661,7 +661,7 @@ public class ThorView extends View {
     /** Tabs shown for a league: MY TEAMS has 2, F1 and LoL have 3 (no playoffs), the rest 4. */
     public static int tabCount(Espn.League lg) {
         if (lg == null) return 3;
-        if (lg.mine()) return 2;
+        if (lg.mine() || lg.path.startsWith("cricket")) return 2;
         if (lg.path.startsWith("racing") || lg.path.startsWith("esports")) return 3;
         return 4;
     }
@@ -912,7 +912,7 @@ public class ThorView extends View {
     public void setDim(float d) { dim = d; invalidate(); }
     public void setDateOffset(int d) { dateOffset = d; page = 0; invalidate(); }
     public void setMyTeamsOnly(boolean on) { myTeamsOnly = on; page = 0; invalidate(); }
-    public void showLeaguePicker() { pickerOpen = true; invalidate(); }
+    public void showLeaguePicker() { pickerOpen = true; pickerSoccer = false; invalidate(); }
 
     public void setSettings(int delay, boolean leds, boolean ledsAvail, int dimPercent, boolean autoB) {
         delaySec = delay; ledsOn = leds; ledsAvailable = ledsAvail; dimPct = dimPercent; autoBoard = autoB;
@@ -1899,14 +1899,46 @@ public class ThorView extends View {
 
     // ------------------------------------------------------------------ league picker
     /** Dropdown list under the league chip: tap once, pick once. */
+    // League menu: every soccer league sits in one SOCCER folder.
+    private boolean pickerSoccer;
+    private static final int ITEM_SOCCER = -1, ITEM_BACK = -2;
+
+    private List<Integer> pickerItems() {
+        List<Integer> out = new ArrayList<>();
+        if (pickerSoccer) out.add(ITEM_BACK);
+        boolean folder = false;
+        for (int i = 0; i < leagueLabels.length && i < Espn.LEAGUES.length; i++) {
+            boolean soc = Espn.LEAGUES[i].soccer();
+            if (pickerSoccer) { if (soc) out.add(i); }
+            else if (!soc) out.add(i);
+            else if (!folder) { out.add(ITEM_SOCCER); folder = true; }
+        }
+        return out;
+    }
+
+    private void pickItem(int pos) {
+        List<Integer> items = pickerItems();
+        if (pos < 0 || pos >= items.size()) return;
+        int it = items.get(pos);
+        if (it == ITEM_SOCCER || it == ITEM_BACK) {
+            pickerSoccer = it == ITEM_SOCCER;
+            selPicker = 0;
+            invalidate();
+            return;
+        }
+        pickerOpen = false; pickerSoccer = false;
+        listener.onLeaguePick(it);
+    }
+
     private void drawPicker(Canvas c, int w, int h) {
         pickerRects.clear();
+        List<Integer> items = pickerItems();
         p.setColor(0x99000000);
         c.drawRect(0, headerBottom, w, h, p);
-        int n = leagueLabels.length, colsN = n > 8 ? 2 : 1;
+        int n = items.size(), colsN = n > 8 ? 2 : 1;
         int rows = (n + colsN - 1) / colsN;
         float rowH = Math.min(h * 0.095f, (h - headerBottom - h * 0.05f) / rows);
-        float colW = w * 0.24f;
+        float colW = w * 0.31f;
         float pad = w * 0.008f;
         RectF panel = new RectF(leagueRect.left, headerBottom + pad, leagueRect.left + colW * colsN + pad * 2,
             headerBottom + pad * 3 + rowH * rows);
@@ -1914,11 +1946,25 @@ public class ThorView extends View {
         p.setColor(0xFF15171D);
         c.drawRoundRect(panel, rowH * 0.3f, rowH * 0.3f, p);
         p.clearShadowLayer();
-        for (int i = 0; i < n; i++) {
-            float x = panel.left + pad + (i / rows) * colW, y = panel.top + pad + (i % rows) * rowH;
+        for (int pos = 0; pos < n; pos++) {
+            float x = panel.left + pad + (pos / rows) * colW, y = panel.top + pad + (pos % rows) * rowH;
             RectF r = new RectF(x, y, x + colW, y + rowH);
             pickerRects.add(r);
-            boolean cur = i == leagueIndex;
+            int i = items.get(pos);
+            boolean curSoc = leagueIndex >= 0 && leagueIndex < Espn.LEAGUES.length && Espn.LEAGUES[leagueIndex].soccer();
+            boolean cur = i == leagueIndex || (i == ITEM_SOCCER && curSoc);
+            if (i < 0) {
+                if (cur) {
+                    p.setColor(alpha(ACCENT, 0x40));
+                    c.drawRoundRect(new RectF(r.left + pad, r.top + pad / 2, r.right - pad, r.bottom - pad / 2), rowH * 0.25f, rowH * 0.25f, p);
+                }
+                float ls = rowH * 0.62f, lcx = r.left + rowH * 0.25f + ls / 2;
+                p.setColor(0xFF22252D);
+                c.drawCircle(lcx, r.centerY(), ls * 0.48f, p);
+                text(c, i == ITEM_BACK ? "‹" : "SOC", lcx, r.centerY(), i == ITEM_BACK ? ls * 0.6f : ls * 0.3f, tfBlack, TEXT, Paint.Align.CENTER, ls);
+                text(c, i == ITEM_BACK ? "BACK" : "SOCCER  ›", r.left + rowH * 0.45f + ls, r.centerY(), rowH * 0.4f, tfBlack, cur ? ACCENT : TEXT, Paint.Align.LEFT, colW - rowH * 0.7f - ls);
+                continue;
+            }
             if (cur) {
                 p.setColor(alpha(ACCENT, 0x40));
                 c.drawRoundRect(new RectF(r.left + pad, r.top + pad / 2, r.right - pad, r.bottom - pad / 2), rowH * 0.25f, rowH * 0.25f, p);

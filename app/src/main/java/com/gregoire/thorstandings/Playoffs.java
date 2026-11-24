@@ -51,7 +51,7 @@ final class Playoffs {
     // ------------------------------------------------------------------ real postseason
     /** The real playoffs from ESPN, or null when the league isn't in (or just out of) its postseason. */
     static Bracket live(Espn.League lg) throws Exception {
-        if (lg.mine() || lg.path.startsWith("racing") || lg.path.startsWith("esports") || Pwhl.is(lg)) return null;
+        if (lg.mine() || lg.path.startsWith("racing") || lg.path.startsWith("esports") || Pwhl.is(lg) || Cricket.is(lg)) return null;
         // ESPN refuses date ranges, but takes a whole month (dates=YYYYMM): last 3 months + next one
         SimpleDateFormat f = new SimpleDateFormat("yyyyMM", Locale.US);
         f.setTimeZone(TimeZone.getTimeZone("America/New_York"));
