@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.20
+- **New PLAYOFFS tab** (every league except MY TEAMS, F1 and LoL), drawn as a real bracket with lines between the rounds:
+  - **In the playoffs** (or up to 3 weeks after): the real bracket from ESPN, one column per round (East and West together), with the series score (BOS 4 – 1), single-game scores (NFL, soccer, college) and two-leg aggregates (Champions League). Your teams are outlined.
+  - **Not in the playoffs yet: "If the playoffs started today"**, built from the current standings with each league's real format, the two conferences facing each other with the final in the middle and empty boxes for the rounds to come: NHL (top 8 per conference, 1v8…), NBA (with the play-in note), WNBA (top 8), NFL (7 per conference, #1 bye), MLB (6 per league, #1–2 byes), MLS (9 per conference with the wild card), PWHL (top 4), Champions League (top 8 to the round of 16, 9–24 in the playoff round). European leagues show the champion, the Champions League spots and the relegated teams "if the season ended today".
+- **College sports**: four new leagues at the end of the league list. **NCAAF** (college football), **NCAAM** and **NCAAW** (men's and women's college basketball) and **NCAA HOCKEY** (men's). You get every Division I game (not just the top 25), conference standings, the Board (live field for football), the GAME tab, celebrations, stick lights, and you can pick your college teams in MY TEAMS. Top-25 teams show their rank (#9 Texas Tech).
+- **Two-screen button is a simple switch**: tapping ▭ now goes straight between one screen and two screens (no menu to pick from). R3 still does the same.
+- **Fewer banners**: by default you only get goals, touchdowns, field goals and wins. The extra banners (power play, empty net, tie game, lead change, scoring runs, start of period, two-minute warning, hat trick, win-chance swings, intermission) are now off. Want them back? Settings → Goals & alerts → Extra alerts.
+- **No waiting when you open the app**: the spoiler delay no longer comes back when you reopen ThorSport, so the scores show right away. Sync with your TV again when you need it.
+- **Smooth game clock**: in hockey, basketball and football the clock now runs down second by second between refreshes, instead of jumping every 15–30 s. When the play stops it can be a few seconds ahead until the next update fixes it.
+
 ## 3.19
 - **Logos without Wi-Fi**: every NHL, NFL, NBA, MLB and MLS team logo (and those five league logos) is now packed inside the app, with a thin light outline on the darkest ones so they stand out on the dark background, so they show right away, even offline. Other leagues (PWHL, WNBA, soccer in Europe, F1…) still load their logos from ESPN, and a team that isn't in the pack (like the Utah Mammoth) falls back to ESPN too. The big faded logo behind a team on the Board (and the logo at center ice) uses ESPN's version, so you see two different logos instead of the same one twice.
 

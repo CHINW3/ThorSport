@@ -1,4 +1,4 @@
-# ThorSport 3.18
+# ThorSport 3.20
 
 Live sports for the **AYN Thor bottom screen** (1240×1080). Everything is drawn to fill the screen exactly.
 
@@ -17,7 +17,7 @@ Live sports for the **AYN Thor bottom screen** (1240×1080). Everything is drawn
 **Updates:** ThorSport checks GitHub for a new version and shows a banner when one is out. Settings → App update downloads and installs it (Android asks once to allow ThorSport to install apps). What changed: [CHANGELOG.md](CHANGELOG.md).
 
 ## Leagues
-★ MY TEAMS · NHL · PWHL · NBA · NFL · MLB · WNBA · F1 · League of Legends · Premier League · MLS · Champions League · La Liga · Bundesliga · Serie A · Ligue 1
+★ MY TEAMS · NHL · PWHL · NBA · NFL · MLB · WNBA · F1 · League of Legends · Premier League · MLS · Champions League · La Liga · Bundesliga · Serie A · Ligue 1 · College football (NCAAF) · College basketball (NCAAM, NCAAW) · College hockey
 
 ## Two-screen mode
 Tap the **two-screen button** (the little ▭ icon next to the tabs) or Settings → Two-screen mode.
