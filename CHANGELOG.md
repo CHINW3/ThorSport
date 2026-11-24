@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.24
+- Retroid Pocket Duo support: the scoreboard fits its 1280×960 bottom screen, the top screen works like on the Thor. Stick-light settings only show on the Thor.
+- Cricket: every match ESPN lists (Tests, ODIs, T20s, domestic leagues), with live scores.
+- EFL: Championship, League One and League Two, with promotion and relegation zones.
+- League menu: all soccer leagues are now in one SOCCER folder.
+
 ## 3.23
 - Sounds are much louder: compressed to full scale plus a loudness boost, more on HIGH.
 - LOW and MED volume raised a bit.
