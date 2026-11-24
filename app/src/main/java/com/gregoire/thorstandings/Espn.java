@@ -28,12 +28,16 @@ public final class Espn {
         public final String[] colLabels, statNames;
         public int cut, good, bad; // playoff line after rank `cut`; soccer: top `good` green, bottom `bad` red
         public String query = "";  // extra scoreboard parameters (college: every Division I game, not just the top 25)
+        public boolean intl;       // national teams: lives in the INTL folder of the league menu, not SOCCER
         League(String label, String path, String[] colLabels, String[] statNames, String sortStat, String tieStat) {
             this.label = label; this.path = path; this.colLabels = colLabels;
             this.statNames = statNames; this.sortStat = sortStat; this.tieStat = tieStat;
         }
         League zones(int cut, int good, int bad) { this.cut = cut; this.good = good; this.bad = bad; return this; }
         League query(String q) { this.query = q; return this; }
+        League intl() { this.intl = true; return this; }
+        /** National-team friendlies have no table. */
+        public boolean noTable() { return path.endsWith("fifa.friendly"); }
         public boolean college() { return path.contains("college"); }
         public boolean soccer() { return path.startsWith("soccer"); }
         public boolean mine() { return "mine".equals(path); }
@@ -101,7 +105,21 @@ public final class Espn {
         soccer("EFL LG 1", "soccer/eng.3", 2, 4),
         soccer("EFL LG 2", "soccer/eng.4", 3, 2),
         new League("CRICKET", "cricket/all", new String[0], new String[0], "", ""),
+        // International (national teams, under INTL in the league menu). good = top N of each group go through.
+        soccer("WORLD CUP", "soccer/fifa.world", 2, 0).intl(),
+        soccer("NATIONS LG", "soccer/uefa.nations", 1, 1).intl(),
+        soccer("CONCACAF NL", "soccer/concacaf.nations.league", 1, 0).intl(),
+        soccer("FRIENDLIES", "soccer/fifa.friendly", 0, 0).intl(),
+        olyHockey("OLY HOCKEY", "hockey/olympics-mens-ice-hockey"),
+        olyHockey("OLY HOCKEY W", "hockey/olympics-womens-ice-hockey"),
     };
+
+    /** Olympic hockey (IIHF 3-2-1-0 points). ESPN gives no "wins": standings() works it out. */
+    private static League olyHockey(String label, String path) {
+        return new League(label, path, new String[]{"GP", "W", "OTW", "OTL", "L", "PTS"},
+            new String[]{"gamesPlayed", "wins", "OTWins", "OTLosses", "losses", "points"}, "points", "pointDifferential")
+            .zones(0, 1, 0).intl();
+    }
 
     /** Folder where the last good answer of every feed is kept (instant start + offline). */
     public static java.io.File cacheDir;
@@ -193,6 +211,14 @@ public final class Espn {
                         num.put(name, so.optDouble("value", 0));
                     }
                 }
+                if (lg.intl && !num.containsKey("wins") && num.containsKey("OTWins") && num.containsKey("points")) {
+                    // IIHF: win 3, OT/SO win 2, OT/SO loss 1 → regulation wins from the points
+                    long w = Math.round((num.get("points") - 2 * num.get("OTWins") - num.getOrDefault("OTLosses", 0.0)) / 3);
+                    disp.put("wins", String.valueOf(Math.max(0, w)));
+                    num.put("wins", (double) Math.max(0, w));
+                }
+                if (lg.intl) for (Map.Entry<String, String> d : disp.entrySet())   // "9.0" → "9"
+                    if (d.getValue().endsWith(".0")) d.setValue(d.getValue().substring(0, d.getValue().length() - 2));
 
                 Model.Team t = new Model.Team();
                 if (team != null) {
@@ -352,6 +378,10 @@ public final class Espn {
                     s.ledB = parse(t.optString("alternateColor", ""));
                     int[] fix = COLOR_FIX.get(lg.path + ":" + s.abbr);   // {card, light A, light B}
                     if (fix != null) { s.color = fix[0]; s.ledA = fix[1]; s.ledB = fix[2]; }
+                    if (lg.intl && t.optString("color", "").isEmpty()) {   // Olympic teams come without colors: use the flag
+                        int[] flag = Cricket.flag(s.abbr, t.optString("displayName", ""));
+                        if (flag != null) { s.color = pickColor(hex(flag[0]), hex(flag[1])); s.ledA = flag[0]; s.ledB = flag[1]; }
+                    }
                     s.teamId = t.optString("id", "");
                 }
                 // college: AP / coaches top-25 rank in front of the name ("#9 Texas Tech")
@@ -604,6 +634,8 @@ public final class Espn {
         if (a != 0 && lum(a) > 0.08) return a;
         return m != 0 ? m : 0xFF3A3F4A;
     }
+
+    private static String hex(int c) { return String.format(Locale.US, "%06X", c & 0xFFFFFF); }
 
     private static int parse(String hex) {
         try {

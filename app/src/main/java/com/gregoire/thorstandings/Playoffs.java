@@ -289,6 +289,21 @@ final class Playoffs {
                 break;
             }
             default:
+                if (lg.intl) {   // national teams: who goes through from each group (and who drops down)
+                    if (lg.good <= 0) return null;
+                    b.title = ThorView.tr("IF THE GROUPS ENDED TODAY", "SI LES GROUPES FINISSAIENT AUJOURD'HUI");
+                    List<Model.Team> up = new ArrayList<>(), down = new ArrayList<>();
+                    for (Model.Group g : groups) {
+                        List<Model.Team> t = g.teams;
+                        for (int i = 0; i < Math.min(lg.good, t.size()); i++) up.add(t.get(i));
+                        for (int i = Math.max(lg.good, t.size() - lg.bad); i < t.size(); i++) down.add(t.get(i));
+                    }
+                    lists(b, ThorView.tr("THROUGH", "QUALIFIÉS"), up, 0xFF34C759);
+                    lists(b, ThorView.tr("RELEGATED", "RELÉGUÉS"), down, 0xFFFF3B30);
+                    b.subtitle = lg.good == 1 ? ThorView.tr("Group winners", "Premiers de groupe")
+                        : ThorView.tr("Top " + lg.good + " of each group", "Top " + lg.good + " de chaque groupe");
+                    break;
+                }
                 if (lg.soccer()) {
                     List<Model.Team> t = merge(groups);
                     b.title = ThorView.tr("IF THE SEASON ENDED TODAY", "SI LA SAISON FINISSAIT AUJOURD'HUI");
@@ -317,6 +332,19 @@ final class Playoffs {
                 return null;   // college, F1, LoL: nothing to project
         }
         return b.sections.isEmpty() ? null : b;
+    }
+
+    /** Team lists of at most 12 rows per column (a World Cup has 24 teams going through). */
+    private static void lists(Bracket b, String title, List<Model.Team> t, int color) {
+        int cols = (t.size() + 11) / 12;
+        for (int k = 0; k < cols; k++) {
+            Section s = new Section();
+            s.title = title;
+            int from = k * t.size() / cols, to = (k + 1) * t.size() / cols;
+            for (int i = from; i < to; i++) s.list.add(slot(t.get(i), 0));
+            s.listColor = color;
+            b.sections.add(s);
+        }
     }
 
     private static Section round(String title, List<Model.Team> t, int[][] pairs, int[] byes) {

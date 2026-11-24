@@ -319,10 +319,10 @@ public class ThorView extends View {
     for (int i = 0; i < pickerRects.size(); i++) {
         if (pickerRects.get(i).contains(x, y)) { pickItem(i); return true; }
     }
-    pickerOpen = false; pickerSoccer = false; invalidate(); return true;
+    pickerOpen = false; pickerFolder = 0; invalidate(); return true;
         }
         if (dualRect.contains(x, y)) { listener.onViewMode(dual || topMode ? 0 : 2); performHapticFeedback(1); invalidate(); return true; }   // one tap: one screen <-> two screens
-        if (leagueRect.contains(x, y)) { pickerOpen = true; pickerSoccer = false; invalidate(); return true; }
+        if (leagueRect.contains(x, y)) { pickerOpen = true; pickerFolder = 0; invalidate(); return true; }
         if (clockRect.contains(x, y)) { settingsOpen = true; invalidate(); return true; }
         if (!topMode) for (int i = 0; i < tabRects.length; i++) {
     if (tabRects[i].contains(x, y)) { listener.onTabTap(i); return true; }
@@ -587,8 +587,8 @@ public class ThorView extends View {
     public void openLeaguePicker() {
         settingsOpen = false;
         pickerOpen = !pickerOpen;
-        pickerSoccer = false;
-        { List<Integer> it = pickerItems(); int at = it.indexOf(leagueIndex); selPicker = at >= 0 ? at : Math.max(0, it.indexOf(ITEM_SOCCER)); }
+        pickerFolder = 0;
+        { List<Integer> it = pickerItems(); int at = it.indexOf(leagueIndex); selPicker = at >= 0 ? at : Math.max(0, it.indexOf(folderOf(leagueIndex) != 0 ? folderOf(leagueIndex) : ITEM_SOCCER)); }
         wakeCursor();
         invalidate();
     }
@@ -664,7 +664,7 @@ public class ThorView extends View {
     /** Tabs shown for a league: MY TEAMS has 2, F1 and LoL have 3 (no playoffs), the rest 4. */
     public static int tabCount(Espn.League lg) {
         if (lg == null) return 3;
-        if (lg.mine() || lg.path.startsWith("cricket")) return 2;
+        if (lg.mine() || lg.path.startsWith("cricket") || lg.noTable()) return 2;
         if (lg.path.startsWith("racing") || lg.path.startsWith("esports")) return 3;
         return 4;
     }
@@ -915,7 +915,7 @@ public class ThorView extends View {
     public void setDim(float d) { dim = d; invalidate(); }
     public void setDateOffset(int d) { dateOffset = d; page = 0; invalidate(); }
     public void setMyTeamsOnly(boolean on) { myTeamsOnly = on; page = 0; invalidate(); }
-    public void showLeaguePicker() { pickerOpen = true; pickerSoccer = false; invalidate(); }
+    public void showLeaguePicker() { pickerOpen = true; pickerFolder = 0; invalidate(); }
 
     public void setSettings(int delay, boolean leds, boolean ledsAvail, int dimPercent, boolean autoB) {
         delaySec = delay; ledsOn = leds; ledsAvailable = ledsAvail; dimPct = dimPercent; autoBoard = autoB;
@@ -1906,19 +1906,27 @@ public class ThorView extends View {
 
     // ------------------------------------------------------------------ league picker
     /** Dropdown list under the league chip: tap once, pick once. */
-    // League menu: every soccer league sits in one SOCCER folder.
-    private boolean pickerSoccer;
-    private static final int ITEM_SOCCER = -1, ITEM_BACK = -2;
+    // League menu: club soccer sits in a SOCCER folder, national teams (soccer + hockey) in an INTL folder.
+    private int pickerFolder;   // 0 = main menu, else ITEM_SOCCER / ITEM_INTL
+    private static final int ITEM_SOCCER = -1, ITEM_BACK = -2, ITEM_INTL = -3;
+
+    /** Which folder a league lives in (0 = main menu). */
+    private static int folderOf(int i) {
+        if (i < 0 || i >= Espn.LEAGUES.length) return 0;
+        Espn.League l = Espn.LEAGUES[i];
+        return l.intl ? ITEM_INTL : l.soccer() ? ITEM_SOCCER : 0;
+    }
 
     private List<Integer> pickerItems() {
         List<Integer> out = new ArrayList<>();
-        if (pickerSoccer) out.add(ITEM_BACK);
-        boolean folder = false;
+        if (pickerFolder != 0) out.add(ITEM_BACK);
+        boolean soccer = false, intl = false;
         for (int i = 0; i < leagueLabels.length && i < Espn.LEAGUES.length; i++) {
-            boolean soc = Espn.LEAGUES[i].soccer();
-            if (pickerSoccer) { if (soc) out.add(i); }
-            else if (!soc) out.add(i);
-            else if (!folder) { out.add(ITEM_SOCCER); folder = true; }
+            int f = folderOf(i);
+            if (pickerFolder != 0) { if (f == pickerFolder) out.add(i); }
+            else if (f == 0) out.add(i);
+            else if (f == ITEM_SOCCER && !soccer) { out.add(ITEM_SOCCER); soccer = true; }
+            else if (f == ITEM_INTL && !intl) { out.add(ITEM_INTL); intl = true; }
         }
         return out;
     }
@@ -1927,13 +1935,13 @@ public class ThorView extends View {
         List<Integer> items = pickerItems();
         if (pos < 0 || pos >= items.size()) return;
         int it = items.get(pos);
-        if (it == ITEM_SOCCER || it == ITEM_BACK) {
-            pickerSoccer = it == ITEM_SOCCER;
+        if (it < 0) {
+            pickerFolder = it == ITEM_BACK ? 0 : it;
             selPicker = 0;
             invalidate();
             return;
         }
-        pickerOpen = false; pickerSoccer = false;
+        pickerOpen = false; pickerFolder = 0;
         listener.onLeaguePick(it);
     }
 
@@ -1958,8 +1966,7 @@ public class ThorView extends View {
             RectF r = new RectF(x, y, x + colW, y + rowH);
             pickerRects.add(r);
             int i = items.get(pos);
-            boolean curSoc = leagueIndex >= 0 && leagueIndex < Espn.LEAGUES.length && Espn.LEAGUES[leagueIndex].soccer();
-            boolean cur = i == leagueIndex || (i == ITEM_SOCCER && curSoc);
+            boolean cur = i == leagueIndex || (i != ITEM_BACK && i < 0 && folderOf(leagueIndex) == i);
             if (i < 0) {
                 if (cur) {
                     p.setColor(alpha(ACCENT, 0x40));
@@ -1971,9 +1978,9 @@ public class ThorView extends View {
                 else {
                 p.setColor(0xFF22252D);
                 c.drawCircle(lcx, r.centerY(), ls * 0.48f, p);
-                text(c, i == ITEM_BACK ? "‹" : "SOC", lcx, r.centerY(), i == ITEM_BACK ? ls * 0.6f : ls * 0.3f, tfBlack, TEXT, Paint.Align.CENTER, ls);
+                text(c, i == ITEM_BACK ? "‹" : i == ITEM_INTL ? "INTL" : "SOC", lcx, r.centerY(), i == ITEM_BACK ? ls * 0.6f : ls * 0.3f, tfBlack, TEXT, Paint.Align.CENTER, ls * 0.9f);
                 }
-                text(c, i == ITEM_BACK ? "BACK" : "SOCCER  ›", r.left + rowH * 0.45f + ls, r.centerY(), rowH * 0.4f, tfBlack, cur ? ACCENT : TEXT, Paint.Align.LEFT, colW - rowH * 0.7f - ls);
+                text(c, i == ITEM_BACK ? (fr ? "RETOUR" : "BACK") : i == ITEM_INTL ? "INTL  ›" : "SOCCER  ›", r.left + rowH * 0.45f + ls, r.centerY(), rowH * 0.4f, tfBlack, cur ? ACCENT : TEXT, Paint.Align.LEFT, colW - rowH * 0.7f - ls);
                 continue;
             }
             if (cur) {

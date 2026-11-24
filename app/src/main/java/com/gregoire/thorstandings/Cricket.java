@@ -29,13 +29,26 @@ final class Cricket {
         f("united arab emirates", 0x00732F, 0xFF0000); f("oman", 0xDB161B, 0x008000);
         f("united states", 0xB22234, 0x3C3B6E); f("usa", 0xB22234, 0x3C3B6E);
         f("canada", 0xFF0000, 0xFFFFFF);       f("hong kong", 0xDE2910, 0xFFFFFF);
+        // hockey nations (Olympic feeds come without team colors)
+        f("sweden", 0x006AA7, 0xFECC00);       f("finland", 0x002F6C, 0xFFFFFF);
+        f("czech", 0x11457E, 0xD7141A);        f("switzerland", 0xDA291C, 0xFFFFFF);
+        f("slovakia", 0x0B4EA2, 0xEE1C25);     f("germany", 0xDD0000, 0xFFCE00);
+        f("latvia", 0x9E3039, 0xFFFFFF);       f("denmark", 0xC8102E, 0xFFFFFF);
+        f("italy", 0x009246, 0xCE2B37);        f("france", 0x0055A4, 0xEF4135);
+        f("norway", 0xBA0C2F, 0x00205B);       f("austria", 0xED2939, 0xFFFFFF);
+        f("japan", 0xBC002D, 0xFFFFFF);        f("china", 0xEE1C25, 0xFFFF00);
+        f("slovenia", 0x005DA4, 0xED1C24);     f("hungary", 0xCE2939, 0x477050);
+        f("kazakhstan", 0x00AFCA, 0xFEC50C);   f("great britain", 0x012169, 0xC8102E);
     }
     private static final java.util.Map<String, String> ABBR = new java.util.HashMap<>();
     static {
         String[][] a = {{"IND","india"},{"AUS","australia"},{"ENG","england"},{"NZ","new zealand"},{"PAK","pakistan"},{"SA","south africa"},
             {"SL","sri lanka"},{"WI","west indies"},{"BAN","bangladesh"},{"AFG","afghanistan"},{"IRE","ireland"},{"ZIM","zimbabwe"},
             {"NED","netherlands"},{"SCO","scotland"},{"NAM","namibia"},{"NEP","nepal"},{"UAE","united arab emirates"},{"OMA","oman"},
-            {"USA","united states"},{"CAN","canada"},{"HK","hong kong"}};
+            {"USA","united states"},{"CAN","canada"},{"HK","hong kong"},
+            {"SWE","sweden"},{"FIN","finland"},{"CZE","czech"},{"SUI","switzerland"},{"SVK","slovakia"},{"GER","germany"},
+            {"LAT","latvia"},{"DEN","denmark"},{"ITA","italy"},{"FRA","france"},{"NOR","norway"},{"AUT","austria"},
+            {"JPN","japan"},{"CHN","china"},{"SLO","slovenia"},{"HUN","hungary"},{"KAZ","kazakhstan"},{"GBR","great britain"}};
         for (String[] x : a) ABBR.put(x[0], x[1]);
     }
     static int[] flag(String abbr, String name) {

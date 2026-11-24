@@ -670,7 +670,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         List<Integer> out = new ArrayList<>();
         for (int i = 0; i < Espn.LEAGUES.length; i++) {
             Espn.League l = Espn.LEAGUES[i];
-            if (l.mine() || l.path.startsWith("racing") || l.path.startsWith("esports")) continue;
+            if (l.mine() || l.path.startsWith("racing") || l.path.startsWith("esports") || l.noTable()) continue;
             out.add(i);
         }
         return out;
