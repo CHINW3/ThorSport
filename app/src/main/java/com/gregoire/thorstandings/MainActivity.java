@@ -768,7 +768,11 @@ public class MainActivity extends Activity implements ThorView.Listener {
 
     /** Two screens: moving the cursor on LIVE shows that game on the top screen (no delay change, no tab jump). */
     @Override public void onCursorGame(String gameId) {
-        if (top == null || gameId == null || gameId.equals(boardGameId)) return;
+        if (top == null) {   // one screen: only the stick lights follow the cursor
+            if (gameId != null && !gameId.equals(cursorLedGame)) { cursorLedGame = gameId; updateLeds(); }
+            return;
+        }
+        if (gameId == null || gameId.equals(boardGameId)) return;
         boardGameId = gameId;
         prefs.edit().putString("boardGame", gameId).apply();
         all(v -> v.setBoardGameId(gameId));
@@ -1642,10 +1646,12 @@ public class MainActivity extends Activity implements ThorView.Listener {
      * · Game with your team (or no game): your team's two main colors (left = main, right = second).
      * · Two of your favorites playing each other: left team / right team.
      */
+    private String cursorLedGame;   // one screen: the game under the cursor on LIVE (lights only)
     private void updateLeds() {
         if (!ledsAvailable || tension) return;
         if (!ledsOn) { Leds.restore(this); return; }
         Model.Game g = view.boardGame();
+        if (top == null && cursorLedGame != null) for (Model.Game x : lastGames) if (x.id.equals(cursorLedGame)) { g = x; break; }
         if (g != null && "racing".equals(g.sport)) g = null;
         if (favorites.isEmpty()) {
             if (g == null) Leds.restore(this);
