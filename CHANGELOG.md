@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.65
+- **Sherbrooke Phoenix:** the main shield logo is in front again, and the navy Phoenix "P" picture is the big background logo behind it.
+
 ## 3.64
 - **MORE HOCKEY folder is back** with the QMJHL, OHL, WHL, USHL and ECHL, and its own hockey icon (crossed sticks and a puck).
 - **League logos** for the OHL, WHL, USHL and ECHL, and real team colors for the OHL.
