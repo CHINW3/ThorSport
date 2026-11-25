@@ -18,13 +18,15 @@ import java.util.Map;
 public final class Pwhl {
     private Pwhl() {}
 
-    private static String base(boolean ahl) {
+    /** The three leagues of this class: 0 = PWHL, 1 = AHL, 2 = QMJHL (the Quebec junior league). */
+    private static int kind(Espn.League lg) { return lg.path.endsWith("/ahl") ? 1 : lg.path.endsWith("/qmjhl") ? 2 : 0; }
+
+    private static String base(int k) {
         return "https://lscluster.hockeytech.com/feed/index.php?feed=modulekit&key="
-            + (ahl ? "ccb91f29d6744675&client_code=ahl" : "446521baf8c38984&client_code=pwhl") + "&fmt=json&lang=en";
+            + (k == 1 ? "ccb91f29d6744675&client_code=ahl" : k == 2 ? "f322673b6bcae299&client_code=lhjmq" : "446521baf8c38984&client_code=pwhl") + "&fmt=json&lang=en";
     }
 
-    private static boolean ahl(Espn.League lg) { return lg.path.endsWith("/ahl"); }
-    private static String folder(boolean ahl) { return ahl ? "ahl" : "pwhl"; }
+    private static String folder(int k) { return k == 1 ? "ahl" : k == 2 ? "lhjmq" : "pwhl"; }
 
     /** Team colors (HockeyTech doesn't send them). Unknown teams fall back to grey. */
     private static final Map<String, String> COLORS = new HashMap<>();
@@ -55,14 +57,24 @@ public final class Pwhl {
         AHL_LEDS.put("HER", new int[]{0xFFFF7A00, 0xFFFFFFFF});   // Bears: brown shows as orange, not mud
     }
 
-    static boolean is(Espn.League lg) { return lg.path.endsWith("/pwhl") || lg.path.endsWith("/ahl"); }
+    /** QMJHL teams (the feed gives no colors). */
+    private static final Map<String, String> QMJHL_COLORS = new HashMap<>();
+    static {
+        String[][] c = {{"QUE", "C8102E"}, {"SNB", "1F5FBF"}, {"NFL", "2C3E7B"}, {"HAL", "B5121B"}, {"CAP", "0072CE"}, {"CHI", "00843D"},
+            {"MON", "8A1538"}, {"RIM", "3A9BDC"}, {"CHA", "1D4F91"}, {"BAC", "2BA84A"}, {"VDO", "1E8449"}, {"VIC", "F28C28"},
+            {"ROU", "00A6D6"}, {"GAT", "2B6CB0"}, {"SHE", "1C4B9C"}, {"DRU", "1F4E9A"}, {"BLB", "6A2C91"}, {"SHA", "0A7E3E"}};
+        for (String[] x : c) QMJHL_COLORS.put(x[0], x[1]);
+    }
+
+    static boolean is(Espn.League lg) { return lg.path.endsWith("/pwhl") || lg.path.endsWith("/ahl") || lg.path.endsWith("/qmjhl"); }
 
     /** Bigger logo first, the 50x50 one as a backup (LogoCache tries each, separated by "|"). */
     private static final Map<String, String> SEEN = new HashMap<>();   // league + team id -> this season's logo (from the scores feed)
 
-    private static String logo(boolean ahl, String teamId, String given) {
-        String dir = folder(ahl);
-        if (!ahl && "3".equals(teamId)) return "asset:teams/pwhl/mtl.png|https://assets.leaguestat.com/pwhl/logos/3_5.png";   // Montréal Victoire, packed
+    private static String logo(int k, String teamId, String given) {
+        String dir = folder(k);
+        if (k == 2 && "60".equals(teamId)) return "asset:teams/lhjmq/she.png|https://assets.leaguestat.com/lhjmq/logos/60.png";   // Sherbrooke Phoenix, packed
+        if (k == 0 && "3".equals(teamId)) return "asset:teams/pwhl/mtl.png|https://assets.leaguestat.com/pwhl/logos/3_5.png";   // Montréal Victoire, packed
         String key = dir + teamId;
         // the season's own logo first (e.g. 3_5.png): the plain "<id>.png" is the old logo (Montréal's was too pink)
         if ((given == null || given.isEmpty()) && SEEN.containsKey(key)) given = SEEN.get(key);
@@ -76,15 +88,15 @@ public final class Pwhl {
         return big + "|" + small;
     }
 
-    private static int color(boolean ahl, String code) {
-        String c = (ahl ? AHL_COLORS : COLORS).get(code);
+    private static int color(int k, String code) {
+        String c = (k == 1 ? AHL_COLORS : k == 2 ? QMJHL_COLORS : COLORS).get(code.toUpperCase(Locale.ROOT));
         return Espn.pickColor(c == null ? "" : c, "");
     }
 
     // ------------------------------------------------------------------ scores
     static Model.Scoreboard scores(Espn.League lg, String date, boolean fromCache) throws Exception {
-        boolean a = ahl(lg);
-        String url = base(a) + "&view=scorebar&numberofdaysback=" + (a ? 6 : 8) + "&numberofdaysahead=" + (a ? 6 : 8);
+        int a = kind(lg);
+        String url = base(a) + "&view=scorebar&numberofdaysback=" + (a != 0 ? 6 : 8) + "&numberofdaysahead=" + (a != 0 ? 6 : 8);
         String body = fromCache ? Espn.cached(url) : Espn.get(url);
         if (body == null) throw new Exception("No cache");
         JSONObject kit = new JSONObject(body).optJSONObject("SiteKit");
@@ -138,25 +150,27 @@ public final class Pwhl {
         return sb;
     }
 
-    private static void fill(Model.Side s, JSONObject o, String side, boolean ahl) {
+    private static void fill(Model.Side s, JSONObject o, String side, int ahl) {
         s.abbr = o.optString(side + "Code", "");
+        if (ahl == 2) s.abbr = s.abbr.toUpperCase(Locale.ROOT);   // the junior feed sends "Mon", "Que"...
         s.name = o.optString(side + "Nickname", s.abbr);
         s.logo = logo(ahl, o.optString(side + "ID", ""), o.optString(side + "Logo", ""));
         s.color = color(ahl, s.abbr);
         s.ledA = s.color;
         s.ledB = 0xFFFFFFFF;
-        int[] led = (ahl ? AHL_LEDS : LEDS).get(s.abbr);   // LEDs wash dark/mixed colors out (burgundy looked pink): use pure ones
+        int[] led = (ahl == 1 ? AHL_LEDS : ahl == 0 ? LEDS : new HashMap<String, int[]>()).get(s.abbr);   // LEDs wash dark/mixed colors out (burgundy looked pink): use pure ones
         if (led != null) { s.ledA = led[0]; s.ledB = led[1]; }
         s.score = o.optInt("GameStatus", 1) == 1 ? "" : o.optString(side + "Goals", "");
         s.record = o.optString(side + "Wins", "0") + "-" + o.optString(side + "RegulationLosses", "0")
-            + "-" + o.optString(side + "OTLosses", "0") + (ahl ? "-" + o.optString(side + "ShootoutLosses", "0") : "");
+            + "-" + o.optString(side + "OTLosses", "0") + (ahl != 0 ? "-" + o.optString(side + "ShootoutLosses", "0") : "");
     }
 
     // ------------------------------------------------------------------ standings
     /** PWHL: one table. AHL: one table per division (the playoff line is the top 4 of each). */
     static List<Model.Group> standings(Espn.League lg, boolean fromCache) throws Exception {
-        boolean a = ahl(lg);
-        String url = base(a) + "&view=statviewtype&type=standings&stat=" + (a ? "division" : "conference");
+        int kd = kind(lg);
+        boolean a = kd != 0;   // AHL (divisions) and QMJHL (conferences): one table per group
+        String url = base(kd) + "&view=statviewtype&type=standings&stat=" + (kd == 1 ? "division" : "conference");
         String body = fromCache ? Espn.cached(url) : Espn.get(url);
         if (body == null) throw new Exception("No cache");
         JSONObject kit = new JSONObject(body).optJSONObject("SiteKit");
@@ -175,13 +189,15 @@ public final class Pwhl {
                 continue;
             }
             if (cur == null) continue;
+            if (r.optString("name", "").startsWith("-")) continue;   // guest teams from other leagues in the junior table
             Model.Team t = new Model.Team();
             t.abbr = r.optString("team_code");
+            if (kd == 2) t.abbr = t.abbr.toUpperCase(Locale.ROOT);
             String full = r.optString("name", t.abbr);
             int sp = full.lastIndexOf(' ');
             String nick = r.optString("nickname", "");
             t.name = !nick.isEmpty() && !"null".equals(nick) ? nick : sp > 0 ? full.substring(sp + 1) : full;
-            t.logo = logo(a, r.optString("team_id", ""), null);
+            t.logo = logo(kd, r.optString("team_id", ""), null);
             t.vals = new String[lg.statNames.length];
             for (int k = 0; k < lg.statNames.length; k++) t.vals[k] = value(r, lg.statNames[k]);
             if (a) {   // the league's own order (points percentage, then the tiebreakers)

@@ -275,6 +275,10 @@ final class Playoffs {
                 for (Model.Group g : groups) b.sections.add(round(g.title.replace(" Division", "").toUpperCase(Locale.US), seeds(g.teams), new int[][]{{1, 4}, {2, 3}}, null));
                 b.subtitle = ThorView.tr("Top 4 of each division · 1st round", "Top 4 de chaque division · 1re ronde");
                 break;
+            case "hockey/qmjhl":
+                for (Model.Group g : groups) b.sections.add(round(g.title.replace(" Conference", "").toUpperCase(Locale.US), seeds(g.teams), new int[][]{{1, 8}, {2, 7}, {3, 6}, {4, 5}}, null));
+                b.subtitle = ThorView.tr("Top 8 of each conference · 1st round", "Top 8 de chaque association · 1re ronde");
+                break;
             case "hockey/pwhl":
                 b.sections.add(round(ThorView.tr("SEMIFINALS", "DEMI-FINALES"), merge(groups), new int[][]{{1, 4}, {2, 3}}, null));
                 b.subtitle = ThorView.tr("Top 4 · the 1st seed picks its opponent", "Top 4 · le 1er choisit son adversaire");
