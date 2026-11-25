@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.51
+- **New first-start setup.** Step 1: language and the sports you follow (switch off the ones you don't, they leave the menu and the team picker). Step 2: pick your teams. Hold B to skip ahead. You can change all of it later in Settings.
+- **Faster MLB scores:** a run shows up a few seconds sooner (MLB's own feed is read next to ESPN's).
+
 ## 3.50
 - **More esports data:** CS2 and R6 show the score of each map ("Cache 13-9 · Mirage 8-13"), upcoming CS2 / Valorant / Dota 2 games show the bookmakers' win chance, and a live Dota 2 pro game shows kills, gold lead and game time.
 
