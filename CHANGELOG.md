@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.42
+- **Right stick changes the day.** On the Scores tab, push the right stick left for the previous day and right for the next day (one push = one day: bring it back to the centre before the next push, so it never skips). It works up to a week either way, like the ‹ › buttons, and does nothing while a menu or Settings is open.
+
 ## 3.41
 - **NHL goals show up faster.** ESPN gets its data from the NHL and has been seen a full minute behind on a goal (the Golden Knights' one). While an NHL game is live, the app now also reads the NHL's own live feed every few seconds, with a trick so the NHL's server gives the freshest copy instead of one up to 19 seconds old. Whichever score is ahead is the one you see, so the goal (and the goal screen, horn and lights) comes as soon as the NHL has it, instead of waiting for ESPN.
 - **The league menu is organized by sport.** NHL, AHL and PWHL together, then NBA and WNBA, then NFL, MLB, F1, LoL and Cricket, then the folders SOCCER, COLLEGE and INTL. The L2 / R2 buttons and the My teams picker follow the same order.
