@@ -76,6 +76,42 @@ public final class Extras {
         if (nhlHome > g.home.scoreInt()) g.home.score = String.valueOf(nhlHome);
     }
 
+    /**
+     * Faster MLB scores: MLB's own stats feed is a few seconds ahead of ESPN's. For live MLB games the higher score wins
+     * (the same idea as the NHL overlay), so a run shows up sooner and a late ESPN copy never takes it back.
+     */
+    public static void mlbScores(List<Model.Game> games) {
+        Set<String> dates = new HashSet<>();
+        for (Model.Game g : games) if ("baseball/mlb".equals(g.league) && g.isLive()) dates.add(etDate(g.startMs));
+        for (String date : dates) {
+            try {
+                JSONObject root = new JSONObject(Espn.getFresh("https://statsapi.mlb.com/api/v1/schedule?sportId=1&hydrate=team&date=" + date + "&t=" + System.currentTimeMillis() / 3000));
+                JSONArray days = root.optJSONArray("dates");
+                if (days == null) continue;
+                for (int d = 0; d < days.length(); d++) {
+                    JSONArray list = days.getJSONObject(d).optJSONArray("games");
+                    for (int i = 0; list != null && i < list.length(); i++) {
+                        JSONObject mg = list.optJSONObject(i);
+                        if (mg == null || !"Live".equals(mg.optJSONObject("status") == null ? "" : mg.optJSONObject("status").optString("abstractGameState"))) continue;
+                        JSONObject at = mg.optJSONObject("teams").optJSONObject("away"), ht = mg.optJSONObject("teams").optJSONObject("home");
+                        for (Model.Game g : games) {
+                            if (!"baseball/mlb".equals(g.league) || !g.isLive()) continue;
+                            if (!mlbSame(g.away, at) || !mlbSame(g.home, ht)) continue;
+                            if (at.optInt("score", -1) > g.away.scoreInt()) g.away.score = String.valueOf(at.optInt("score"));
+                            if (ht.optInt("score", -1) > g.home.scoreInt()) g.home.score = String.valueOf(ht.optInt("score"));
+                        }
+                    }
+                }
+            } catch (Exception ignored) { }
+        }
+    }
+
+    private static boolean mlbSame(Model.Side s, JSONObject t) {
+        JSONObject team = t == null ? null : t.optJSONObject("team");
+        if (team == null) return false;
+        return s.abbr.equalsIgnoreCase(team.optString("abbreviation", "")) || s.name.equalsIgnoreCase(team.optString("teamName", "-"));
+    }
+
     /** Fills NHL goals (scorer + assists) from api-web.nhle.com. */
     public static void nhlGoals(List<Model.Game> games) {
         Set<String> dates = new HashSet<>();

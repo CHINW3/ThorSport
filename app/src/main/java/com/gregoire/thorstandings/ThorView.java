@@ -55,6 +55,8 @@ public class ThorView extends View {
         void onOnboardLeague(int leagueIndex);              // load that league's teams for "Pick your teams"
         void onOnboardToggle(String leaguePath, String abbr);
         void onOnboardDone();
+        void onWelcomeLang(boolean french);                // first-run welcome: language chosen
+        void onWelcomeDone(boolean[] groupOff);            // first-run welcome: sports switched off (see WELCOME_GROUPS), then the team picker
         void onViewMode(int mode);
         void onCursorGame(String gameId);                   // two screens: the top shows the game under the cursor
         void onSyncPick(int row);                           // Sync with TV: the moment your TV shows (row 0 = newest)                          // 0 one screen, 1 two screens classic, 2 two screens + game info
@@ -270,6 +272,10 @@ public class ThorView extends View {
                 if (modeRects.get(i).contains(x, y)) { modeMenuOpen = false; listener.onViewMode(i == 0 ? 0 : 2); invalidate(); return true; }
             modeMenuOpen = false; invalidate(); return true;
         }
+        if (welcomeOpen) {
+            for (int i = 0; i < welcomeRects.size(); i++) if (welcomeRects.get(i).contains(x, y)) { selWelcome = i; welcomePress(i); return true; }
+            return true;
+        }
         if (onboardOpen) {
             for (int i = 0; i < onboardLeagueRects.size() && i < onboardRowIds.size(); i++)
                 if (onboardLeagueRects.get(i).contains(x, y)) { tapOnboardRow(onboardRowIds.get(i)); return true; }
@@ -379,6 +385,7 @@ public class ThorView extends View {
     private RectF selectedRect() {
         if (delayOpen) return sel(delayRects, selDelay);
         if (syncState == 3) return sel(syncRects, selSync);
+        if (welcomeOpen) return sel(welcomeRects, selWelcome);
         if (onboardOpen) return sel(onboardRects, selOnboard - onboardFirstIdx);
         if (settingsOpen) return settingsPage < 0 ? sel(sectionRects, homeSel) : sel(settingCells, selSetting);
         if (pickerOpen) return sel(pickerRects, selPicker);
@@ -414,6 +421,13 @@ public class ThorView extends View {
 
     /** D-pad / stick. */
     public boolean controllerMove(int dx, int dy) {
+        if (welcomeOpen) {   // language (2), sports (10, 5 per row), then NEXT
+            int n = WELCOME_GROUPS.length + 3;
+            selWelcome = Math.max(0, Math.min(n - 1, dx != 0 ? selWelcome + dx : dy > 0 ? (selWelcome < 2 ? 2 + selWelcome : selWelcome + 5 >= n - 1 ? n - 1 : selWelcome + 5)
+                : selWelcome == n - 1 ? n - 2 : selWelcome >= 7 ? selWelcome - 5 : selWelcome >= 2 ? selWelcome - 2 : selWelcome));
+            invalidate();
+            return true;
+        }
         boolean first = !cursorOn;
         wakeCursor();
         if (first) { invalidate(); return true; }   // first press just shows the selection
@@ -524,6 +538,7 @@ public class ThorView extends View {
 
     /** A: open / select. */
     public void controllerSelect() {
+        if (welcomeOpen) { welcomePress(selWelcome); return; }
         if (onboardOpen) {
             if (selOnboard >= 0 && selOnboard < onboardTeams.size()) listener.onOnboardToggle(onboardPath, onboardTeams.get(selOnboard).abbr);
             return;
@@ -575,6 +590,7 @@ public class ThorView extends View {
     /** B: close menu → leave big score → back to Scores → hide the selection. Never leaves the app. */
     public boolean controllerBack() {
         if (settingsOpen && settingsBack()) return true;   // a page goes back to where it came from; on the home B closes settings
+        if (welcomeOpen) { welcomePress(WELCOME_GROUPS.length + 2); return true; }   // B = skip ahead (NEXT)
         if (onboardOpen) { onboardOpen = false; listener.onOnboardDone(); invalidate(); return true; }
         if (syncState > 0) { listener.onSyncCancel(); return true; }
         if (demoGame != null) { demoGame = null; invalidate(); return true; }
@@ -957,7 +973,7 @@ public class ThorView extends View {
     /** A menu, the settings, a celebration... is on screen (the controller then does not change the day). */
     public boolean overlayShown() { return overlayOpen(); }
 
-    private boolean overlayOpen() { return modeMenuOpen || onboardOpen || settingsOpen || pickerOpen || helpOpen || delayOpen || syncState > 0 || celebrating(); }
+    private boolean overlayOpen() { return modeMenuOpen || onboardOpen || welcomeOpen || settingsOpen || pickerOpen || helpOpen || delayOpen || syncState > 0 || celebrating(); }
 
     public void setTopMode(boolean on) { topMode = on; tab = TAB_BOARD; invalidate(); }
     public void setDual(boolean on) { dual = on; invalidate(); }
@@ -1397,6 +1413,7 @@ public class ThorView extends View {
         drawNotes(c, w, h);
         if (pickerOpen) drawPicker(c, w, h);
         if (settingsOpen) drawSettings(c, w, h);
+        if (welcomeOpen) drawWelcome(c, w, h);
         if (onboardOpen) drawOnboarding(c, w, h);
         if (modeMenuOpen) drawModeMenu(c, w, h);
         if (helpOpen) drawHelp(c, w, h);
@@ -2153,7 +2170,75 @@ public class ThorView extends View {
         invalidate();
     }
 
-    public boolean onboardingOpen() { return onboardOpen; }
+    public boolean onboardingOpen() { return onboardOpen || welcomeOpen; }
+
+    // ---- first start: step 1 (language + sports you follow), then the team picker
+    static final String[][] WELCOME_GROUPS = {{"HOCKEY", "HOCKEY"}, {"BASKETBALL", "BASKET"}, {"FOOTBALL", "FOOTBALL"}, {"BASEBALL", "BASEBALL"},
+        {"SOCCER", "SOCCER"}, {"RACING (F1)", "COURSE (F1)"}, {"ESPORTS", "ESPORTS"}, {"CRICKET", "CRICKET"}, {"COLLEGE", "UNIVERSITAIRE"}, {"INTERNATIONAL", "INTERNATIONAL"}};
+    private boolean welcomeOpen;
+    private int selWelcome;
+    private final boolean[] welcomeOff = new boolean[WELCOME_GROUPS.length];
+    private final List<RectF> welcomeRects = new ArrayList<>();
+    private List<Integer> welcomeLeagues = new ArrayList<>();
+
+    public void openWelcome(List<Integer> leagues) {
+        welcomeLeagues = new ArrayList<>(leagues);
+        welcomeOpen = true; settingsOpen = false; pickerOpen = false; selWelcome = WELCOME_GROUPS.length + 2;
+        cursorOn = true;
+        invalidate();
+    }
+
+    private void welcomePress(int i) {
+        int n = WELCOME_GROUPS.length;
+        if (i < 2) { listener.onWelcomeLang(i == 1); }
+        else if (i < 2 + n) welcomeOff[i - 2] = !welcomeOff[i - 2];
+        else {
+            welcomeOpen = false;
+            listener.onWelcomeDone(welcomeOff.clone());   // opens the team picker
+        }
+        invalidate();
+    }
+
+    private void drawWelcome(Canvas c, int w, int h) {
+        welcomeRects.clear();
+        p.setShader(new LinearGradient(0, 0, 0, h, 0xFF14171E, 0xFF0B0C10, Shader.TileMode.CLAMP));
+        c.drawRect(0, 0, w, h, p);
+        p.setShader(null);
+        float gap = w * 0.03f;
+        text(c, tr("Welcome to ThorSport", "Bienvenue dans ThorSport"), w / 2f, h * 0.09f, h * 0.075f, tfBlack, TEXT, Paint.Align.CENTER, w - gap * 2);
+        text(c, tr("Step 1 of 2 · language and the sports you follow", "Étape 1 sur 2 · langue et sports que tu suis"), w / 2f, h * 0.16f, h * 0.03f, tfMed, MUTED, Paint.Align.CENTER, w - gap * 2);
+        // language
+        text(c, tr("LANGUAGE", "LANGUE"), gap, h * 0.25f, h * 0.028f, tfBlack, MUTED, Paint.Align.LEFT, w * 0.4f);
+        String[] langs = {"ENGLISH", "FRANÇAIS"};
+        float bw = (w - gap * 2 - gap * 0.5f) / 2, bh = h * 0.1f, ly = h * 0.28f;
+        for (int i = 0; i < 2; i++) {
+            RectF r = new RectF(gap + i * (bw + gap * 0.5f), ly, gap + i * (bw + gap * 0.5f) + bw, ly + bh);
+            boolean on = (i == 1) == fr;
+            p.setColor(on ? ACCENT : 0xFF171A21);
+            c.drawRoundRect(r, bh * 0.3f, bh * 0.3f, p);
+            text(c, langs[i], r.centerX(), r.centerY(), bh * 0.38f, tfBlack, on ? 0xFF000000 : TEXT, Paint.Align.CENTER, bw * 0.9f);
+            welcomeRects.add(r);
+        }
+        // sports
+        text(c, tr("SPORTS  (tap to switch off the ones you don't follow)", "SPORTS  (touche pour cacher ceux que tu ne suis pas)"), gap, h * 0.46f, h * 0.028f, tfBlack, MUTED, Paint.Align.LEFT, w - gap * 2);
+        int cols = 5, n = WELCOME_GROUPS.length;
+        float cw = (w - gap * 2 - gap * 0.4f * (cols - 1)) / cols, ch = h * 0.115f, sy = h * 0.5f;
+        for (int i = 0; i < n; i++) {
+            int col = i % cols, row = i / cols;
+            RectF r = new RectF(gap + col * (cw + gap * 0.4f), sy + row * (ch + gap * 0.4f), gap + col * (cw + gap * 0.4f) + cw, sy + row * (ch + gap * 0.4f) + ch);
+            boolean on = !welcomeOff[i];
+            p.setColor(on ? 0xFF1E3A5F : 0xFF14161B);
+            c.drawRoundRect(r, ch * 0.28f, ch * 0.28f, p);
+            text(c, tr(WELCOME_GROUPS[i][0], WELCOME_GROUPS[i][1]), r.centerX(), r.centerY(), ch * 0.26f, tfBlack, on ? TEXT : 0xFF5A6070, Paint.Align.CENTER, cw * 0.92f);
+            welcomeRects.add(r);
+        }
+        // next
+        RectF nx = new RectF(w * 0.3f, h * 0.84f, w * 0.7f, h * 0.84f + h * 0.095f);
+        p.setColor(ACCENT);
+        c.drawRoundRect(nx, nx.height() * 0.3f, nx.height() * 0.3f, p);
+        text(c, tr("NEXT  ›  PICK YOUR TEAMS", "SUIVANT  ›  CHOISIS TES ÉQUIPES"), nx.centerX(), nx.centerY(), nx.height() * 0.33f, tfBlack, 0xFF000000, Paint.Align.CENTER, nx.width() * 0.92f);
+        welcomeRects.add(nx);
+    }
 
     /** L1 / R1 in the picker: previous / next league. */
     public void onboardShift(int dir) {

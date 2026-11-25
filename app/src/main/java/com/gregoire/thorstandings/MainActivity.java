@@ -345,7 +345,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         view.setCompanion(companion);
         if (!prefs.getBoolean("onboarded", false)) {
             if (!favKeys.isEmpty()) prefs.edit().putBoolean("onboarded", true).apply();   // already has teams (older version)
-            else main.postDelayed(() -> view.openOnboarding(true, onboardLeagues()), 600);
+            else main.postDelayed(() -> view.openWelcome(onboardLeagues()), 600);
         }
         main.post(refreshLoop);
         main.postDelayed(favWatch, 5000);
@@ -744,6 +744,41 @@ public class MainActivity extends Activity implements ThorView.Listener {
         favorites = favAbbrs(leagueIdx);
         all(v -> v.setFavorites(new HashSet<>(favorites)));
         view.setFavKeys(new HashSet<>(favKeys));
+    }
+
+    @Override public void onWelcomeLang(boolean fr) {
+        french = fr; ThorView.fr = fr;
+        prefs.edit().putBoolean("fr", fr).apply();
+        pushSettings();
+    }
+
+    /** The sports group of a league in the first-run welcome (index in ThorView.WELCOME_GROUPS), -1 = none. */
+    private static int welcomeGroup(Espn.League l) {
+        switch (Espn.folderOf(l)) {
+            case 1: return 4;
+            case 2: return 8;
+            case 3: return 9;
+            case 4: return 7;
+            case 5: return 6;
+            default: break;
+        }
+        if (l.path.startsWith("racing")) return 5;
+        if (l.path.startsWith("hockey/")) return 0;
+        if (l.path.startsWith("basketball/")) return 1;
+        if (l.path.startsWith("football/")) return 2;
+        if (l.path.startsWith("baseball/")) return 3;
+        return -1;
+    }
+
+    @Override public void onWelcomeDone(boolean[] off) {
+        for (Espn.League l : Espn.LEAGUES) {
+            int g = welcomeGroup(l);
+            if (g >= 0 && off[g]) hiddenLeagues.add(l.path);
+        }
+        prefs.edit().putStringSet("hiddenLeagues", new HashSet<>(hiddenLeagues)).apply();
+        pushHiddenLeagues();
+        pushSettings();
+        view.openOnboarding(true, onboardLeagues());   // the team picker now skips the sports you switched off
     }
 
     @Override public void onOnboardDone() {
@@ -1777,7 +1812,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         }
         if (!lg.mine()) {
             Model.Scoreboard sb = Espn.scores(lg, date, fromCache);
-            if (!fromCache) { Extras.nhlGoals(sb.games); Extras.polymarket(sb.games); if (shotMap) Extras.nhlPlays(shotMapGame(sb.games)); if (dual) Extras.summary(gameOnTop(sb.games)); }
+            if (!fromCache) { Extras.nhlGoals(sb.games); Extras.mlbScores(sb.games); Extras.polymarket(sb.games); if (shotMap) Extras.nhlPlays(shotMapGame(sb.games)); if (dual) Extras.summary(gameOnTop(sb.games)); }
             return sb;
         }
         Model.Scoreboard all = new Model.Scoreboard();
@@ -1793,7 +1828,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
             } catch (Exception ignored) { }
         }
         if (!any && !favKeys.isEmpty()) throw new Exception("offline");
-        if (!fromCache) { Extras.nhlGoals(all.games); Extras.polymarket(all.games); if (shotMap) Extras.nhlPlays(shotMapGame(all.games)); if (dual) Extras.summary(gameOnTop(all.games)); }
+        if (!fromCache) { Extras.nhlGoals(all.games); Extras.mlbScores(all.games); Extras.polymarket(all.games); if (shotMap) Extras.nhlPlays(shotMapGame(all.games)); if (dual) Extras.summary(gameOnTop(all.games)); }
         all.games.sort((a, b) -> {
             int ra = Espn.rank(a), rb = Espn.rank(b);
             return ra != rb ? ra - rb : Long.compare(a.startMs, b.startMs);
