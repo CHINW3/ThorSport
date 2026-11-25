@@ -2035,7 +2035,7 @@ public class ThorView extends View {
         hiddenLeagues.addAll(hidden);
         invalidate();
     }
-    private static final int ITEM_SOCCER = -1, ITEM_BACK = -2, ITEM_INTL = -3, ITEM_COLLEGE = -4, ITEM_CRICKET = -5, ITEM_ESPORTS = -6;
+    private static final int ITEM_SOCCER = -1, ITEM_BACK = -2, ITEM_INTL = -3, ITEM_COLLEGE = -4, ITEM_CRICKET = -5, ITEM_ESPORTS = -6, ITEM_HOCKEY = -7;
 
     /** Which folder a league lives in (0 = main menu). */
     private static int folderOf(int i) {
@@ -2047,6 +2047,7 @@ public class ThorView extends View {
             case 3: return ITEM_INTL;
             case 4: return ITEM_CRICKET;
             case 5: return ITEM_ESPORTS;
+            case 6: return ITEM_HOCKEY;
             default: return 0;
         }
     }
@@ -2114,14 +2115,15 @@ public class ThorView extends View {
                 else if (i == ITEM_INTL) globe(c, lcx, r.centerY(), ls * 0.46f);
                 else if (i == ITEM_CRICKET && logos != null && logos.get("asset:league/cricket.png") != null) logo(c, "asset:league/cricket.png", "", 0, lcx, r.centerY(), ls * 0.9f);
                 else if (i == ITEM_ESPORTS && logos != null && logos.get("asset:league/esports.png") != null) logo(c, "asset:league/esports.png", "", 0, lcx, r.centerY(), ls * 0.9f);
+                else if (i == ITEM_HOCKEY && logos != null && logos.get("asset:league/qmjhl.png") != null) logo(c, "asset:league/qmjhl.png", "", 0, lcx, r.centerY(), ls * 0.9f);
                 else if (i == ITEM_COLLEGE && logos != null && logos.get("asset:league/ncaa.png") != null) logo(c, "asset:league/ncaa.png", "", 0, lcx, r.centerY(), ls * 0.9f);
                 else if (i == ITEM_COLLEGE) mortarboard(c, lcx, r.centerY(), ls * 0.5f);
                 else {
                 p.setColor(0xFF22252D);
                 c.drawCircle(lcx, r.centerY(), ls * 0.48f, p);
-                text(c, i == ITEM_BACK ? "‹" : i == ITEM_INTL ? "INTL" : i == ITEM_CRICKET ? "CRI" : i == ITEM_ESPORTS ? "ES" : "SOC", lcx, r.centerY(), i == ITEM_BACK ? ls * 0.6f : ls * 0.3f, tfBlack, TEXT, Paint.Align.CENTER, ls * 0.9f);
+                text(c, i == ITEM_BACK ? "‹" : i == ITEM_INTL ? "INTL" : i == ITEM_CRICKET ? "CRI" : i == ITEM_ESPORTS ? "ES" : i == ITEM_HOCKEY ? "HKY" : "SOC", lcx, r.centerY(), i == ITEM_BACK ? ls * 0.6f : ls * 0.3f, tfBlack, TEXT, Paint.Align.CENTER, ls * 0.9f);
                 }
-                text(c, i == ITEM_BACK ? (fr ? "RETOUR" : "BACK") : i == ITEM_INTL ? "INTL  ›" : i == ITEM_COLLEGE ? (fr ? "UNIVERSITAIRE  ›" : "COLLEGE  ›") : i == ITEM_CRICKET ? "CRICKET  ›" : i == ITEM_ESPORTS ? "ESPORTS  ›" : "SOCCER  ›", r.left + rowH * 0.45f + ls, r.centerY(), rowH * 0.4f, tfBlack, cur ? ACCENT : TEXT, Paint.Align.LEFT, colW - rowH * 0.7f - ls);
+                text(c, i == ITEM_BACK ? (fr ? "RETOUR" : "BACK") : i == ITEM_INTL ? "INTL  ›" : i == ITEM_COLLEGE ? (fr ? "UNIVERSITAIRE  ›" : "COLLEGE  ›") : i == ITEM_CRICKET ? "CRICKET  ›" : i == ITEM_ESPORTS ? "ESPORTS  ›" : i == ITEM_HOCKEY ? (fr ? "AUTRE HOCKEY  ›" : "MORE HOCKEY  ›") : "SOCCER  ›", r.left + rowH * 0.45f + ls, r.centerY(), rowH * 0.4f, tfBlack, cur ? ACCENT : TEXT, Paint.Align.LEFT, colW - rowH * 0.7f - ls);
                 continue;
             }
             if (cur) {
@@ -2345,10 +2347,10 @@ public class ThorView extends View {
             if (back) {
                 name = fr ? "‹ RETOUR" : "‹ BACK";
             } else if (folder) {
-                String img = id == -1 ? "asset:league/soccer.png" : id == -2 ? "asset:league/ncaa.png" : id == -5 ? "asset:league/esports.png" : null;
+                String img = id == -1 ? "asset:league/soccer.png" : id == -2 ? "asset:league/ncaa.png" : id == -5 ? "asset:league/esports.png" : id == -6 ? "asset:league/qmjhl.png" : null;
                 if (id == -3) globe(c, r.left + r.height() * 0.5f, r.centerY(), r.height() * 0.3f);
                 else if (img != null && logos != null && logos.get(img) != null) logo(c, img, "", 0, r.left + r.height() * 0.5f, r.centerY(), r.height() * 0.6f);
-                name = (id == -1 ? "SOCCER" : id == -2 ? (fr ? "UNIVERSITAIRE" : "COLLEGE") : id == -5 ? "ESPORTS" : "INTL") + "  ›";
+                name = (id == -1 ? "SOCCER" : id == -2 ? (fr ? "UNIVERSITAIRE" : "COLLEGE") : id == -5 ? "ESPORTS" : id == -6 ? (fr ? "AUTRE HOCKEY" : "MORE HOCKEY") : "INTL") + "  ›";
             } else {
                 String url = li < leagueLogos.length ? leagueLogos[li] : null;
                 if (url != null && logos != null && logos.get(url) != null) logo(c, url, "", 0, r.left + r.height() * 0.5f, r.centerY(), r.height() * 0.6f);
@@ -2476,12 +2478,12 @@ public class ThorView extends View {
     private static final String[][] PAGES = {
         {"Games", "Matchs"}, {"My teams", "Mes équipes"}, {"Goal", "But"}, {"Sound", "Son"}, {"Display", "Affichage"}, {"App", "Appli"},
         {"Goal effects", "Effets du but"}, {"Sounds by event", "Sons par événement"}, {"Field demos", "Démos de terrain"},
-        {"Leagues", "Ligues"}, {"Soccer", "Soccer"}, {"College", "Universitaire"}, {"International", "International"}, {"Cricket", "Cricket"}, {"Esports", "Esports"}};
+        {"Leagues", "Ligues"}, {"Soccer", "Soccer"}, {"College", "Universitaire"}, {"International", "International"}, {"Cricket", "Cricket"}, {"Esports", "Esports"}, {"More hockey", "Autre hockey"}};
     private static final int HOME_CARDS = 6;
     /** Icon of each page (numbers of the drawings in drawSectionIcon): board, "!", star, horn, screen, info, sliders. */
-    private static final int[] PAGE_ICON = {6, 4, 2, 3, 1, 7, 0, 0, 6, 0, 0, 0, 0, 0, 0};   // (-1 would mean no icon)
+    private static final int[] PAGE_ICON = {6, 4, 2, 3, 1, 7, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0};   // (-1 would mean no icon)
     /** Where "back" goes: -1 = the home. */
-    private static final int[] PAGE_PARENT = {-1, -1, -1, -1, -1, -1, 2, 3, 5, 0, 9, 9, 9, 9, 9};
+    private static final int[] PAGE_PARENT = {-1, -1, -1, -1, -1, -1, 2, 3, 5, 0, 9, 9, 9, 9, 9, 9};
     private int settingsPage = -1;   // -1 = the home with the cards
     private int homeSel;             // the selected card on the home (controller)
     private List<String[]> settingCards = new ArrayList<>();   // {line 1, line 2} of each card: what is set right now
