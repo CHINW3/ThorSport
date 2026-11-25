@@ -27,6 +27,21 @@ public final class Extras {
         ALT.put("football/nfl:WSH", "WAS");
     }
 
+    /**
+     * Polymarket's own short names for teams, where they are not the ESPN abbreviation (found by looking at its real markets, e.g.
+     * "nhl-las-edm-2026-11-24" is Golden Knights vs. Oilers). Without these, those teams never had win chances or a graph.
+     */
+    private static final Map<String, String> POLY_CODE = new HashMap<>();
+    static {
+        POLY_CODE.put("hockey/nhl:VGK", "las"); POLY_CODE.put("hockey/nhl:CGY", "cal"); POLY_CODE.put("hockey/nhl:MTL", "mon");
+        POLY_CODE.put("hockey/nhl:UTA", "utah"); POLY_CODE.put("hockey/nhl:UTAH", "utah");
+    }
+
+    private static String polyCode(String league, String abbr) {
+        String c = POLY_CODE.get(league + ":" + abbr);
+        return c == null ? abbr.toLowerCase(Locale.US) : c;
+    }
+
     private static final Map<String, String> POLY_PREFIX = new HashMap<>();
     static {
         POLY_PREFIX.put("hockey/nhl", "nhl"); POLY_PREFIX.put("basketball/nba", "nba");
@@ -182,12 +197,17 @@ public final class Extras {
         // next day in UTC (e.g. Sunday Night Football 8:20 PM ET = "...-2026-11-23"), so try both days.
         String etD = etDate(g.startMs), utcD = utcDate(g.startMs);
         String[] dates = etD.equals(utcD) ? new String[]{etD} : new String[]{utcD, etD};
+        // a team can be named three ways: Polymarket's own name, the league's official abbreviation, or ESPN's: try them in that order
+        String a0 = polyCode(g.league, g.away.abbr), h0 = polyCode(g.league, g.home.abbr);
         String a1 = g.away.abbr.toLowerCase(Locale.US), h1 = g.home.abbr.toLowerCase(Locale.US);
         String a2 = alt(g.league, g.away.abbr).toLowerCase(Locale.US), h2 = alt(g.league, g.home.abbr).toLowerCase(Locale.US);
         java.util.List<String> sl = new java.util.ArrayList<>();
         for (String date : dates) {
-            if (!(a1.equals(a2) && h1.equals(h2))) sl.add(prefix + "-" + a2 + "-" + h2 + "-" + date);
-            sl.add(prefix + "-" + a1 + "-" + h1 + "-" + date);
+            String[][] pairs = {{a0, h0}, {a1, h1}, {a2, h2}};
+            for (String[] pr : pairs) {
+                String slug = prefix + "-" + pr[0] + "-" + pr[1] + "-" + date;
+                if (!sl.contains(slug)) sl.add(slug);
+            }
         }
         String[] slugs = sl.toArray(new String[0]);
         for (String slug : slugs) {

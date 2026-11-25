@@ -1677,13 +1677,14 @@ public class ThorView extends View {
 
         // ================= right column: win chance + graph, shot map, team stats, leaders
         float rx0 = splitX + gap, rx1 = w - gap * 0.8f, ry = by;
-        boolean hockeyMap = "hockey".equals(g.sport) && !g.shots.isEmpty() && shotMap;
+        // (the rink / shot map is on the top screen in two-screen mode, so it is not repeated here: this column is the win chance
+        // graph and the team stats)
         if (g.away.odds >= 0 && g.home.odds >= 0) {
             sectionLabel(c, tr("WIN CHANCE", "CHANCES DE VICTOIRE"), rx0, ry, H);
             String src = g.oddsSource + (g.winHist.size() >= 3 && !"ESPN".equals(g.oddsSource) ? tr(" · CHART ESPN", " · GRAPHE ESPN") : "");
             if (!src.isEmpty()) text(c, src, rx1, ry, H * 0.022f, tfMed, DIM, Paint.Align.RIGHT, (rx1 - rx0) * 0.6f);
             float big = H * 0.065f, cy = ry + H * 0.08f;
-            int pa = Math.round(g.away.odds * 100), ph = Math.round(g.home.odds * 100);
+            int pa = Math.round(g.away.odds * 100), ph = 100 - pa;   // always adds up to 100 (rounding each side gave 51 + 50)
             text(c, pa + "%", rx0, cy, big, tfBlack, pa >= ph ? TEXT : MUTED, Paint.Align.LEFT, (rx1 - rx0) * 0.4f);
             text(c, ph + "%", rx1, cy, big, tfBlack, ph > pa ? TEXT : MUTED, Paint.Align.RIGHT, (rx1 - rx0) * 0.4f);
             text(c, g.away.abbr, rx0, cy + big * 0.78f, H * 0.022f, tfCond, MUTED, Paint.Align.LEFT, w);
@@ -1692,17 +1693,10 @@ public class ThorView extends View {
             // curve when it exists (Polymarket only gives the current price, so its curve starts flat)
             List<Float> hist = g.winHist.size() >= 3 ? new ArrayList<>(g.winHist) : oddsHist.get(g.id);
             if (g.winHist.size() >= 3 && !"ESPN".equals(g.oddsSource)) hist.add(g.away.odds);   // curve ends on the number shown
-            float gh = hockeyMap ? 0.13f : 0.24f;
+            float gh = 0.24f;
             RectF gr = new RectF(rx0, cy + big * 1.05f, rx1, cy + big * 1.05f + H * gh);
             drawOddsGraph(c, g, gr, hist, ac, hc);
             ry = gr.bottom + gap * 1.2f;
-        }
-        if (hockeyMap) {
-            sectionLabel(c, tr("SHOT MAP", "CARTE DES TIRS"), rx0, ry, H);
-            float rw = rx1 - rx0, rh = rw * 85f / 200f;
-            RectF rink = new RectF(rx0, ry + H * 0.045f, rx1, ry + H * 0.045f + rh);
-            drawRink(c, g, rink);
-            ry = rink.bottom + gap * 1.2f;
         }
         List<String[]> rows = new ArrayList<>(g.teamStats);
         if (rows.isEmpty()) {
@@ -2904,7 +2898,8 @@ public class ThorView extends View {
         if (a < 0 || h < 0) return;
         float d = g.drawOdds > 0 ? g.drawOdds : 0;
         float bh = th * 0.55f, top = cy + th * 0.55f;
-        String la = Math.round(a * 100) + "%", lh = Math.round(h * 100) + "%";
+        int pa = Math.round(a * 100);
+        String la = pa + "%", lh = (d > 0 ? Math.round(h * 100) : 100 - pa) + "%";   // two-way: always adds up to 100
         text(c, la, x, cy, th, tfBlack, a >= h ? TEXT : MUTED, Paint.Align.LEFT, width * 0.4f);
         text(c, lh, x + width, cy, th, tfBlack, h >= a ? TEXT : MUTED, Paint.Align.RIGHT, width * 0.4f);
         if (withSource) {
