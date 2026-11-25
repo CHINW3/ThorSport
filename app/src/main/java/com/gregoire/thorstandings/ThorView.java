@@ -68,7 +68,8 @@ public class ThorView extends View {
         SET_MUTE = 32, SET_HORN_SHORT = 33, SET_REPLAY = 34, SET_CELEB_MINE = 35,
         SET_ROTATE = 38, SET_FAST_LIVE = 39, SET_RESET_SETTINGS = 41, SET_START_LEAGUE = 42, SET_REMINDER = 43, SET_EXTRA_ALERTS = 44,
         SET_FX_FLASH = 45, SET_FX_BEAMS = 46, SET_FX_CONFETTI = 47, SET_FX_FIREWORKS = 48, SET_FX_SHAKE = 49, SET_HORN_SOUND = 50, SET_LED_GOAL = 51, SET_FX_PRESET = 52, SET_EV_SOUND = 60, SET_SOUND_CHECK = 70, SET_SOUND_SET = 71, SET_TEAM_HORN = 72, SET_SOUND_MORE = 73, SET_SOUND_STYLE = 74,
-        SET_OPEN_PAGE = 100;   // a row with id 100 + n opens settings page n (handled here, not in MainActivity)
+        SET_OPEN_PAGE = 100,   // a row with id 100 + n opens settings page n (handled here, not in MainActivity)
+        SET_LEAGUE = 200;      // a row with id 200 + n shows / hides league n (LEAGUES order) in the league menu
     private static final int GAMES_PER_PAGE = 8;
     private static final long AUTO_PAGE_MS = 10_000;
     private long CELEBRATION_MS = 6500;
@@ -1977,6 +1978,14 @@ public class ThorView extends View {
     /** Dropdown list under the league chip: tap once, pick once. */
     // League menu: club soccer sits in a SOCCER folder, national teams (soccer + hockey) in an INTL folder.
     private int pickerFolder;   // 0 = main menu, else ITEM_SOCCER / ITEM_INTL / ITEM_COLLEGE
+    private final java.util.Set<Integer> hiddenLeagues = new java.util.HashSet<>();   // Settings → Games → Leagues
+
+    /** Leagues you switched off: gone from the league menu (the one you are on stays until you leave it). */
+    public void setHiddenLeagues(java.util.Set<Integer> hidden) {
+        hiddenLeagues.clear();
+        hiddenLeagues.addAll(hidden);
+        invalidate();
+    }
     private static final int ITEM_SOCCER = -1, ITEM_BACK = -2, ITEM_INTL = -3, ITEM_COLLEGE = -4;
 
     /** Which folder a league lives in (0 = main menu). */
@@ -1990,7 +1999,10 @@ public class ThorView extends View {
         List<Integer> out = new ArrayList<>();
         if (pickerFolder != 0) out.add(ITEM_BACK);
         boolean soccer = false, intl = false, college = false;
-        for (int i = 0; i < leagueLabels.length && i < Espn.LEAGUES.length; i++) {
+        for (int k = 0; k < Espn.ORDER.length; k++) {   // in the sport order (see Espn.ORDER)
+            int i = Espn.ORDER[k];
+            if (i >= leagueLabels.length) continue;
+            if (hiddenLeagues.contains(i) && i != leagueIndex) continue;
             int f = folderOf(i);
             if (pickerFolder != 0) { if (f == pickerFolder) out.add(i); }
             else if (f == 0) out.add(i);
@@ -2046,6 +2058,7 @@ public class ThorView extends View {
                 String ball = "asset:league/soccer.png";
                 if (i == ITEM_SOCCER && logos != null && logos.get(ball) != null) { logo(c, ball, "", 0, lcx, r.centerY(), ls * 0.9f); }
                 else if (i == ITEM_INTL) globe(c, lcx, r.centerY(), ls * 0.46f);
+                else if (i == ITEM_COLLEGE && logos != null && logos.get("asset:league/ncaa.png") != null) logo(c, "asset:league/ncaa.png", "", 0, lcx, r.centerY(), ls * 0.9f);
                 else if (i == ITEM_COLLEGE) mortarboard(c, lcx, r.centerY(), ls * 0.5f);
                 else {
                 p.setColor(0xFF22252D);
@@ -2283,12 +2296,13 @@ public class ThorView extends View {
      */
     private static final String[][] PAGES = {
         {"Games", "Matchs"}, {"My teams", "Mes équipes"}, {"Goal", "But"}, {"Sound", "Son"}, {"Display", "Affichage"}, {"App", "Appli"},
-        {"Goal effects", "Effets du but"}, {"Sounds by event", "Sons par événement"}, {"Field demos", "Démos de terrain"}};
+        {"Goal effects", "Effets du but"}, {"Sounds by event", "Sons par événement"}, {"Field demos", "Démos de terrain"},
+        {"Leagues", "Ligues"}, {"Soccer", "Soccer"}, {"College", "Universitaire"}, {"International", "International"}};
     private static final int HOME_CARDS = 6;
     /** Icon of each page (numbers of the drawings in drawSectionIcon): board, "!", star, horn, screen, info, sliders. */
-    private static final int[] PAGE_ICON = {6, 4, 2, 3, 1, 7, 0, 0, 6};   // (-1 would mean no icon)
+    private static final int[] PAGE_ICON = {6, 4, 2, 3, 1, 7, 0, 0, 6, 0, 0, 0, 0};   // (-1 would mean no icon)
     /** Where "back" goes: -1 = the home. */
-    private static final int[] PAGE_PARENT = {-1, -1, -1, -1, -1, -1, 2, 3, 5};
+    private static final int[] PAGE_PARENT = {-1, -1, -1, -1, -1, -1, 2, 3, 5, 0, 9, 9, 9};
     private int settingsPage = -1;   // -1 = the home with the cards
     private int homeSel;             // the selected card on the home (controller)
     private List<String[]> settingCards = new ArrayList<>();   // {line 1, line 2} of each card: what is set right now
@@ -2320,7 +2334,8 @@ public class ThorView extends View {
         if (!settingsOpen) return false;
         if (settingsPage < 0) homeSel = ((homeSel + dir) % HOME_CARDS + HOME_CARDS) % HOME_CARDS;
         else {
-            int top = settingsPage < HOME_CARDS ? settingsPage : PAGE_PARENT[settingsPage];
+            int top = settingsPage;
+            while (top >= HOME_CARDS && PAGE_PARENT[top] >= 0) top = PAGE_PARENT[top];   // (a page inside a page counts as its card)
             settingsPage = ((top + dir) % HOME_CARDS + HOME_CARDS) % HOME_CARDS;
             selSetting = 0;
         }

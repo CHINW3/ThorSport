@@ -124,6 +124,35 @@ public final class Espn {
             .zones(0, 1, 0).intl();
     }
 
+    /**
+     * The order of the league menu and of L2 / R2: leagues of one sport sit together (hockey, basketball, football, baseball,
+     * then F1 / LoL / cricket), then the folders SOCCER, COLLEGE and INTL. LEAGUES itself never changes order: the league you
+     * left the app on is saved as a position in it.
+     */
+    public static final int[] ORDER = buildOrder();
+
+    /** 0 = the main menu, 1 = SOCCER folder, 2 = COLLEGE folder, 3 = INTL folder. */
+    public static int folderOf(League l) { return l.college() ? 2 : l.intl ? 3 : l.soccer() ? 1 : 0; }
+
+    private static int[] buildOrder() {
+        String[] first = {"mine", "hockey/nhl", "hockey/ahl", "hockey/pwhl", "basketball/nba", "basketball/wnba", "football/nfl",
+            "baseball/mlb", "racing/f1", "esports/lol", "cricket/all"};
+        List<Integer> out = new ArrayList<>();
+        for (String p : first) for (int i = 0; i < LEAGUES.length; i++) if (LEAGUES[i].path.equals(p)) out.add(i);
+        for (int g = 0; g <= 3; g++)   // then the rest of the main menu, and each folder, in the order of LEAGUES
+            for (int i = 0; i < LEAGUES.length; i++) if (folderOf(LEAGUES[i]) == g && !out.contains(i)) out.add(i);
+        int[] a = new int[out.size()];
+        for (int i = 0; i < a.length; i++) a[i] = out.get(i);
+        return a;
+    }
+
+    /** The league before (dir -1) or after (+1) this one in the menu order. */
+    public static int neighbor(int idx, int dir) {
+        int pos = 0;
+        for (int k = 0; k < ORDER.length; k++) if (ORDER[k] == idx) pos = k;
+        return ORDER[((pos + dir) % ORDER.length + ORDER.length) % ORDER.length];
+    }
+
     /** Folder where the last good answer of every feed is kept (instant start + offline). */
     public static java.io.File cacheDir;
 
@@ -146,7 +175,22 @@ public final class Espn {
 
     static String get(String url) throws Exception { return get(url, null, null); }
 
+    /** Like get(), but the answer is not saved to the offline copy (for feeds that are asked every few seconds). */
+    static String getFresh(String url) throws Exception { return fetch(url, null, null); }
+
     static String get(String url, String header, String value) throws Exception {
+        String body = fetch(url, header, value);
+        // Live games poll every few seconds and the feed is often unchanged: only rewrite the saved copy when it differs
+        // (saves flash writes and battery).
+        Integer h = body.hashCode(), old = savedHash.put(url, h);
+        if (!h.equals(old)) try {
+            java.io.File f = cacheFile(url);
+            if (f != null) java.nio.file.Files.write(f.toPath(), body.getBytes("UTF-8"));
+        } catch (Exception ignored) { savedHash.remove(url); }
+        return body;
+    }
+
+    private static String fetch(String url, String header, String value) throws Exception {
         HttpURLConnection con = (HttpURLConnection) new URL(url).openConnection();
         if (header != null) con.setRequestProperty(header, value);
         con.setConnectTimeout(10000);
@@ -160,15 +204,7 @@ public final class Espn {
         } finally {
             con.disconnect();
         }
-        String body = sb.toString();
-        // Live games poll every few seconds and the feed is often unchanged: only rewrite the saved copy when it differs
-        // (saves flash writes and battery).
-        Integer h = body.hashCode(), old = savedHash.put(url, h);
-        if (!h.equals(old)) try {
-            java.io.File f = cacheFile(url);
-            if (f != null) java.nio.file.Files.write(f.toPath(), body.getBytes("UTF-8"));
-        } catch (Exception ignored) { savedHash.remove(url); }
-        return body;
+        return sb.toString();
     }
 
     static String standingsUrl(League lg) { return "https://site.api.espn.com/apis/v2/sports/" + lg.path + "/standings"; }
@@ -586,6 +622,7 @@ public final class Espn {
     static String fixedLogo(League lg) {
         if (lg.path.startsWith("esports")) return "asset:league/lol.png";
         if (lg.path.endsWith("/pwhl")) return "asset:league/pwhl.png";
+        if (lg.path.endsWith("/ahl")) return "asset:league/ahl.png";
         if (lg.path.startsWith("cricket")) return "asset:league/cricket.png";
         if (lg.path.endsWith("mens-college-hockey")) return "asset:league/ncaa_hockey.png";
         String packed = OfflineLogos.league(lg.path);

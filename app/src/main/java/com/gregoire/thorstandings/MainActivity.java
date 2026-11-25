@@ -129,6 +129,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         @Override public void run() { applyDue(); if (!pending.isEmpty()) main.postDelayed(this, 1000); }
     };
     private String boardGameId;
+    private final Set<String> hiddenLeagues = new HashSet<>();   // paths of the leagues switched off in Settings → Games → Leagues
     private final Map<String, int[]> lastScores = new HashMap<>();
     private final Map<String, String> lastStates = new HashMap<>();
 
@@ -292,6 +293,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         clockMode = prefs.getInt("clock", 0);
         Horn.vibrate = vibrate;
         Horn.onStatus = () -> runOnUiThread(this::pushSettings);   // Settings → Sound → Sound check shows the last result
+        hiddenLeagues.addAll(prefs.getStringSet("hiddenLeagues", new HashSet<>()));
         Horn.usePack = prefs.getBoolean("soundPack", true);
         Horn.teamHorns = prefs.getBoolean("teamHorns", true);
         Horn.warm(this);                                           // load/build the sounds now so the first goal isn't late
@@ -469,8 +471,8 @@ public class MainActivity extends Activity implements ThorView.Listener {
             case KeyEvent.KEYCODE_BUTTON_Y: v.controllerFavorite(true); return true;
             case KeyEvent.KEYCODE_BUTTON_L1: if (v.onboardingOpen()) { v.onboardShift(-1); return true; } if (v.settingsShift(-1)) return true; v.hideCursor(); onTabTap((tab + tabCount() - 1) % tabCount()); return true;
             case KeyEvent.KEYCODE_BUTTON_R1: if (v.onboardingOpen()) { v.onboardShift(1); return true; } if (v.settingsShift(1)) return true; v.hideCursor(); onTabTap((tab + 1) % tabCount()); return true;
-            case KeyEvent.KEYCODE_BUTTON_L2: switchLeague((leagueIdx + Espn.LEAGUES.length - 1) % Espn.LEAGUES.length); return true;
-            case KeyEvent.KEYCODE_BUTTON_R2: switchLeague((leagueIdx + 1) % Espn.LEAGUES.length); return true;
+            case KeyEvent.KEYCODE_BUTTON_L2: switchLeague(stepLeague(-1)); return true;
+            case KeyEvent.KEYCODE_BUTTON_R2: switchLeague(stepLeague(1)); return true;
             case KeyEvent.KEYCODE_BUTTON_START: v.openSettings(); return true;
             case KeyEvent.KEYCODE_BUTTON_SELECT: v.openLeaguePicker(); return true;
             case KeyEvent.KEYCODE_BUTTON_THUMBL: refresh(true); return true;
@@ -681,11 +683,24 @@ public class MainActivity extends Activity implements ThorView.Listener {
 
     // ------------------------------------------------------------------ "Pick your teams"
     /** Leagues offered in the team picker (not MY TEAMS, F1 or LoL). */
+    private boolean leagueHidden(int idx) { return hiddenLeagues.contains(Espn.LEAGUES[idx].path) && !Espn.LEAGUES[idx].mine(); }
+
+    /** The next (dir 1) or previous (-1) league in the menu order, skipping the ones you switched off. */
+    private int stepLeague(int dir) {
+        int i = leagueIdx;
+        for (int k = 0; k < Espn.LEAGUES.length; k++) {
+            i = Espn.neighbor(i, dir);
+            if (!leagueHidden(i)) return i;
+        }
+        return leagueIdx;
+    }
+
     private List<Integer> onboardLeagues() {
         List<Integer> out = new ArrayList<>();
-        for (int i = 0; i < Espn.LEAGUES.length; i++) {
+        for (int i : Espn.ORDER) {   // in the same sport order as the league menu
             Espn.League l = Espn.LEAGUES[i];
             if (l.mine() || l.path.startsWith("racing") || l.path.startsWith("esports") || l.noTable()) continue;
+            if (leagueHidden(i) && favAbbrsFor(l.path).isEmpty()) continue;   // a league you switched off (and have no team in)
             out.add(i);
         }
         return out;
@@ -1003,7 +1018,14 @@ public class MainActivity extends Activity implements ThorView.Listener {
         return st < 0 ? t("CUSTOM", "PERSONNALISÉ") : t(Horn.STYLE_NAMES[st][0], Horn.STYLE_NAMES[st][1]);
     }
 
+    private void pushHiddenLeagues() {
+        Set<Integer> idx = new HashSet<>();
+        for (int i = 0; i < Espn.LEAGUES.length; i++) if (leagueHidden(i)) idx.add(i);
+        all(v -> v.setHiddenLeagues(idx));
+    }
+
     private void pushSettings() {
+        pushHiddenLeagues();
         all(v -> v.setSound(sound));
         all(v -> v.setDim(lowBattery() ? Math.max(0.5f, DIM_LEVELS[dimLevel]) : DIM_LEVELS[dimLevel]));
         all(v -> v.setCelebrationMs(CELEB_MS[celebLen]));
@@ -1017,6 +1039,8 @@ public class MainActivity extends Activity implements ThorView.Listener {
         // 0 GAMES: what you watch, and how it updates
         it.add(item(0, t("Open on", "Ouvrir sur"), startLeague == 1 ? t("MY TEAMS", "MES ÉQUIPES") : t("LAST LEAGUE", "DERNIÈRE LIGUE"), ThorView.SET_START_LEAGUE,
             t("Which league the app starts on", "La ligue affichée au démarrage")));
+        it.add(item(0, t("Leagues", "Ligues"), (hiddenLeagues.isEmpty() ? t("ALL", "TOUTES") : hiddenLeagues.size() + t(" HIDDEN", " CACHÉES")) + "  ›", ThorView.SET_OPEN_PAGE + 9,
+            t("Hide the sports you don't care about", "Cache les sports qui ne t'intéressent pas")));
         it.add(item(0, t("Live refresh", "Rafraîchissement en direct"), fastLive ? t("FAST (5-10 s)", "RAPIDE (5-10 s)") : "NORMAL (30 s)", ThorView.SET_FAST_LIVE,
             t("How often scores are checked in games", "Fréquence de mise à jour pendant les matchs")));
         it.add(item(0, t("Spoiler delay", "Délai anti-spoiler"), (delaySec == 0 ? onOff(false) : delaySec + " s") + "  ›", ThorView.SET_DELAY,
@@ -1128,6 +1152,20 @@ public class MainActivity extends Activity implements ThorView.Listener {
         it.add(item(8, t("Baseball field", "Terrain de baseball"), "▶", ThorView.SET_DEMO_MLB, t("Preview the baseball field view", "Aperçu du terrain de baseball")));
         it.add(item(8, t("Football field", "Terrain de football"), "▶", ThorView.SET_DEMO_NFL, t("Preview the football field view", "Aperçu du terrain de football")));
         it.add(item(8, t("Hockey rink", "Patinoire"), "▶", ThorView.SET_DEMO_NHL, t("Preview the hockey rink view", "Aperçu de la patinoire de hockey")));
+        // 9 LEAGUES, 10 SOCCER, 11 COLLEGE, 12 INTERNATIONAL (from Games → Leagues): switch a league off and it leaves the menu
+        int[] hiddenIn = new int[4], totalIn = new int[4];
+        for (int idx : Espn.ORDER) {
+            Espn.League l = Espn.LEAGUES[idx];
+            if (l.mine()) continue;
+            int f = Espn.folderOf(l);
+            boolean off = hiddenLeagues.contains(l.path);
+            totalIn[f]++; if (off) hiddenIn[f]++;
+            it.add(item(f == 0 ? 9 : 9 + f, l.label, onOff(!off), ThorView.SET_LEAGUE + idx, t("Show it in the league menu", "L'afficher dans le menu des ligues")));
+        }
+        String[][] folderNames = {{"", ""}, {"Soccer", "Soccer"}, {"College sports", "Sports universitaires"}, {"International", "International"}};
+        for (int f = 1; f <= 3; f++)
+            it.add(item(9, t(folderNames[f][0], folderNames[f][1]), (totalIn[f] - hiddenIn[f]) + " / " + totalIn[f] + "  ›", ThorView.SET_OPEN_PAGE + 9 + f,
+                t("Pick which of these leagues show", "Choisis lesquelles de ces ligues s'affichent")));
         // the cards of the home: what is set right now (two short lines each)
         List<String[]> cards = new ArrayList<>();
         cards.add(new String[]{t("Refresh ", "Mise à jour ") + (fastLive ? t("FAST", "RAPIDE") : t("NORMAL", "NORMALE")),
@@ -1230,6 +1268,13 @@ public class MainActivity extends Activity implements ThorView.Listener {
 
     @Override public void onSetting(int id, int dir) {
         SharedPreferences.Editor e = prefs.edit();
+        if (id >= ThorView.SET_LEAGUE && id < ThorView.SET_LEAGUE + Espn.LEAGUES.length) {   // Settings → Games → Leagues: show / hide one
+            String path = Espn.LEAGUES[id - ThorView.SET_LEAGUE].path;
+            if (!hiddenLeagues.remove(path)) hiddenLeagues.add(path);
+            prefs.edit().putStringSet("hiddenLeagues", new HashSet<>(hiddenLeagues)).apply();
+            pushSettings();
+            return;
+        }
         if (id >= ThorView.SET_EV_SOUND && id < ThorView.SET_EV_SOUND + Horn.EVENTS.length) {   // Settings → Sound: next sound for this event
             int ev = id - ThorView.SET_EV_SOUND;
             int n = Horn.SOUND_NAMES.length;

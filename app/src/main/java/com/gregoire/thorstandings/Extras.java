@@ -66,13 +66,25 @@ public final class Extras {
         return f.format(new Date(ms > 0 ? ms : System.currentTimeMillis()));
     }
 
+    /**
+     * THE NHL'S OWN SCORE: ESPN gets its data from the NHL and has been seen a minute behind on a goal. While the game is live
+     * whichever score is ahead wins (scores only go up), so the goal shows as soon as the NHL has it.
+     */
+    static void overlayNhlScore(Model.Game g, String nhlState, int nhlAway, int nhlHome) {
+        if (!g.isLive() || !("LIVE".equals(nhlState) || "CRIT".equals(nhlState))) return;
+        if (nhlAway > g.away.scoreInt()) g.away.score = String.valueOf(nhlAway);
+        if (nhlHome > g.home.scoreInt()) g.home.score = String.valueOf(nhlHome);
+    }
+
     /** Fills NHL goals (scorer + assists) from api-web.nhle.com. */
     public static void nhlGoals(List<Model.Game> games) {
         Set<String> dates = new HashSet<>();
         for (Model.Game g : games) if ("hockey/nhl".equals(g.league) && !"pre".equals(g.state)) dates.add(etDate(g.startMs));
         for (String date : dates) {
             try {
-                JSONObject root = new JSONObject(Espn.get("https://api-web.nhle.com/v1/score/" + date));
+                // "?t=" changes every 4 s: the NHL's CDN keeps each address for ~19 s, so a plain address can be 19 s old; a new
+                // tag every 4 s makes it hand over the freshest copy (their own data refreshes about every 20 s). Not saved to disk.
+                JSONObject root = new JSONObject(Espn.getFresh("https://api-web.nhle.com/v1/score/" + date + "?t=" + System.currentTimeMillis() / 4000));
                 JSONArray list = root.optJSONArray("games");
                 if (list == null) continue;
                 for (int i = 0; i < list.length(); i++) {
@@ -83,6 +95,8 @@ public final class Extras {
                         if (!"hockey/nhl".equals(g.league)) continue;
                         if (!alt(g.league, g.away.abbr).equals(away) || !alt(g.league, g.home.abbr).equals(home)) continue;
                         g.nhlId = ng.optString("id", "");
+                        JSONObject at = ng.optJSONObject("awayTeam"), ht = ng.optJSONObject("homeTeam");
+                        overlayNhlScore(g, ng.optString("gameState", ""), at == null ? -1 : at.optInt("score", -1), ht == null ? -1 : ht.optInt("score", -1));
                         JSONArray goals = ng.optJSONArray("goals");
                         if (goals == null) continue;
                         g.goals.clear();
