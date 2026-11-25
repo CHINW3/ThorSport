@@ -97,7 +97,7 @@ public final class Pwhl {
 
     private static String logo(int k, String teamId, String given) {
         String dir = folder(k);
-        if (k == 2 && "19".equals(teamId)) return "asset:teams/lhjmq/blb.png|https://assets.leaguestat.com/lhjmq/logos/19.png";   // Blainville-Boisbriand Armada: the feed's logo is low quality
+        if (k == 2 && "8".equals(teamId)) return "asset:teams/lhjmq/snb.png|https://assets.leaguestat.com/lhjmq/logos/8.png";   // Saint John Sea Dogs: the feed's logo is low quality
         if (k == 2 && "60".equals(teamId)) return "asset:teams/lhjmq/she.png|asset:teams/lhjmq/she_bg.png";   // Sherbrooke Phoenix: the main shield in front, the navy P picture as the big background
         if (k == 0 && "3".equals(teamId)) return "asset:teams/pwhl/mtl.png|https://assets.leaguestat.com/pwhl/logos/3_5.png";   // Montréal Victoire, packed
         String key = dir + teamId;
