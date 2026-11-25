@@ -1179,6 +1179,32 @@ public class ThorView extends View {
         postInvalidateDelayed(eco ? Math.max(ms, 500) : ms);
     }
 
+    /** MY TEAMS icon: an amber team jersey with a star on the chest, drawn in code. */
+    private void jersey(Canvas c, float cx, float cy, float rad) {
+        float w = rad, h = rad;   // half sizes
+        Path j = new Path();
+        j.moveTo(cx - w * 0.38f, cy - h);                 // left collar
+        j.lineTo(cx - w, cy - h * 0.62f);                 // left shoulder -> sleeve
+        j.lineTo(cx - w * 0.78f, cy - h * 0.1f);          // sleeve end
+        j.lineTo(cx - w * 0.5f, cy - h * 0.28f);          // armpit
+        j.lineTo(cx - w * 0.5f, cy + h);                  // bottom left
+        j.lineTo(cx + w * 0.5f, cy + h);                  // bottom right
+        j.lineTo(cx + w * 0.5f, cy - h * 0.28f);
+        j.lineTo(cx + w * 0.78f, cy - h * 0.1f);
+        j.lineTo(cx + w, cy - h * 0.62f);
+        j.lineTo(cx + w * 0.38f, cy - h);                 // right collar
+        j.quadTo(cx, cy - h * 0.5f, cx - w * 0.38f, cy - h);   // neckline curve
+        j.close();
+        p.setColor(AMBER);
+        c.drawPath(j, p);
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(Math.max(1.5f, rad * 0.07f));
+        p.setColor(0x66000000);
+        c.drawPath(j, p);
+        p.setStyle(Paint.Style.FILL);
+        text(c, "★", cx, cy + h * 0.2f, rad * 0.95f, tfBlack, 0xFF15171D, Paint.Align.CENTER, rad);
+    }
+
     /** INTL folder icon: a blue globe with meridians and parallels, drawn in code. */
     private void globe(Canvas c, float cx, float cy, float rad) {
         p.setShader(new RadialGradient(cx - rad * 0.35f, cy - rad * 0.35f, rad * 1.4f,
@@ -2031,9 +2057,7 @@ public class ThorView extends View {
             float ls = rowH * 0.62f, lcx = r.left + rowH * 0.25f + ls / 2;
             String url = i < leagueLogos.length ? leagueLogos[i] : null;
             if (leagueLabels[i].startsWith("★")) {
-                p.setColor(alpha(AMBER, 0x33));
-                c.drawCircle(lcx, r.centerY(), ls * 0.48f, p);
-                text(c, "★", lcx, r.centerY(), ls * 0.62f, tfBlack, AMBER, Paint.Align.CENTER, ls);
+                jersey(c, lcx, r.centerY(), ls * 0.5f);
             } else if (url != null && logos != null && logos.get(url) != null) {
                 logo(c, url, "", 0, lcx, r.centerY(), ls);
             } else {   // badge until the logo is known (or for leagues without one)
