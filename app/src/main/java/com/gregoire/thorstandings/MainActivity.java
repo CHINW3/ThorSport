@@ -469,13 +469,14 @@ public class MainActivity extends Activity implements ThorView.Listener {
             case KeyEvent.KEYCODE_BACK: return v.controllerBack() || from == top;    // Back on top never closes it
             case KeyEvent.KEYCODE_BUTTON_X: v.controllerFavorite(false); return true;
             case KeyEvent.KEYCODE_BUTTON_Y: v.controllerFavorite(true); return true;
-            case KeyEvent.KEYCODE_BUTTON_L1: if (v.onboardingOpen()) { v.onboardShift(-1); return true; } if (v.settingsShift(-1)) return true; v.hideCursor(); onTabTap((tab + tabCount() - 1) % tabCount()); return true;
-            case KeyEvent.KEYCODE_BUTTON_R1: if (v.onboardingOpen()) { v.onboardShift(1); return true; } if (v.settingsShift(1)) return true; v.hideCursor(); onTabTap((tab + 1) % tabCount()); return true;
-            case KeyEvent.KEYCODE_BUTTON_L2: switchLeague(stepLeague(-1)); return true;
-            case KeyEvent.KEYCODE_BUTTON_R2: switchLeague(stepLeague(1)); return true;
+            case KeyEvent.KEYCODE_BUTTON_L1: if (v.onboardingOpen()) { v.onboardShift(-1); return true; } if (v.settingsShift(-1)) return true; if (v.overlayShown()) return true; v.hideCursor(); onTabTap((tab + tabCount() - 1) % tabCount()); return true;
+            case KeyEvent.KEYCODE_BUTTON_R1: if (v.onboardingOpen()) { v.onboardShift(1); return true; } if (v.settingsShift(1)) return true; if (v.overlayShown()) return true; v.hideCursor(); onTabTap((tab + 1) % tabCount()); return true;
+            case KeyEvent.KEYCODE_BUTTON_L2: if (v.overlayShown()) return true; switchLeague(stepLeague(-1)); return true;
+            case KeyEvent.KEYCODE_BUTTON_R2: if (v.overlayShown()) return true; switchLeague(stepLeague(1)); return true;
             case KeyEvent.KEYCODE_BUTTON_START: v.openSettings(); return true;
             case KeyEvent.KEYCODE_BUTTON_SELECT: v.openLeaguePicker(); return true;
             case KeyEvent.KEYCODE_BUTTON_THUMBL:   // L3: back to today when you are on another day, else refresh
+                if (v.overlayShown()) return true;
                 if (dateOffset != 0) { v.hideCursor(); onDateShift(-dateOffset); } else refresh(true);
                 return true;
             case KeyEvent.KEYCODE_BUTTON_THUMBR: onViewMode(dual ? 0 : 2); return true;   // R3: one screen / two screens

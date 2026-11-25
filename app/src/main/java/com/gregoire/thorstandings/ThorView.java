@@ -235,6 +235,7 @@ public class ThorView extends View {
             }
 
             @Override public boolean onFling(MotionEvent a, MotionEvent b, float vx, float vy) {
+                if (overlayOpen()) return false;   // a swipe on Settings / menus must not move the screen behind them
                 if (tab == TAB_STANDINGS) {
                     if (Math.abs(vy) > Math.abs(vx)) standPage = Math.max(0, standPage + (vy < 0 ? 1 : -1));
                     else if (groups.size() > 1) { standGroup = ((standGroup + (vx < 0 ? 1 : -1)) % groups.size() + groups.size()) % groups.size(); standPage = 0; }
@@ -363,7 +364,7 @@ public class ThorView extends View {
     }
 
     private void handleLongPress(float x, float y) {
-        if (listener == null) return;
+        if (listener == null || overlayOpen()) return;   // nothing behind an open menu reacts
                 if (leagueRect.contains(x, y)) { listener.onLeagueLongPress(); return; }
         if (clockRect.contains(x, y)) { listener.onClockLongPress(); return; }
         for (int i = 0; i < hitRects.size(); i++) {
@@ -599,7 +600,7 @@ public class ThorView extends View {
 
     /** X / Y: ★ the left / right team (card or Board), X = the row's team in Standings. */
     public void controllerFavorite(boolean right) {
-        if (listener == null) return;
+        if (listener == null || overlayOpen()) return;   // not behind an open menu
         String abbr = null;
         if (tab == TAB_SCORES && selCard < cardIds.size()) {
             for (Model.Game g : games) if (g.id.equals(cardIds.get(selCard))) abbr = right ? g.home.abbr : g.away.abbr;
