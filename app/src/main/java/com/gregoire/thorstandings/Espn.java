@@ -459,6 +459,7 @@ public final class Espn {
             }
             sb.games.add(g);
         }
+        if (date == null && "football".equals(sport)) onlyToday(sb.games);
         // Live games first, then upcoming (by start time), then finished.
         sb.games.sort((a, b) -> {
             int ra = rank(a), rb = rank(b);
@@ -466,6 +467,24 @@ public final class Espn {
             return Long.compare(a.startMs, b.startMs);
         });
         return sb;
+    }
+
+    /**
+     * Without a date, ESPN answers a football request with the whole week (Thursday to Monday, and it only moves on to the next
+     * week on Wednesday). So on a Tuesday the app showed Sunday's finished games under TODAY (your Bills, who were not playing).
+     * "Today" keeps: games that start today (your clock), games still live, and games that started within the last 5 hours
+     * (a late game that crosses midnight).
+     */
+    private static void onlyToday(List<Model.Game> games) {
+        java.util.Calendar c = java.util.Calendar.getInstance();
+        c.set(java.util.Calendar.HOUR_OF_DAY, 0); c.set(java.util.Calendar.MINUTE, 0);
+        c.set(java.util.Calendar.SECOND, 0); c.set(java.util.Calendar.MILLISECOND, 0);
+        final long dayStart = c.getTimeInMillis();
+        c.add(java.util.Calendar.DAY_OF_YEAR, 1);
+        final long dayEnd = c.getTimeInMillis(), now = System.currentTimeMillis();
+        games.removeIf(g -> !(g.startMs <= 0 || g.isLive()
+            || (g.startMs >= dayStart && g.startMs < dayEnd)
+            || (g.startMs <= now && g.startMs + 5 * 3600_000L >= now)));
     }
 
     /** F1: every session (FP1, Qualifying, Race…) of each Grand Prix becomes one card. */

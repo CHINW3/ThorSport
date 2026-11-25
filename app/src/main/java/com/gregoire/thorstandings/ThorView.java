@@ -67,7 +67,8 @@ public class ThorView extends View {
         SET_CELEB_LEN = 17, SET_ACCENT = 18, SET_CLOCK = 19, SET_LANG = 20,  SET_STAND_SIZE = 22, SET_DEMO_MLB = 23, SET_DEMO_NFL = 24, SET_DEMO_NHL = 25, SET_SHOT_MAP = 26, SET_UPDATE = 27, SET_COMPANION = 28, SET_MY_TEAMS = 29, SET_OTHER_TEAMS = 30, SET_MENU_FX = 31,
         SET_MUTE = 32, SET_HORN_SHORT = 33, SET_REPLAY = 34, SET_CELEB_MINE = 35,
         SET_ROTATE = 38, SET_FAST_LIVE = 39, SET_RESET_SETTINGS = 41, SET_START_LEAGUE = 42, SET_REMINDER = 43, SET_EXTRA_ALERTS = 44,
-        SET_FX_FLASH = 45, SET_FX_BEAMS = 46, SET_FX_CONFETTI = 47, SET_FX_FIREWORKS = 48, SET_FX_SHAKE = 49, SET_HORN_SOUND = 50, SET_LED_GOAL = 51, SET_FX_PRESET = 52, SET_EV_SOUND = 60, SET_SOUND_CHECK = 70, SET_SOUND_SET = 71, SET_TEAM_HORN = 72, SET_SOUND_MORE = 73, SET_SOUND_STYLE = 74;
+        SET_FX_FLASH = 45, SET_FX_BEAMS = 46, SET_FX_CONFETTI = 47, SET_FX_FIREWORKS = 48, SET_FX_SHAKE = 49, SET_HORN_SOUND = 50, SET_LED_GOAL = 51, SET_FX_PRESET = 52, SET_EV_SOUND = 60, SET_SOUND_CHECK = 70, SET_SOUND_SET = 71, SET_TEAM_HORN = 72, SET_SOUND_MORE = 73, SET_SOUND_STYLE = 74,
+        SET_OPEN_PAGE = 100;   // a row with id 100 + n opens settings page n (handled here, not in MainActivity)
     private static final int GAMES_PER_PAGE = 8;
     private static final long AUTO_PAGE_MS = 10_000;
     private long CELEBRATION_MS = 6500;
@@ -300,13 +301,13 @@ public class ThorView extends View {
                 if (celebrating()) { celebGame = null; invalidate(); return true; }
         if (helpOpen) { helpOpen = false; invalidate(); return true; }
         if (settingsOpen) {
-    for (int i = 0; i < sectionRects.size(); i++) {
-        if (sectionRects.get(i).contains(x, y)) { settingsSection = i; selSetting = 0; settingsFocus = 0; invalidate(); return true; }
+    if (settingsPage < 0) for (int i = 0; i < sectionRects.size(); i++) {   // the cards on the home
+        if (sectionRects.get(i).contains(x, y)) { homeSel = i; openSettingsPage(i); return true; }
     }
     for (int i = 0; i < settingRects.size(); i++) {
         if (settingRects.get(i).contains(x, y)) {
             int[] act = settingActs.get(i);
-            if (act[0] < 0) settingsOpen = false; else listener.onSetting(act[0], act[1]);
+            if (act[0] == -2) settingsBack(); else if (act[0] < 0) settingsOpen = false; else settingAction(act[0], act[1]);
             invalidate();
             return true;
         }
@@ -378,7 +379,7 @@ public class ThorView extends View {
         if (delayOpen) return sel(delayRects, selDelay);
         if (syncState == 3) return sel(syncRects, selSync);
         if (onboardOpen) return sel(onboardRects, selOnboard - onboardFirstIdx);
-        if (settingsOpen) return settingsFocus == 0 ? sel(sectionRects, settingsSection) : sel(settingCells, selSetting);
+        if (settingsOpen) return settingsPage < 0 ? sel(sectionRects, homeSel) : sel(settingCells, selSetting);
         if (pickerOpen) return sel(pickerRects, selPicker);
         if (tab == TAB_SCORES) return sel(cardRects, selCard);
         if (tab == TAB_STANDINGS) return sel(hitRects, selRow);
@@ -434,12 +435,13 @@ public class ThorView extends View {
             return true;
         }
         if (settingsOpen) {
-            // console style: sections on the left, rows on the right; → / A goes into the rows, ← / B comes back
-            if (settingsFocus == 0) {
-                if (dy != 0) { settingsSection = wrap(settingsSection + dy, sectionCount()); selSetting = 0; }
-                else if (dx > 0 && !visibleSettings().isEmpty()) { settingsFocus = 1; selSetting = 0; }
-            } else {
-                if (dx < 0) settingsFocus = 0;
+            if (settingsPage < 0) {   // the home: move over the 3 x 2 cards
+                int cols = 3, row = homeSel / cols, col = homeSel % cols;
+                if (dx != 0) col = wrap(col + dx, cols);
+                if (dy != 0) row = wrap(row + dy, HOME_CARDS / cols);
+                homeSel = row * cols + col;
+            } else {                  // a page: ↑↓ move, A changes, ← / B go back
+                if (dx < 0) settingsBack();
                 else if (dy != 0) selSetting = wrap(selSetting + dy, visibleSettings().size());   // ↓ on the last row goes back to the top
             }
         } else if (pickerOpen) {
@@ -539,9 +541,9 @@ public class ThorView extends View {
         wakeCursor();
         performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
         if (settingsOpen) {
-            if (settingsFocus == 0) { if (!visibleSettings().isEmpty()) { settingsFocus = 1; selSetting = 0; invalidate(); } return; }
+            if (settingsPage < 0) { openSettingsPage(homeSel); return; }
             String[] it = sel2(visibleSettings(), selSetting);
-            if (it != null) listener.onSetting(Integer.parseInt(it[2]), 1);
+            if (it != null) settingAction(Integer.parseInt(it[2]), 1);
         } else if (pickerOpen) {
             pickItem(selPicker);
         } else if (tab == TAB_SCORES) {
@@ -571,7 +573,7 @@ public class ThorView extends View {
 
     /** B: close menu → leave big score → back to Scores → hide the selection. Never leaves the app. */
     public boolean controllerBack() {
-        if (settingsOpen && settingsFocus == 1) { settingsFocus = 0; invalidate(); return true; }
+        if (settingsOpen && settingsBack()) return true;   // a page goes back to where it came from; on the home B closes settings
         if (onboardOpen) { onboardOpen = false; listener.onOnboardDone(); invalidate(); return true; }
         if (syncState > 0) { listener.onSyncCancel(); return true; }
         if (demoGame != null) { demoGame = null; invalidate(); return true; }
@@ -595,7 +597,7 @@ public class ThorView extends View {
         pickerOpen = false;
         settingsOpen = !settingsOpen;
         selSetting = 0;
-        settingsFocus = 0;
+        settingsPage = -1;   // always starts on the home with the cards
         wakeCursor();
         invalidate();
     }
@@ -2242,39 +2244,70 @@ public class ThorView extends View {
 
     // ------------------------------------------------------------------ settings panel
     /**
-     * Settings sections, one idea each. MainActivity.pushSettings() puts every row in one of them by this number:
-     * 0 Games (what you watch and how it updates), 1 Teams & alerts, 2 Goal screen, 3 Sound, 4 Stick lights, 5 Display, 6 App.
+     * Settings pages. The home shows pages 0-5 as big cards, each with its current state; the rest (6+) are opened from a row
+     * inside one of them ("Effects", "Sounds by event", "Field demos"). MainActivity.pushSettings() puts every row in a page by
+     * this number. No page has more than 10 rows, so the text never has to shrink.
      */
-    private static final String[][] SECTIONS = {
-        {"Games", "Matchs"}, {"Teams & alerts", "Équipes & alertes"}, {"Goal screen", "Écran de but"}, {"Sound", "Son"},
-        {"Stick lights", "Lumières"}, {"Display", "Affichage"}, {"App", "Appli"}};
-    /** Icon of each section (numbers of the drawings in drawSectionIcon): board, "!", star, horn, ring, screen, info. */
-    private static final int[] SECTION_ICON = {6, 4, 2, 3, 5, 1, 7};
-    private int sectionCount() { return SECTIONS.length; }
-    private int settingsSection, settingsFocus;   // focus 0 = sections, 1 = rows
+    private static final String[][] PAGES = {
+        {"Games", "Matchs"}, {"My teams", "Mes équipes"}, {"Goal", "But"}, {"Sound", "Son"}, {"Display", "Affichage"}, {"App", "Appli"},
+        {"Goal effects", "Effets du but"}, {"Sounds by event", "Sons par événement"}, {"Field demos", "Démos de terrain"}};
+    private static final int HOME_CARDS = 6;
+    /** Icon of each page (numbers of the drawings in drawSectionIcon): board, "!", star, horn, screen, info, sliders. */
+    private static final int[] PAGE_ICON = {6, 4, 2, 3, 1, 7, 0, 0, 6};
+    /** Where "back" goes: -1 = the home. */
+    private static final int[] PAGE_PARENT = {-1, -1, -1, -1, -1, -1, 2, 3, 5};
+    private int settingsPage = -1;   // -1 = the home with the cards
+    private int homeSel;             // the selected card on the home (controller)
+    private List<String[]> settingCards = new ArrayList<>();   // {line 1, line 2} of each card: what is set right now
+    private final RectF settingsBack = new RectF();
 
-    /** L1 / R1 while Settings is open: previous / next section. */
-    public boolean settingsShift(int dir) {
-        if (!settingsOpen) return false;
-        settingsSection = ((settingsSection + dir) % sectionCount() + sectionCount()) % sectionCount();
+    public void setSettingCards(List<String[]> cards) { settingCards = cards; invalidate(); }
+
+    private void openSettingsPage(int page) { settingsPage = page; selSetting = 0; invalidate(); }
+
+    /** One step back: from a page to where it came from (the home, or the page with the row that opened it). False on the home. */
+    private boolean settingsBack() {
+        if (settingsPage < 0) return false;
+        int parent = PAGE_PARENT[settingsPage];
+        if (parent < 0) homeSel = Math.min(settingsPage, HOME_CARDS - 1);   // the home remembers the card you came from
+        settingsPage = parent;
         selSetting = 0;
         invalidate();
         return true;
     }
+
+    /** A tap or A on a row: open another page, or hand the setting to MainActivity. */
+    private void settingAction(int id, int dir) {
+        if (id >= SET_OPEN_PAGE && id < SET_OPEN_PAGE + PAGES.length) openSettingsPage(id - SET_OPEN_PAGE);
+        else listener.onSetting(id, dir);
+    }
+
+    /** L1 / R1 while Settings is open: the previous / next card (or page). */
+    public boolean settingsShift(int dir) {
+        if (!settingsOpen) return false;
+        if (settingsPage < 0) homeSel = ((homeSel + dir) % HOME_CARDS + HOME_CARDS) % HOME_CARDS;
+        else {
+            int top = settingsPage < HOME_CARDS ? settingsPage : PAGE_PARENT[settingsPage];
+            settingsPage = ((top + dir) % HOME_CARDS + HOME_CARDS) % HOME_CARDS;
+            selSetting = 0;
+        }
+        invalidate();
+        return true;
+    }
     private String appVersion = "";
-    private final List<RectF> sectionRects = new ArrayList<>();
+    private final List<RectF> sectionRects = new ArrayList<>();   // the cards on the home
 
     public void setAppVersion(String v) { appVersion = v == null ? "" : v; }
 
-    /** Items of the section on screen. */
+    /** Rows of the page on screen. */
     private List<String[]> visibleSettings() {
-        if (settingsSection >= sectionCount()) settingsSection = 0;
         List<String[]> out = new ArrayList<>();
-        for (String[] it : settingItems) if (it.length > 4 && Integer.parseInt(it[4]) == settingsSection) out.add(it);
+        if (settingsPage < 0) return out;
+        for (String[] it : settingItems) if (it.length > 4 && Integer.parseInt(it[4]) == settingsPage) out.add(it);
         return out;
     }
 
-    /** Full-screen settings: sections on the left, big rows on the right. */
+    /** Full-screen settings: the home with the cards, or one page of rows. */
     private void drawSettings(Canvas c, int w, int h) {
         settingRects.clear();
         settingActs.clear();
@@ -2286,40 +2319,68 @@ public class ThorView extends View {
         p.setShader(null);
         float gap = w * 0.02f, headH = h * 0.12f;
 
-        // header
-        text(c, tr("Settings", "Réglages"), gap * 1.5f, headH * 0.55f, headH * 0.4f, tfBlack, TEXT, Paint.Align.LEFT, w * 0.4f);
-        p.setTypeface(tfBlack);
-        p.setTextSize(headH * 0.4f);
-        float titleW = p.measureText(tr("Settings", "Réglages"));
-        text(c, "ThorSport " + appVersion, gap * 2.4f + titleW, headH * 0.58f, headH * 0.2f, tfMed, DIM, Paint.Align.LEFT, w * 0.3f);
-        if (cursorOn) text(c, settingsFocus == 0 ? tr("↑↓ section   →/A open   B close", "↑↓ section   →/A ouvrir   B fermer")
-                : tr("↑↓ move   A change   ←/B back", "↑↓ bouger   A changer   ←/B retour"), w * 0.6f, headH * 0.55f, headH * 0.17f, tfCond, MUTED, Paint.Align.CENTER, w * 0.34f);
+        // header: "Settings" on the home; a back button and the page's name on a page
+        if (settingsPage < 0) {
+            text(c, tr("Settings", "Réglages"), gap * 1.5f, headH * 0.55f, headH * 0.4f, tfBlack, TEXT, Paint.Align.LEFT, w * 0.4f);
+            p.setTypeface(tfBlack);
+            p.setTextSize(headH * 0.4f);
+            float titleW = p.measureText(tr("Settings", "Réglages"));
+            text(c, "ThorSport " + appVersion, gap * 2.4f + titleW, headH * 0.58f, headH * 0.2f, tfMed, DIM, Paint.Align.LEFT, w * 0.3f);
+        } else {
+            float bh = headH * 0.66f;
+            settingsBack.set(gap * 1.2f, headH * 0.5f - bh / 2, gap * 1.2f + bh * 1.25f, headH * 0.5f + bh / 2);
+            p.setColor(0xFF22252D);
+            c.drawRoundRect(settingsBack, bh / 2, bh / 2, p);
+            text(c, "‹", settingsBack.centerX(), settingsBack.centerY() - bh * 0.04f, bh * 0.75f, tfBlack, TEXT, Paint.Align.CENTER, bh);
+            settingRects.add(settingsBack); settingActs.add(new int[]{-2, 0});
+            int parent = PAGE_PARENT[settingsPage];
+            String title = parent >= 0 ? tr(PAGES[parent][0], PAGES[parent][1]) + "  ›  " + tr(PAGES[settingsPage][0], PAGES[settingsPage][1])
+                : tr(PAGES[settingsPage][0], PAGES[settingsPage][1]);
+            text(c, title, settingsBack.right + gap * 0.8f, headH * 0.55f, headH * 0.4f, tfBlack, TEXT, Paint.Align.LEFT, w * 0.5f);
+        }
+        if (cursorOn) text(c, settingsPage < 0 ? tr("←↑↓→ move   A open   B close", "←↑↓→ bouger   A ouvrir   B fermer")
+                : tr("↑↓ move   A change   ←/B back   L1/R1 next", "↑↓ bouger   A changer   ←/B retour   L1/R1 suivant"), w * 0.6f, headH * 0.55f, headH * 0.17f, tfCond, MUTED, Paint.Align.CENTER, w * 0.32f);
         RectF done = new RectF(w - gap * 1.5f - headH * 1.9f, headH * 0.22f, w - gap * 1.5f, headH * 0.88f);
         p.setColor(ACCENT);
         c.drawRoundRect(done, done.height() / 2, done.height() / 2, p);
         text(c, tr("DONE", "OK"), done.centerX(), done.centerY(), headH * 0.24f, tfBlack, 0xFF000000, Paint.Align.CENTER, done.width());
         settingRects.add(done); settingActs.add(new int[]{-1, 0});
 
-        // sections (left)
-        float sideW = w * 0.3f, top = headH + gap * 0.4f, bottom = h - gap;
-        float sh = Math.min(h * 0.12f, (bottom - top) / sectionCount());
-        for (int i = 0; i < sectionCount(); i++) {
-            RectF r = new RectF(gap, top + i * sh + sh * 0.08f, gap + sideW, top + (i + 1) * sh - sh * 0.08f);
-            boolean on = i == settingsSection;
-            p.setColor(on ? ACCENT : 0xFF171A21);
-            c.drawRoundRect(r, r.height() * 0.28f, r.height() * 0.28f, p);
-            drawSectionIcon(c, SECTION_ICON[i], r.left + r.height() * 0.55f, r.centerY(), r.height() * 0.42f, on ? 0xFF000000 : MUTED);
-            text(c, tr(SECTIONS[i][0], SECTIONS[i][1]), r.left + r.height() * 1.0f, r.centerY(), r.height() * 0.27f, tfBlack,
-                on ? 0xFF000000 : TEXT, Paint.Align.LEFT, r.width() - r.height() * 1.2f);
+        if (settingsPage < 0) drawSettingsHome(c, w, h, gap, headH);
+        else drawSettingsRows(c, w, h, gap, headH);
+    }
+
+    /** The home: 6 big cards in 3 columns, each with its icon, its name and what is set right now. */
+    private void drawSettingsHome(Canvas c, int w, int h, float gap, float headH) {
+        float top = headH + gap * 0.3f, bottom = h - gap;
+        int cols = 3, rows = 2;
+        float cw = (w - gap * (cols + 1)) / cols, ch = (bottom - top - gap * (rows - 1)) / rows;
+        for (int i = 0; i < HOME_CARDS; i++) {
+            float left = gap + (i % cols) * (cw + gap), tp = top + (i / cols) * (ch + gap);
+            RectF r = new RectF(left, tp, left + cw, tp + ch);
+            p.setColor(0xFF171A21);
+            c.drawRoundRect(r, ch * 0.09f, ch * 0.09f, p);
+            float ic = ch * 0.2f;   // icon in a soft accent circle
+            p.setColor(alpha(ACCENT, 0x2A));
+            c.drawCircle(left + ch * 0.2f, tp + ch * 0.24f, ic * 0.85f, p);
+            drawSectionIcon(c, PAGE_ICON[i], left + ch * 0.2f, tp + ch * 0.24f, ic * 0.95f, ACCENT);
+            text(c, "›", r.right - ch * 0.12f, tp + ch * 0.17f, ch * 0.16f, tfBlack, DIM, Paint.Align.RIGHT, ch * 0.2f);
+            text(c, tr(PAGES[i][0], PAGES[i][1]), left + ch * 0.1f, tp + ch * 0.58f, ch * 0.125f, tfBlack, TEXT, Paint.Align.LEFT, cw - ch * 0.2f);
+            String[] info = i < settingCards.size() ? settingCards.get(i) : new String[0];
+            for (int k = 0; k < Math.min(2, info.length); k++)
+                text(c, info[k], left + ch * 0.1f, tp + ch * (0.74f + 0.13f * k), ch * 0.078f, tfMed, MUTED, Paint.Align.LEFT, cw - ch * 0.2f);
             sectionRects.add(r);
         }
+    }
 
-        // rows (right)
+    /** One page: its rows, big, in one centered card (never wider than it is useful). */
+    private void drawSettingsRows(Canvas c, int w, int h, float gap, float headH) {
         List<String[]> vis = visibleSettings();
-        float x0 = gap * 2 + sideW, x1 = w - gap;
+        float top = headH + gap * 0.4f, bottom = h - gap;
+        float cardW = Math.min(w - gap * 2, h * 1.5f), x0 = (w - cardW) / 2f, x1 = x0 + cardW;
         float rowH = Math.min(h * 0.105f, (bottom - top) / Math.max(1, vis.size()));
         boolean showDesc = rowH >= h * 0.072f;   // a second line only fits when the list is short enough
-        RectF card = new RectF(x0, top + sh * 0.08f, x1, top + sh * 0.08f + rowH * vis.size());
+        RectF card = new RectF(x0, top, x1, top + rowH * vis.size());
         p.setColor(0xFF171A21);
         c.drawRoundRect(card, rowH * 0.3f, rowH * 0.3f, p);
         for (int i = 0; i < vis.size(); i++) {

@@ -276,7 +276,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         muteUntil = prefs.getLong("muteUntil", 0);
         celebMine = prefs.getBoolean("celebMine", false);
         Horn.shortHorn = prefs.getBoolean("hornShort", false);
-        fastLive = prefs.getBoolean("fastLive", false);
+        fastLive = prefs.getBoolean("fastLive", true);   // FAST (15 s) unless you chose NORMAL yourself
         keepMode = prefs.getInt("keepMode", prefs.getBoolean("keepOn", true) ? 0 : 2);
         rotateIdx = Math.min(prefs.getInt("rotate", 0), ROTATE_SEC.length - 1);
         reminderIdx = Math.min(prefs.getInt("reminder", 2), REMIND_MIN.length - 1);
@@ -996,8 +996,6 @@ public class MainActivity extends Activity implements ThorView.Listener {
 
     private static String t(String en, String fr) { return ThorView.tr(en, fr); }
 
-    private boolean soundMore;   // Settings → Sound → Customize: shows the per-event rows
-
     private String soundStyleName() {
         int st = Horn.styleOf();
         return st < 0 ? t("CUSTOM", "PERSONNALISÉ") : t(Horn.STYLE_NAMES[st][0], Horn.STYLE_NAMES[st][1]);
@@ -1012,8 +1010,8 @@ public class MainActivity extends Activity implements ThorView.Listener {
         all(v -> v.setSettings(delaySec, ledsOn, ledsAvailable, Math.round((1 - DIM_LEVELS[dimLevel]) * 100), autoBoard));
         all(v -> v.setDisplayPrefs(hideFinal, nightMode, shotMap));
         List<String[]> it = new ArrayList<>();
-        // The settings are grouped by what you are trying to do (see ThorView.SECTIONS):
-        // 0 Games · 1 Teams & alerts · 2 Goal screen · 3 Sound · 4 Stick lights · 5 Display · 6 App
+        // Settings = a home with 6 cards (pages 0-5) and a few pages opened from a row (6+). See ThorView.PAGES.
+        // 0 Games · 1 My teams · 2 Goal · 3 Sound · 4 Display · 5 App · 6 Goal effects · 7 Sounds by event · 8 Field demos
         // 0 GAMES: what you watch, and how it updates
         it.add(item(0, t("Open on", "Ouvrir sur"), startLeague == 1 ? t("MY TEAMS", "MES ÉQUIPES") : t("LAST LEAGUE", "DERNIÈRE LIGUE"), ThorView.SET_START_LEAGUE,
             t("Which league the app starts on", "La ligue affichée au démarrage")));
@@ -1031,7 +1029,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
             t("Big rows, or the whole table at once", "Grandes lignes, ou tout le classement")));
         it.add(item(0, t("NHL shot map (rink)", "Carte des tirs LNH"), onOff(shotMap), ThorView.SET_SHOT_MAP,
             t("Shows shots on the rink in NHL games", "Les tirs sur la patinoire (LNH)")));
-        // 1 TEAMS & ALERTS: everything about "my teams" in one place
+        // 1 MY TEAMS: everything about "my teams" in one place
         it.add(item(1, t("My teams", "Mes équipes") + " (" + favKeys.size() + ")", t("EDIT  ›", "MODIFIER  ›"), ThorView.SET_MY_TEAMS,
             t("Pick the teams you follow", "Choisis les équipes que tu suis")));
         it.add(item(1, t("Celebrate", "Célébrer"), celebMine ? t("MY TEAMS ONLY", "MES ÉQUIPES") : t("ALL GAMES", "TOUS LES MATCHS"), ThorView.SET_CELEB_MINE,
@@ -1044,7 +1042,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
             t("Power play, lead changes, overtime…", "Avantage, changement de meneur, prolongation…")));
         it.add(item(1, t("Mute alerts", "Couper les alertes"), muteLabel(), ThorView.SET_MUTE,
             t("Silences sound and vibration for 1 hour", "Coupe le son et les vibrations pendant 1 h")));
-        // 2 GOAL SCREEN: the party when a goal is scored
+        // 2 GOAL: what happens when a goal is scored (the screen, the lights, the buzz; the sound has its own page)
         it.add(item(2, t("Test a goal", "Tester un but"), "▶", ThorView.SET_TEST,
             t("See, hear and feel a goal right now", "Voir, entendre et sentir un but maintenant")));
         if (lastAlertWord != null) it.add(item(2, t("Replay last goal", "Revoir le dernier but"), "▶", ThorView.SET_REPLAY,
@@ -1055,64 +1053,94 @@ public class MainActivity extends Activity implements ThorView.Listener {
             t("Full, clean (no flashing) or simple", "Complet, sobre (sans flash) ou simple")));
         it.add(item(2, t("Party length", "Durée de la fête"), CELEB_NAMES[celebLen], ThorView.SET_CELEB_LEN,
             t("How long the goal screen stays", "Combien de temps l'écran reste")));
-        it.add(item(2, t("Flash & strobe", "Flash et stroboscope"), onOff(ThorView.fxFlash), ThorView.SET_FX_FLASH,
-            t("Bright flashes (turn off if sensitive)", "Flashs lumineux (à couper si sensible)")));
-        it.add(item(2, t("Goal-lamp beams", "Faisceaux de lumière"), onOff(ThorView.fxBeams), ThorView.SET_FX_BEAMS,
-            t("Light beams like a goal lamp", "Faisceaux comme une lampe de but")));
-        it.add(item(2, t("Confetti", "Confettis"), onOff(ThorView.fxConfetti), ThorView.SET_FX_CONFETTI, t("Confetti in your team's colors", "Confettis aux couleurs de l'équipe")));
-        it.add(item(2, t("Fireworks", "Feux d'artifice"), onOff(ThorView.fxFireworks), ThorView.SET_FX_FIREWORKS, t("Fireworks over the score", "Feux d'artifice sur le pointage")));
-        it.add(item(2, t("Screen shake", "Écran qui tremble"), onOff(ThorView.fxShake), ThorView.SET_FX_SHAKE, t("The screen shakes on the goal", "L'écran tremble au but")));
-        // 3 SOUND: the everyday rows first; the per-event list is tucked behind "Customize"
+        int fxOn = (ThorView.fxFlash ? 1 : 0) + (ThorView.fxBeams ? 1 : 0) + (ThorView.fxConfetti ? 1 : 0) + (ThorView.fxFireworks ? 1 : 0) + (ThorView.fxShake ? 1 : 0);
+        it.add(item(2, t("Effects", "Effets"), (fxOn == 5 ? t("ALL ON", "TOUS") : fxOn == 0 ? t("ALL OFF", "AUCUN") : fxOn + " / 5") + "  ›", ThorView.SET_OPEN_PAGE + 6,
+            t("Flash, beams, confetti, fireworks, shake", "Flash, faisceaux, confettis, feux, tremblement")));
+        it.add(item(2, t("Stick lights", "Lumières des joysticks"), ledsAvailable ? onOff(ledsOn) : "N/A", ThorView.SET_LEDS,
+            t("Joystick lights in your team's colors", "Lumières des joysticks aux couleurs de l'équipe")));
+        it.add(item(2, t("Flash lights on goals", "Lumières clignotent aux buts"), onOff(ledGoal), ThorView.SET_LED_GOAL,
+            t("Blink in the team's colors on a goal", "Clignotent aux couleurs de l'équipe au but")));
+        it.add(item(2, t("Vibrate on goals", "Vibrer aux buts"), onOff(vibrate), ThorView.SET_VIBRATE,
+            t("Buzz the console when a goal is scored", "Fait vibrer la console à chaque but")));
+        // 3 SOUND: the everyday rows (the sound for each event is one level down)
         it.add(item(3, t("Sound", "Son"), onOff(sound), ThorView.SET_HORN, t("Switch for every goal sound", "Interrupteur de tous les sons de but")));
         it.add(item(3, t("Volume", "Volume"), VOL_NAMES[hornVol], ThorView.SET_HORN_VOL, t("MAX adds a loudness boost on top", "MAX ajoute un boost de volume")));
         it.add(item(3, t("Style", "Style"), soundStyleName() + "  ▶", ThorView.SET_SOUND_STYLE, t("A whole set of sounds in one tap", "Un ensemble de sons en un clic")));
-        it.add(item(3, t("Team goal horns (NHL)", "Klaxons des équipes (LNH)"), onOff(Horn.teamHorns), ThorView.SET_TEAM_HORN, t("Each team's own horn when it scores", "Le klaxon de chaque équipe quand elle marque")));
-        it.add(item(3, t("Sound length", "Durée du son"), Horn.shortHorn ? t("SHORT", "COURT") : t("FULL", "COMPLET"), ThorView.SET_HORN_SHORT, t("SHORT cuts every sound to about 1 s", "COURT coupe chaque son à environ 1 s")));
-        it.add(item(3, t("Vibrate on goals", "Vibrer aux buts"), onOff(vibrate), ThorView.SET_VIBRATE, t("Buzz the console when a goal is scored", "Fait vibrer la console à chaque but")));
-        it.add(item(3, t("Menu sounds & vibration", "Sons et vibration des menus"), onOff(menuFx), ThorView.SET_MENU_FX, t("A soft tick when you move with the controller", "Un petit clic quand tu bouges à la manette")));
-        it.add(item(3, t("Test the sound", "Tester le son"), "▶  " + Horn.status, ThorView.SET_SOUND_CHECK, t("Plays your goal sound and checks it works", "Joue ton son de but et vérifie qu'il marche")));
-        it.add(item(3, t("Customize each sound", "Personnaliser chaque son"), soundMore ? t("HIDE  ▾", "CACHER  ▾") : t("SHOW  ›", "VOIR  ›"), ThorView.SET_SOUND_MORE, t("Pick a different sound for each event", "Choisis un son pour chaque événement")));
-        if (soundMore) {
-            for (int i = 0; i < Horn.EVENTS.length; i++) {   // one sound per event; tapping cycles and plays it
-                int st = Horn.eventSound[i];
-                it.add(item(3, "   " + t(Horn.EVENTS[i][0], Horn.EVENTS[i][1]), t(Horn.SOUND_NAMES[st][0], Horn.SOUND_NAMES[st][1]) + (st == Horn.NONE ? "" : "  ▶"), ThorView.SET_EV_SOUND + i));
-            }
-            it.add(item(3, "   " + t("Sound pack", "Banque de sons"), Horn.usePack ? t("NEW PACK  ▶", "NOUVELLE  ▶") : t("BUILT-IN  ▶", "INTÉGRÉE  ▶"), ThorView.SET_SOUND_SET));
-        }
-        // 4 STICK LIGHTS
-        it.add(item(4, t("Stick lights", "Lumières des joysticks"), ledsAvailable ? onOff(ledsOn) : "N/A", ThorView.SET_LEDS,
-            t("Joystick lights in your team's colors", "Lumières des joysticks aux couleurs de l'équipe")));
-        it.add(item(4, t("Light brightness", "Intensité des lumières"), LEVELS[ledBri], ThorView.SET_LED_BRI,
-            t("How bright the lights are", "L'intensité des lumières")));
-        it.add(item(4, t("Flash on goals", "Clignoter aux buts"), onOff(ledGoal), ThorView.SET_LED_GOAL,
-            t("Blink in the team's colors on a goal", "Clignotent aux couleurs de l'équipe au but")));
-        // 5 DISPLAY
-        it.add(item(5, t("Two-screen mode", "Mode deux écrans"), onOff(dual), ThorView.SET_DUAL,
+        it.add(item(3, t("Team goal horns (NHL)", "Klaxons des équipes (LNH)"), onOff(Horn.teamHorns), ThorView.SET_TEAM_HORN,
+            t("Each team's own horn when it scores", "Le klaxon de chaque équipe quand elle marque")));
+        it.add(item(3, t("Sound length", "Durée du son"), Horn.shortHorn ? t("SHORT", "COURT") : t("FULL", "COMPLET"), ThorView.SET_HORN_SHORT,
+            t("SHORT cuts every sound to about 1 s", "COURT coupe chaque son à environ 1 s")));
+        it.add(item(3, t("Menu sounds & vibration", "Sons et vibration des menus"), onOff(menuFx), ThorView.SET_MENU_FX,
+            t("A soft tick when you move with the controller", "Un petit clic quand tu bouges à la manette")));
+        it.add(item(3, t("Test the sound", "Tester le son"), "▶  " + Horn.status, ThorView.SET_SOUND_CHECK,
+            t("Plays your goal sound and checks it works", "Joue ton son de but et vérifie qu'il marche")));
+        it.add(item(3, t("Sounds by event", "Sons par événement"), soundStyleName() + "  ›", ThorView.SET_OPEN_PAGE + 7,
+            t("Pick a different sound for each event", "Choisis un son pour chaque événement")));
+        // 4 DISPLAY
+        it.add(item(4, t("Two-screen mode", "Mode deux écrans"), onOff(dual), ThorView.SET_DUAL,
             t("Use both screens: Board on top, games below", "Les deux écrans : tableau en haut, matchs en bas")));
-        it.add(item(5, t("Language", "Langue"), french ? "FRANÇAIS" : "ENGLISH", ThorView.SET_LANG,
-            t("English or French", "Anglais ou français")));
-        it.add(item(5, t("Screen brightness", "Luminosité"), Math.round((1 - DIM_LEVELS[dimLevel]) * 100) + "%", ThorView.SET_DIM,
+        it.add(item(4, t("Language", "Langue"), french ? "FRANÇAIS" : "ENGLISH", ThorView.SET_LANG, t("English or French", "Anglais ou français")));
+        it.add(item(4, t("Screen brightness", "Luminosité"), Math.round((1 - DIM_LEVELS[dimLevel]) * 100) + "%", ThorView.SET_DIM,
             t("Dim the screen (saves battery)", "Baisse la luminosité (économise la batterie)")));
-        it.add(item(5, t("Accent color", "Couleur d'accent"), ACCENT_NAMES[accentIdx], ThorView.SET_ACCENT,
+        it.add(item(4, t("Stick light brightness", "Intensité des lumières"), LEVELS[ledBri], ThorView.SET_LED_BRI,
+            t("How bright the joystick lights are", "L'intensité des lumières des joysticks")));
+        it.add(item(4, t("Accent color", "Couleur d'accent"), ACCENT_NAMES[accentIdx], ThorView.SET_ACCENT,
             t("The highlight color of the app", "La couleur de mise en valeur de l'appli")));
-        it.add(item(5, t("Clock", "Horloge"), CLOCK_NAMES[clockMode], ThorView.SET_CLOCK,
-            t("12 h, 24 h, or follow the system", "12 h, 24 h, ou celle du système")));
-        it.add(item(5, t("Keep screen on", "Garder l'écran allumé"), keepName(), ThorView.SET_KEEP_ON,
+        it.add(item(4, t("Clock", "Horloge"), CLOCK_NAMES[clockMode], ThorView.SET_CLOCK, t("12 h, 24 h, or follow the system", "12 h, 24 h, ou celle du système")));
+        it.add(item(4, t("Keep screen on", "Garder l'écran allumé"), keepName(), ThorView.SET_KEEP_ON,
             t("Always, only in live games, or never", "Toujours, pendant les matchs en direct, ou jamais")));
-        // 6 APP
-        it.add(item(6, t("App update", "Mise à jour"), updateLabel(), ThorView.SET_UPDATE,
-            t("Check GitHub for a new version", "Cherche une nouvelle version sur GitHub")));
-        it.add(item(6, t("Help / tips", "Aide / astuces"), "?", ThorView.SET_HELP,
-            t("Controls and handy tricks", "Commandes et astuces")));
-        it.add(item(6, t("Baseball field demo", "Démo terrain de baseball"), "▶", ThorView.SET_DEMO_MLB, t("Preview the baseball field view", "Aperçu du terrain de baseball")));
-        it.add(item(6, t("Football field demo", "Démo terrain de football"), "▶", ThorView.SET_DEMO_NFL, t("Preview the football field view", "Aperçu du terrain de football")));
-        it.add(item(6, t("Hockey rink demo", "Démo patinoire"), "▶", ThorView.SET_DEMO_NHL, t("Preview the hockey rink view", "Aperçu de la patinoire de hockey")));
+        // 5 APP
+        it.add(item(5, t("App update", "Mise à jour"), updateLabel(), ThorView.SET_UPDATE, t("Check GitHub for a new version", "Cherche une nouvelle version sur GitHub")));
+        it.add(item(5, t("Help / tips", "Aide / astuces"), "?", ThorView.SET_HELP, t("Controls and handy tricks", "Commandes et astuces")));
+        it.add(item(5, t("Field demos", "Démos de terrain"), "›", ThorView.SET_OPEN_PAGE + 8, t("Preview the baseball, football and hockey views", "Aperçu des vues baseball, football et hockey")));
         boolean armed = System.currentTimeMillis() - resetArmedAt < 4000;
-        it.add(item(6, t("Clear MY TEAMS", "Vider MES ÉQUIPES") + " (" + favKeys.size() + ")", armed ? t("TAP AGAIN", "TOUCHEZ ENCORE") : t("CLEAR", "VIDER"), ThorView.SET_RESET,
+        it.add(item(5, t("Clear MY TEAMS", "Vider MES ÉQUIPES") + " (" + favKeys.size() + ")", armed ? t("TAP AGAIN", "TOUCHEZ ENCORE") : t("CLEAR", "VIDER"), ThorView.SET_RESET,
             t("Removes all the teams you follow", "Retire toutes les équipes que tu suis")));
         boolean armedSet = System.currentTimeMillis() - settingsResetArmedAt < 4000;
-        it.add(item(6, t("Reset settings", "Réinitialiser les réglages"), armedSet ? t("TAP AGAIN", "TOUCHEZ ENCORE") : t("RESET", "RÉINITIALISER"), ThorView.SET_RESET_SETTINGS,
+        it.add(item(5, t("Reset settings", "Réinitialiser les réglages"), armedSet ? t("TAP AGAIN", "TOUCHEZ ENCORE") : t("RESET", "RÉINITIALISER"), ThorView.SET_RESET_SETTINGS,
             t("Back to the original settings", "Retour aux réglages d'origine")));
+        // 6 GOAL EFFECTS (from Goal → Effects)
+        it.add(item(6, t("Flash & strobe", "Flash et stroboscope"), onOff(ThorView.fxFlash), ThorView.SET_FX_FLASH, t("Bright flashes (turn off if sensitive)", "Flashs lumineux (à couper si sensible)")));
+        it.add(item(6, t("Goal-lamp beams", "Faisceaux de lumière"), onOff(ThorView.fxBeams), ThorView.SET_FX_BEAMS, t("Light beams like a goal lamp", "Faisceaux comme une lampe de but")));
+        it.add(item(6, t("Confetti", "Confettis"), onOff(ThorView.fxConfetti), ThorView.SET_FX_CONFETTI, t("Confetti in your team's colors", "Confettis aux couleurs de l'équipe")));
+        it.add(item(6, t("Fireworks", "Feux d'artifice"), onOff(ThorView.fxFireworks), ThorView.SET_FX_FIREWORKS, t("Fireworks over the score", "Feux d'artifice sur le pointage")));
+        it.add(item(6, t("Screen shake", "Écran qui tremble"), onOff(ThorView.fxShake), ThorView.SET_FX_SHAKE, t("The screen shakes on the goal", "L'écran tremble au but")));
+        // 7 SOUNDS BY EVENT (from Sound → Sounds by event): which sound plays for what (tap to change, you hear it right away)
+        String[][] evDesc = {
+            {"When a team scores a goal", "Quand une équipe marque un but"},
+            {"Football touchdown", "Touché au football"},
+            {"Football field goal", "Placement au football"},
+            {"When your team wins", "Quand ton équipe gagne"},
+            {"Baseball home run", "Circuit au baseball"},
+            {"A goal that wins in overtime", "But gagnant en prolongation"},
+            {"The small alert for a second team", "La petite alerte pour une 2e équipe"},
+            {"Basketball three-pointer", "Panier à 3 points au basketball"}};
+        for (int i = 0; i < Horn.EVENTS.length; i++) {
+            int st = Horn.eventSound[i];
+            it.add(item(7, t(Horn.EVENTS[i][0], Horn.EVENTS[i][1]), t(Horn.SOUND_NAMES[st][0], Horn.SOUND_NAMES[st][1]) + (st == Horn.NONE ? "" : "  ▶"),
+                ThorView.SET_EV_SOUND + i, t(evDesc[i][0], evDesc[i][1])));
+        }
+        it.add(item(7, t("Sound pack", "Banque de sons"), Horn.usePack ? t("NEW PACK  ▶", "NOUVELLE  ▶") : t("BUILT-IN  ▶", "INTÉGRÉE  ▶"), ThorView.SET_SOUND_SET,
+            t("The new sounds, or the ones built into the app", "Les nouveaux sons, ou ceux intégrés à l'appli")));
+        // 8 FIELD DEMOS (from App → Field demos)
+        it.add(item(8, t("Baseball field", "Terrain de baseball"), "▶", ThorView.SET_DEMO_MLB, t("Preview the baseball field view", "Aperçu du terrain de baseball")));
+        it.add(item(8, t("Football field", "Terrain de football"), "▶", ThorView.SET_DEMO_NFL, t("Preview the football field view", "Aperçu du terrain de football")));
+        it.add(item(8, t("Hockey rink", "Patinoire"), "▶", ThorView.SET_DEMO_NHL, t("Preview the hockey rink view", "Aperçu de la patinoire de hockey")));
+        // the cards of the home: what is set right now (two short lines each)
+        List<String[]> cards = new ArrayList<>();
+        cards.add(new String[]{t("Refresh ", "Mise à jour ") + (fastLive ? t("FAST", "RAPIDE") : t("NORMAL", "NORMALE")),
+            t("Spoiler delay ", "Délai ") + (delaySec == 0 ? onOff(false) : delaySec + " s")});
+        cards.add(new String[]{favKeys.size() + t(" teams followed", " équipes suivies"),
+            celebMine ? t("Party: my teams only", "Fête : mes équipes") : t("Party: all games", "Fête : tous les matchs")});
+        cards.add(new String[]{t("Goal screen ", "Écran ") + (celebrations ? fxPresetName() : onOff(false)),
+            t("Lights ", "Lumières ") + (ledsAvailable ? onOff(ledsOn) : "N/A") + "  ·  " + t("Buzz ", "Vibration ") + onOff(vibrate)});
+        cards.add(new String[]{sound ? t("Sound ON  ·  ", "Son ON  ·  ") + VOL_NAMES[hornVol] : t("Sound OFF", "Son OFF"),
+            t("Style ", "Style ") + soundStyleName()});
+        cards.add(new String[]{t("Brightness ", "Luminosité ") + Math.round((1 - DIM_LEVELS[dimLevel]) * 100) + "%",
+            (french ? "Français" : "English") + "  ·  " + CLOCK_NAMES[clockMode]});
+        cards.add(new String[]{"ThorSport " + Updater.currentVersion(this),
+            Updater.newVersion != null ? t("Update ready: ", "Mise à jour : ") + Updater.newVersion : t("Check for updates", "Chercher une MAJ")});
+        all(v -> v.setSettingCards(cards));
         all(v -> v.setAppVersion(Updater.currentVersion(this)));
         all(v -> v.setSettingItems(it));
     }
@@ -1226,10 +1254,6 @@ public class MainActivity extends Activity implements ThorView.Listener {
                 pushSettings();
                 return;
             }
-            case ThorView.SET_SOUND_MORE:
-                soundMore = !soundMore;
-                pushSettings();
-                return;
             case ThorView.SET_TEAM_HORN:   // each NHL team's own horn when it scores (teams without a file keep the normal goal sound)
                 Horn.teamHorns = !Horn.teamHorns;
                 e.putBoolean("teamHorns", Horn.teamHorns).apply();
