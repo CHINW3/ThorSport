@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.64
+- **MORE HOCKEY folder is back** with the QMJHL, OHL, WHL, USHL and ECHL, and its own hockey icon (crossed sticks and a puck).
+- **League logos** for the OHL, WHL, USHL and ECHL, and real team colors for the OHL.
+
 ## 3.63
 - **OHL is back**, alone in the main menu next to the QMJHL (no folder): scores, standings by conference, playoff picture, its 20 teams in My teams, with the real team colors.
 
