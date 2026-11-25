@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.34
+- **Vegas Golden Knights stick lights are gold and steel**, instead of two yellow sticks (the team's gold and its steel grey, which shows as an icy white on the lights).
+
 ## 3.33
 - **Fixed: no win-chance graph for Vegas, Calgary, Montréal and Utah games.** Polymarket names those teams differently from ESPN (Vegas is "las", Calgary "cal", Montréal "mon", Utah "utah"), so the app never found their odds. They are found now. I checked tonight's whole NHL slate: all 15 games get their win chances.
 - **Two-screen mode: the shot map is no longer shown twice.** The rink stays on the top screen, and the bottom screen keeps its space for the win-chance graph and the team stats.
