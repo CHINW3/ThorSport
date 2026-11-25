@@ -128,8 +128,8 @@ public class ThorView extends View {
     private final Typeface tfMed = Typeface.create("sans-serif-medium", Typeface.NORMAL);
     private final Typeface tfReg = Typeface.create("sans-serif", Typeface.NORMAL);
 
-    private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
-    private final Paint bmpPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+    private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG | Paint.DITHER_FLAG);
+    private final Paint bmpPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG | Paint.DITHER_FLAG);
     private final RectF r1 = new RectF();
     private final Rect src = new Rect();
     private final GestureDetector gestures;

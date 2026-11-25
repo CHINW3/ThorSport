@@ -14,7 +14,7 @@ import android.view.View;
  */
 public class TickerView extends View {
     private static final float SPEED = 85f;   // pixels per second
-    private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG | Paint.SUBPIXEL_TEXT_FLAG);
+    private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG | Paint.SUBPIXEL_TEXT_FLAG | Paint.DITHER_FLAG);
     private final Typeface tf = Typeface.create("sans-serif-condensed", Typeface.BOLD);
     private String text;
     private int top = -1, bottom = -1;
