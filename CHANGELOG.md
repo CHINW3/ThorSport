@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.46
+- **New ESPORTS folder** in the league menu: League of Legends moved in, plus Counter-Strike 2, Valorant, Dota 2 and Rainbow Six Siege (live scores, map count, upcoming and past matches, any day with the right stick). You can hide any of them in Settings > Games > Leagues > Esports.
+
 ## 3.45
 - **Click the left stick (L3) to go back to today** when you are looking at another day (it still refreshes when you are already on today).
 

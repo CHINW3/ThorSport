@@ -1989,7 +1989,7 @@ public class ThorView extends View {
         hiddenLeagues.addAll(hidden);
         invalidate();
     }
-    private static final int ITEM_SOCCER = -1, ITEM_BACK = -2, ITEM_INTL = -3, ITEM_COLLEGE = -4, ITEM_CRICKET = -5;
+    private static final int ITEM_SOCCER = -1, ITEM_BACK = -2, ITEM_INTL = -3, ITEM_COLLEGE = -4, ITEM_CRICKET = -5, ITEM_ESPORTS = -6;
 
     /** Which folder a league lives in (0 = main menu). */
     private static int folderOf(int i) {
@@ -2000,6 +2000,7 @@ public class ThorView extends View {
             case 2: return ITEM_COLLEGE;
             case 3: return ITEM_INTL;
             case 4: return ITEM_CRICKET;
+            case 5: return ITEM_ESPORTS;
             default: return 0;
         }
     }
@@ -2071,9 +2072,9 @@ public class ThorView extends View {
                 else {
                 p.setColor(0xFF22252D);
                 c.drawCircle(lcx, r.centerY(), ls * 0.48f, p);
-                text(c, i == ITEM_BACK ? "‹" : i == ITEM_INTL ? "INTL" : i == ITEM_CRICKET ? "CRI" : "SOC", lcx, r.centerY(), i == ITEM_BACK ? ls * 0.6f : ls * 0.3f, tfBlack, TEXT, Paint.Align.CENTER, ls * 0.9f);
+                text(c, i == ITEM_BACK ? "‹" : i == ITEM_INTL ? "INTL" : i == ITEM_CRICKET ? "CRI" : i == ITEM_ESPORTS ? "ES" : "SOC", lcx, r.centerY(), i == ITEM_BACK ? ls * 0.6f : ls * 0.3f, tfBlack, TEXT, Paint.Align.CENTER, ls * 0.9f);
                 }
-                text(c, i == ITEM_BACK ? (fr ? "RETOUR" : "BACK") : i == ITEM_INTL ? "INTL  ›" : i == ITEM_COLLEGE ? (fr ? "UNIVERSITAIRE  ›" : "COLLEGE  ›") : i == ITEM_CRICKET ? "CRICKET  ›" : "SOCCER  ›", r.left + rowH * 0.45f + ls, r.centerY(), rowH * 0.4f, tfBlack, cur ? ACCENT : TEXT, Paint.Align.LEFT, colW - rowH * 0.7f - ls);
+                text(c, i == ITEM_BACK ? (fr ? "RETOUR" : "BACK") : i == ITEM_INTL ? "INTL  ›" : i == ITEM_COLLEGE ? (fr ? "UNIVERSITAIRE  ›" : "COLLEGE  ›") : i == ITEM_CRICKET ? "CRICKET  ›" : i == ITEM_ESPORTS ? "ESPORTS  ›" : "SOCCER  ›", r.left + rowH * 0.45f + ls, r.centerY(), rowH * 0.4f, tfBlack, cur ? ACCENT : TEXT, Paint.Align.LEFT, colW - rowH * 0.7f - ls);
                 continue;
             }
             if (cur) {
@@ -2358,12 +2359,12 @@ public class ThorView extends View {
     private static final String[][] PAGES = {
         {"Games", "Matchs"}, {"My teams", "Mes équipes"}, {"Goal", "But"}, {"Sound", "Son"}, {"Display", "Affichage"}, {"App", "Appli"},
         {"Goal effects", "Effets du but"}, {"Sounds by event", "Sons par événement"}, {"Field demos", "Démos de terrain"},
-        {"Leagues", "Ligues"}, {"Soccer", "Soccer"}, {"College", "Universitaire"}, {"International", "International"}, {"Cricket", "Cricket"}};
+        {"Leagues", "Ligues"}, {"Soccer", "Soccer"}, {"College", "Universitaire"}, {"International", "International"}, {"Cricket", "Cricket"}, {"Esports", "Esports"}};
     private static final int HOME_CARDS = 6;
     /** Icon of each page (numbers of the drawings in drawSectionIcon): board, "!", star, horn, screen, info, sliders. */
-    private static final int[] PAGE_ICON = {6, 4, 2, 3, 1, 7, 0, 0, 6, 0, 0, 0, 0, 0};   // (-1 would mean no icon)
+    private static final int[] PAGE_ICON = {6, 4, 2, 3, 1, 7, 0, 0, 6, 0, 0, 0, 0, 0, 0};   // (-1 would mean no icon)
     /** Where "back" goes: -1 = the home. */
-    private static final int[] PAGE_PARENT = {-1, -1, -1, -1, -1, -1, 2, 3, 5, 0, 9, 9, 9, 9};
+    private static final int[] PAGE_PARENT = {-1, -1, -1, -1, -1, -1, 2, 3, 5, 0, 9, 9, 9, 9, 9};
     private int settingsPage = -1;   // -1 = the home with the cards
     private int homeSel;             // the selected card on the home (controller)
     private List<String[]> settingCards = new ArrayList<>();   // {line 1, line 2} of each card: what is set right now

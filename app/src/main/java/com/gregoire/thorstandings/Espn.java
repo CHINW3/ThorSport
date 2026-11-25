@@ -121,6 +121,10 @@ public final class Espn {
         new League("T20", "cricket/t20", new String[0], new String[0], "", ""),
         new League("WOMEN'S", "cricket/women", new String[0], new String[0], "", ""),
         new League("DOMESTIC", "cricket/domestic", new String[0], new String[0], "", ""),
+        new League("CS2", "esports/cs2", new String[0], new String[0], "", ""),
+        new League("VALORANT", "esports/valorant", new String[0], new String[0], "", ""),
+        new League("DOTA 2", "esports/dota2", new String[0], new String[0], "", ""),
+        new League("R6 SIEGE", "esports/r6", new String[0], new String[0], "", ""),
     };
 
     /** Olympic hockey (IIHF 3-2-1-0 points). ESPN gives no "wins": standings() works it out. */
@@ -137,15 +141,15 @@ public final class Espn {
      */
     public static final int[] ORDER = buildOrder();
 
-    /** 0 = the main menu, 1 = SOCCER folder, 2 = COLLEGE folder, 3 = INTL folder, 4 = CRICKET folder. */
-    public static int folderOf(League l) { return l.path.startsWith("cricket") ? 4 : l.college() ? 2 : l.intl ? 3 : l.soccer() ? 1 : 0; }
+    /** 0 = the main menu, 1 = SOCCER folder, 2 = COLLEGE folder, 3 = INTL folder, 4 = CRICKET folder, 5 = ESPORTS folder. */
+    public static int folderOf(League l) { return l.path.startsWith("esports") ? 5 : l.path.startsWith("cricket") ? 4 : l.college() ? 2 : l.intl ? 3 : l.soccer() ? 1 : 0; }
 
     private static int[] buildOrder() {
         String[] first = {"mine", "hockey/nhl", "hockey/ahl", "hockey/pwhl", "basketball/nba", "basketball/wnba", "football/nfl",
-            "baseball/mlb", "racing/f1", "esports/lol"};
+            "baseball/mlb", "racing/f1"};
         List<Integer> out = new ArrayList<>();
         for (String p : first) for (int i = 0; i < LEAGUES.length; i++) if (LEAGUES[i].path.equals(p)) out.add(i);
-        for (int g : new int[]{0, 1, 4, 2, 3})   // then the rest of the main menu, and each folder (SOCCER, CRICKET, COLLEGE, INTL), in the order of LEAGUES
+        for (int g : new int[]{0, 5, 1, 4, 2, 3})   // then the rest of the main menu, and each folder (SOCCER, CRICKET, COLLEGE, INTL), in the order of LEAGUES
             for (int i = 0; i < LEAGUES.length; i++) if (folderOf(LEAGUES[i]) == g && !out.contains(i)) out.add(i);
         int[] a = new int[out.size()];
         for (int i = 0; i < a.length; i++) a[i] = out.get(i);
@@ -325,6 +329,7 @@ public final class Espn {
     public static Model.Scoreboard scores(League lg, String date, boolean fromCache) throws Exception {
         if (Pwhl.is(lg)) return Pwhl.scores(lg, date, fromCache);
         if (Cricket.is(lg)) return Cricket.scores(lg, date, fromCache);
+        if (Esports.is(lg)) return Esports.scores(lg, date, fromCache);
         String url = scoresUrl(lg, date);
         String body = fromCache ? cached(url) : get(url);
         if (body == null) throw new Exception("No cache");
@@ -626,7 +631,7 @@ public final class Espn {
     /** The league's own logo (dark version), from the saved scoreboard or a fresh one. */
     /** Leagues whose logo we know without asking ESPN. */
     static String fixedLogo(League lg) {
-        if (lg.path.startsWith("esports")) return "asset:league/lol.png";
+        if (lg.path.startsWith("esports/lol")) return "asset:league/lol.png";
         if (lg.path.endsWith("/pwhl")) return "asset:league/pwhl.png";
         if (lg.path.endsWith("/ahl")) return "asset:league/ahl.png";
         if (lg.path.startsWith("cricket")) return "asset:league/cricket.png";

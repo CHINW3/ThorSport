@@ -1166,7 +1166,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         it.add(item(8, t("Football field", "Terrain de football"), "▶", ThorView.SET_DEMO_NFL, t("Preview the football field view", "Aperçu du terrain de football")));
         it.add(item(8, t("Hockey rink", "Patinoire"), "▶", ThorView.SET_DEMO_NHL, t("Preview the hockey rink view", "Aperçu de la patinoire de hockey")));
         // 9 LEAGUES, 10 SOCCER, 11 COLLEGE, 12 INTERNATIONAL (from Games → Leagues): switch a league off and it leaves the menu
-        int[] hiddenIn = new int[5], totalIn = new int[5];
+        int[] hiddenIn = new int[6], totalIn = new int[6];
         for (int idx : Espn.ORDER) {
             Espn.League l = Espn.LEAGUES[idx];
             if (l.mine()) continue;
@@ -1175,8 +1175,8 @@ public class MainActivity extends Activity implements ThorView.Listener {
             totalIn[f]++; if (off) hiddenIn[f]++;
             it.add(item(f == 0 ? 9 : 9 + f, l.label, onOff(!off), ThorView.SET_LEAGUE + idx, t("Show it in the league menu", "L'afficher dans le menu des ligues")));
         }
-        String[][] folderNames = {{"", ""}, {"Soccer", "Soccer"}, {"College sports", "Sports universitaires"}, {"International", "International"}, {"Cricket", "Cricket"}};
-        for (int f = 1; f <= 4; f++)
+        String[][] folderNames = {{"", ""}, {"Soccer", "Soccer"}, {"College sports", "Sports universitaires"}, {"International", "International"}, {"Cricket", "Cricket"}, {"Esports", "Esports"}};
+        for (int f = 1; f <= 5; f++)
             it.add(item(9, t(folderNames[f][0], folderNames[f][1]), (totalIn[f] - hiddenIn[f]) + " / " + totalIn[f] + "  ›", ThorView.SET_OPEN_PAGE + 9 + f,
                 t("Pick which of these leagues show", "Choisis lesquelles de ces ligues s'affichent")));
         // the cards of the home: what is set right now (two short lines each)
@@ -1816,7 +1816,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
 
     private List<Model.Group> fetchStandings(Espn.League lg, boolean fromCache) throws Exception {
         if ("racing/f1".equals(lg.path)) return F1.standings(fromCache);
-        if (LoL.is(lg)) return new ArrayList<>();
+        if (lg.path.startsWith("esports")) return new ArrayList<>();
         if (!lg.mine()) return Espn.standings(lg, fromCache);
         List<Model.Group> out = new ArrayList<>();
         for (Espn.League l : Espn.LEAGUES) {
@@ -1996,7 +1996,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
             if (cur.mine()) return;   // "My teams" page already watches all of them
             final List<Espn.League> todo = new ArrayList<>();
             for (Espn.League l : Espn.LEAGUES)
-                if (!l.mine() && !l.path.equals(cur.path) && !LoL.is(l) && !"racing/f1".equals(l.path) && !favAbbrsFor(l.path).isEmpty()) todo.add(l);
+                if (!l.mine() && !l.path.equals(cur.path) && !l.path.startsWith("esports") && !"racing/f1".equals(l.path) && !favAbbrsFor(l.path).isEmpty()) todo.add(l);
             if (todo.isEmpty()) return;
             io.execute(() -> {
                 for (Espn.League l : todo) {
