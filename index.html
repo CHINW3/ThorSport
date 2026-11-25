@@ -869,27 +869,27 @@ kbd{display:inline-grid;place-items:center;min-width:72px;height:28px;padding:0 
           <li class="step is-active" data-scene="0">
             <p class="step__tag">Leagues</p>
             <h3 class="h3">50+ leagues, sorted into folders</h3>
-            <p>NHL, AHL, PWHL, NBA, WNBA, NFL, MLB and F1 sit at the top of the menu. Club soccer, international games, college sports, cricket and esports each have a folder. Hide anything you don't follow.</p>
+            <p>Folders for everything else.</p>
           </li>
           <li class="step" data-scene="1">
             <p class="step__tag">My Teams</p>
             <h3 class="h3">Your teams first</h3>
-            <p>Long-press any team in any league to add it. MY TEAMS lists all their games on one screen, and only their goals set off the alerts.</p>
+            <p>Long-press a team to add it.</p>
           </li>
           <li class="step" data-scene="2">
             <p class="step__tag">Goal alerts</p>
             <h3 class="h3">A goal fills the screen</h3>
-            <p>Your team's colors, confetti, the scorer's name and a horn. Every NHL team has its own horn, and a sound pack covers touchdowns, home runs and wins.</p>
+            <p>With every NHL team's real horn.</p>
           </li>
           <li class="step" data-scene="3">
             <p class="step__tag">Stick lights</p>
             <h3 class="h3">The sticks show your team's colors</h3>
-            <p>One team color on each stick LED. They swap on a goal, turn gold on a win and pulse slowly in a tight finish.</p>
+            <p>Your team's colors on the stick LEDs.</p>
           </li>
           <li class="step" data-scene="4">
             <p class="step__tag">Two-screen mode</p>
             <h3 class="h3">A bigger Board on the top screen</h3>
-            <p>Press R3 and the top screen shows a large Board: the NFL field, the baseball diamond or the NHL shot map. The bottom screen shows the game's stats and Polymarket win odds, graphed from the start of the game.</p>
+            <p>Press R3 for a big Board on top.</p>
           </li>
         </ol>
       </div>
@@ -940,7 +940,6 @@ kbd{display:inline-grid;place-items:center;min-width:72px;height:28px;padding:0 
           <div class="seg-group" role="group" aria-label="Stick light state">
             <button class="seg" type="button" data-mode="team" aria-pressed="true">Team</button><button class="seg" type="button" data-mode="goal" aria-pressed="false">Goal</button><button class="seg" type="button" data-mode="win" aria-pressed="false">Win</button><button class="seg" type="button" data-mode="tight" aria-pressed="false">Tight finish</button>
           </div>
-          <p class="sticks__cap" aria-live="polite">Your team's two main colors, all the time. Shown with Montréal.</p>
         </div>
       </article>
 
@@ -1009,7 +1008,7 @@ kbd{display:inline-grid;place-items:center;min-width:72px;height:28px;padding:0 
     <div class="wrap grid goal__grid">
       <div class="goal__copy">
         <h2 class="h2" id="goal-h">Try the goal screen</h2>
-        <p class="lede">Pick a team and press the button, or press A on a connected controller. On a Thor, this is what the bottom screen and the sticks do when your team scores.</p>
+        <p class="lede">Pick a team. Turn your sound on.</p>
         <fieldset class="picker">
           <legend>Your team</legend>
           <div class="picker__opts">
@@ -1025,8 +1024,6 @@ kbd{display:inline-grid;place-items:center;min-width:72px;height:28px;padding:0 
           <button class="goal-btn" id="goalBtn" type="button"><span class="goal-btn__label">GOAL!</span><span class="goal-btn__sub">Press to score</span></button>
           <div class="goal__opts">
             <label class="toggle"><input class="sw" type="checkbox" role="switch" id="snd" checked>Goal horn</label>
-            <p class="hint">Each team plays its own goal horn, the same recording the app uses.</p>
-            <p class="hint" id="padHint" aria-live="polite">Controller connected? Press A while this section is on screen.</p>
           </div>
         </div>
       </div>
@@ -1041,7 +1038,7 @@ kbd{display:inline-grid;place-items:center;min-width:72px;height:28px;padding:0 
     <div class="wrap">
       <div class="sec__head">
         <h2 class="h2" id="install-h">Install ThorSport</h2>
-        <p class="lede">ThorSport is an APK on GitHub. Open this page on your handheld, or download it on a computer and copy the file over.</p>
+        
       </div>
       <ol class="steps">
         <li>
@@ -1502,7 +1499,7 @@ kbd{display:inline-grid;place-items:center;min-width:72px;height:28px;padding:0 
   const SCAP = { team: "Your team's two main colors, all the time.", goal: 'On a goal, the sticks swap the two colors.', win: 'On a win, both sticks turn gold.', tight: 'In a tight finish, they pulse slowly.' };
   $$('#f-goal .seg').forEach(b => b.addEventListener('click', () => {
     sticks.dataset.mode = b.dataset.mode;
-    scap.textContent = SCAP[b.dataset.mode];
+    if (scap) scap.textContent = SCAP[b.dataset.mode];
     $$('#f-goal .seg').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
   }));
 
