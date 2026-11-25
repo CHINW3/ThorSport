@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.48
+- **EWC logo for the ESPORTS folder** (CS2, Valorant, Dota 2 and R6 Siege use it too for now).
+
 ## 3.47
 - **Stick lights follow the game under your cursor on one screen too** (before, only the two-screen mode did).
 
