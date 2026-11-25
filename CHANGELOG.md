@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.47
+- **Stick lights follow the game under your cursor on one screen too** (before, only the two-screen mode did).
+
 ## 3.46
 - **New ESPORTS folder** in the league menu: League of Legends moved in, plus Counter-Strike 2, Valorant, Dota 2 and Rainbow Six Siege (live scores, map count, upcoming and past matches, any day with the right stick). You can hide any of them in Settings > Games > Leagues > Esports.
 
