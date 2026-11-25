@@ -19,26 +19,14 @@ public final class Pwhl {
     private Pwhl() {}
 
     /** The three leagues of this class: 0 = PWHL, 1 = AHL, 2 = QMJHL (the Quebec junior league). */
-    private static int kind(Espn.League lg) {
-        String p = lg.path;
-        return p.endsWith("/ahl") ? 1 : p.endsWith("/qmjhl") ? 2 : p.endsWith("/ohl") ? 3 : p.endsWith("/whl") ? 4 : p.endsWith("/echl") ? 5 : p.endsWith("/ushl") ? 6 : 0;
-    }
-
-    /** Is this league path one of the HockeyTech leagues (PWHL, AHL, QMJHL, OHL, WHL, ECHL, USHL)? */
-    static boolean isPath(String p) {
-        return p != null && (p.endsWith("/pwhl") || p.endsWith("/ahl") || p.endsWith("/qmjhl") || p.endsWith("/ohl") || p.endsWith("/whl") || p.endsWith("/echl") || p.endsWith("/ushl"));
-    }
-
-    private static final String[] KEYS = {"446521baf8c38984&client_code=pwhl", "ccb91f29d6744675&client_code=ahl", "f322673b6bcae299&client_code=lhjmq",
-        "2976319eb44abe94&client_code=ohl", "41b145a848f4bd67&client_code=whl", "2c2b89ea7345cae8&client_code=echl", "e828f89b243dc43f&client_code=ushl"};
-    private static final String[] FOLDERS = {"pwhl", "ahl", "lhjmq", "ohl", "whl", "echl", "ushl"};
+    private static int kind(Espn.League lg) { return lg.path.endsWith("/ahl") ? 1 : lg.path.endsWith("/qmjhl") ? 2 : 0; }
 
     private static String base(int k) {
         return "https://lscluster.hockeytech.com/feed/index.php?feed=modulekit&key="
-            + KEYS[k] + "&fmt=json&lang=en";
+            + (k == 1 ? "ccb91f29d6744675&client_code=ahl" : k == 2 ? "f322673b6bcae299&client_code=lhjmq" : "446521baf8c38984&client_code=pwhl") + "&fmt=json&lang=en";
     }
 
-    private static String folder(int k) { return FOLDERS[k]; }
+    private static String folder(int k) { return k == 1 ? "ahl" : k == 2 ? "lhjmq" : "pwhl"; }
 
     /** Team colors (HockeyTech doesn't send them). Unknown teams fall back to grey. */
     private static final Map<String, String> COLORS = new HashMap<>();
@@ -78,9 +66,7 @@ public final class Pwhl {
         for (String[] x : c) QMJHL_COLORS.put(x[0], x[1]);
     }
 
-    static boolean is(Espn.League lg) { return isPath(lg.path); }
-
-    private static final int[] FALLBACK = {0xFF4DA3FF, 0xFFFF4D5E, 0xFF34C759, 0xFFB57BFF, 0xFFFFB524, 0xFF2BE0D8, 0xFFFF8A3D, 0xFFE0E0E0};
+    static boolean is(Espn.League lg) { return lg.path.endsWith("/pwhl") || lg.path.endsWith("/ahl") || lg.path.endsWith("/qmjhl"); }
 
     /** Bigger logo first, the 50x50 one as a backup (LogoCache tries each, separated by "|"). */
     private static final Map<String, String> SEEN = new HashMap<>();   // league + team id -> this season's logo (from the scores feed)
@@ -104,8 +90,7 @@ public final class Pwhl {
     }
 
     private static int color(int k, String code) {
-        String c = (k == 1 ? AHL_COLORS : k == 2 ? QMJHL_COLORS : k == 0 ? COLORS : new HashMap<String, String>()).get(code.toUpperCase(Locale.ROOT));
-        if (c == null && k >= 3) return FALLBACK[Math.abs(code.toUpperCase(Locale.ROOT).hashCode()) % FALLBACK.length];   // no team colors in these feeds
+        String c = (k == 1 ? AHL_COLORS : k == 2 ? QMJHL_COLORS : COLORS).get(code.toUpperCase(Locale.ROOT));
         return Espn.pickColor(c == null ? "" : c, "");
     }
 
@@ -168,7 +153,7 @@ public final class Pwhl {
 
     private static void fill(Model.Side s, JSONObject o, String side, int ahl) {
         s.abbr = o.optString(side + "Code", "");
-        if (ahl >= 2) s.abbr = s.abbr.toUpperCase(Locale.ROOT);   // the junior feed sends "Mon", "Que"...
+        if (ahl == 2) s.abbr = s.abbr.toUpperCase(Locale.ROOT);   // the junior feed sends "Mon", "Que"...
         s.name = o.optString(side + "Nickname", s.abbr);
         s.logo = logo(ahl, o.optString(side + "ID", ""), o.optString(side + "Logo", ""));
         s.color = color(ahl, s.abbr);
@@ -208,7 +193,7 @@ public final class Pwhl {
             if (r.optString("name", "").startsWith("-")) continue;   // guest teams from other leagues in the junior table
             Model.Team t = new Model.Team();
             t.abbr = r.optString("team_code");
-            if (kd >= 2) t.abbr = t.abbr.toUpperCase(Locale.ROOT);
+            if (kd == 2) t.abbr = t.abbr.toUpperCase(Locale.ROOT);
             String full = r.optString("name", t.abbr);
             int sp = full.lastIndexOf(' ');
             String nick = r.optString("nickname", "");
