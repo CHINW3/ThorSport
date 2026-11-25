@@ -2253,7 +2253,7 @@ public class ThorView extends View {
         {"Goal effects", "Effets du but"}, {"Sounds by event", "Sons par événement"}, {"Field demos", "Démos de terrain"}};
     private static final int HOME_CARDS = 6;
     /** Icon of each page (numbers of the drawings in drawSectionIcon): board, "!", star, horn, screen, info, sliders. */
-    private static final int[] PAGE_ICON = {6, 4, 2, 3, 1, 7, 0, 0, 6};
+    private static final int[] PAGE_ICON = {6, -1, 2, 3, 1, 7, 0, 0, 6};   // -1 = no icon (My teams)
     /** Where "back" goes: -1 = the home. */
     private static final int[] PAGE_PARENT = {-1, -1, -1, -1, -1, -1, 2, 3, 5};
     private int settingsPage = -1;   // -1 = the home with the cards
@@ -2360,10 +2360,12 @@ public class ThorView extends View {
             RectF r = new RectF(left, tp, left + cw, tp + ch);
             p.setColor(0xFF171A21);
             c.drawRoundRect(r, ch * 0.09f, ch * 0.09f, p);
-            float ic = ch * 0.2f;   // icon in a soft accent circle
-            p.setColor(alpha(ACCENT, 0x2A));
-            c.drawCircle(left + ch * 0.2f, tp + ch * 0.24f, ic * 0.85f, p);
-            drawSectionIcon(c, PAGE_ICON[i], left + ch * 0.2f, tp + ch * 0.24f, ic * 0.95f, ACCENT);
+            float ic = ch * 0.2f;   // icon in a soft accent circle (a page can have none)
+            if (PAGE_ICON[i] >= 0) {
+                p.setColor(alpha(ACCENT, 0x2A));
+                c.drawCircle(left + ch * 0.2f, tp + ch * 0.24f, ic * 0.85f, p);
+                drawSectionIcon(c, PAGE_ICON[i], left + ch * 0.2f, tp + ch * 0.24f, ic * 0.95f, ACCENT);
+            }
             text(c, "›", r.right - ch * 0.12f, tp + ch * 0.17f, ch * 0.16f, tfBlack, DIM, Paint.Align.RIGHT, ch * 0.2f);
             text(c, tr(PAGES[i][0], PAGES[i][1]), left + ch * 0.1f, tp + ch * 0.58f, ch * 0.125f, tfBlack, TEXT, Paint.Align.LEFT, cw - ch * 0.2f);
             String[] info = i < settingCards.size() ? settingCards.get(i) : new String[0];
