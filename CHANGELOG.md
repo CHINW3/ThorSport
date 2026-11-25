@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.36
+- Removed the icon of the **My teams** card in Settings.
+
 ## 3.35
 - **Goals show up faster.** In FAST refresh mode (the default) the app now checks every **5 seconds** while the game you follow, or any game of your teams, is live (it was every 15 seconds, or 10 on the Board), and every 10 seconds for other live games. ESPN itself only updates every few seconds, so this is about as fast as it gets.
 - **Polymarket win chances update faster.** While a game is live the price is refreshed about every 6 seconds (it was 30), in the background, so a slow price can never hold back the score. Games without a Polymarket market are only re-checked every 15 minutes.
