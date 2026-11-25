@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.49
+- **Own logos for CS2, Valorant, Dota 2 and R6 Siege** in the league menu.
+
 ## 3.48
 - **EWC logo for the ESPORTS folder** (CS2, Valorant, Dota 2 and R6 Siege use it too for now).
 
