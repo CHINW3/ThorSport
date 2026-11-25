@@ -405,6 +405,13 @@ kbd{display:inline-grid;place-items:center;min-width:72px;height:28px;padding:0 
 .progress{position:fixed;left:0;right:0;top:env(safe-area-inset-top,0px);height:2px;z-index:80;background:var(--accent);transform:scaleX(0);transform-origin:0 50%}
 .goal-btn{will-change:transform}
 
+/* team picker: logos only */
+.picker__opts{gap:var(--s2)}
+.pick span{width:56px;height:56px;padding:0;justify-content:center;border:0;border-radius:50%;background:transparent;opacity:.45;transition:opacity .2s,transform .2s}
+.pick .logo{width:40px;height:40px}
+.pick:hover span{opacity:.8}
+.pick input:checked+span{opacity:1;background:transparent;box-shadow:0 0 0 2px var(--c);transform:scale(1.05)}
+
 /* ---------- device (drawn AYN Thor) ---------- */
 .dev-wrap{container-type:inline-size;width:100%}
 .dev{position:relative;--led-l:var(--t1);--led-r:var(--t2);padding-top:1.4cqw}
@@ -1008,16 +1015,15 @@ kbd{display:inline-grid;place-items:center;min-width:72px;height:28px;padding:0 
     <div class="wrap grid goal__grid">
       <div class="goal__copy">
         <h2 class="h2" id="goal-h">Try the goal screen</h2>
-        <p class="lede">Pick a team. Turn your sound on.</p>
         <fieldset class="picker">
-          <legend>Your team</legend>
+          <legend class="sr-only">Your team</legend>
           <div class="picker__opts">
-            <label class="pick" style="--c:#e8323f"><input type="radio" name="team" value="mtl" id="t-mtl" checked><span><i class="logo lg-mtl"></i>Montréal</span></label>
-            <label class="pick" style="--c:#2f6bff"><input type="radio" name="team" value="tor" id="t-tor"><span><i class="logo lg-tor"></i>Toronto</span></label>
-            <label class="pick" style="--c:#ffb81c"><input type="radio" name="team" value="bos" id="t-bos"><span><i class="logo lg-bos"></i>Boston</span></label>
-            <label class="pick" style="--c:#ff6a1f"><input type="radio" name="team" value="edm" id="t-edm"><span><i class="logo lg-edm"></i>Edmonton</span></label>
-            <label class="pick" style="--c:#19c46e"><input type="radio" name="team" value="dal" id="t-dal"><span><i class="logo lg-dal"></i>Dallas</span></label>
-            <label class="pick" style="--c:#5fd6e0"><input type="radio" name="team" value="sea" id="t-sea"><span><i class="logo lg-sea"></i>Seattle</span></label>
+            <label class="pick" style="--c:#e8323f"><input type="radio" name="team" value="mtl" id="t-mtl" checked><span><i class="logo lg-mtl"></i><span class="sr-only">Montréal</span></span></label>
+            <label class="pick" style="--c:#2f6bff"><input type="radio" name="team" value="tor" id="t-tor"><span><i class="logo lg-tor"></i><span class="sr-only">Toronto</span></span></label>
+            <label class="pick" style="--c:#ffb81c"><input type="radio" name="team" value="bos" id="t-bos"><span><i class="logo lg-bos"></i><span class="sr-only">Boston</span></span></label>
+            <label class="pick" style="--c:#ff6a1f"><input type="radio" name="team" value="edm" id="t-edm"><span><i class="logo lg-edm"></i><span class="sr-only">Edmonton</span></span></label>
+            <label class="pick" style="--c:#19c46e"><input type="radio" name="team" value="dal" id="t-dal"><span><i class="logo lg-dal"></i><span class="sr-only">Dallas</span></span></label>
+            <label class="pick" style="--c:#5fd6e0"><input type="radio" name="team" value="sea" id="t-sea"><span><i class="logo lg-sea"></i><span class="sr-only">Seattle</span></span></label>
           </div>
         </fieldset>
         <div class="goal__act">
