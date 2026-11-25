@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.45
+- **Click the left stick (L3) to go back to today** when you are looking at another day (it still refreshes when you are already on today).
+
 ## 3.44
 - **Cricket is a folder now, with sections.** CRICKET (everything), **TEST** (the 5-day internationals), **ONE-DAY**, **T20** (the short format and the big leagues), **WOMEN'S**, and **DOMESTIC** (the long first-class games, which were most of the volume). Every match lands in exactly one section. They are in the league menu under a CRICKET folder.
 - **My teams: the league column is readable again.** With all the new leagues, the list on the left had become tiny. It now shows the main leagues plus a row for each folder (SOCCER, COLLEGE, INTL), like the league menu, and opens a folder when you tap it or step into it with L1 / R1.

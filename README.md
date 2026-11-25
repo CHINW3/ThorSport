@@ -1,4 +1,4 @@
-# ThorSport 3.44
+# ThorSport 3.45
 
 Live sports for the **AYN Thor bottom screen** (1240×1080) and the **Retroid Pocket Duo** (1280×960). Everything is drawn to fill the screen exactly.
 
@@ -86,7 +86,7 @@ Always drives the bottom screen (in two-screen mode the top screen follows the g
 | B | Hide selection | Back to Scores | Back to Scores | Close |
 | X / Y | ★ left / right team | ★ left / right team | ★ the team | — |
 
-L1 / R1 tabs · L2 / R2 leagues · **right stick ◄ ► = previous / next day (Scores tab)** · Start settings · Select league list · L3 refresh · R3 two-screen mode.
+L1 / R1 tabs · L2 / R2 leagues · **right stick ◄ ► = previous / next day (Scores tab)** · Start settings · Select league list · L3 back to today (or refresh) · R3 two-screen mode.
 The first press only shows the blue selection. Touching the screen hides it.
 While a game runs on the top screen, the Thor sends buttons to the game: tap ThorSport once to control it.
 
