@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.57
+- **New MORE HOCKEY folder** in the league menu: QMJHL (moved in), OHL, WHL, USHL and ECHL, each with scores, standings by conference, a playoff picture and its teams in My teams. They also have their own page under Settings > Games > Leagues.
+
 ## 3.56
 - **QMJHL logo** in the league menu.
 
