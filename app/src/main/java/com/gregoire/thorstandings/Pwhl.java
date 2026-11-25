@@ -19,14 +19,24 @@ public final class Pwhl {
     private Pwhl() {}
 
     /** The three leagues of this class: 0 = PWHL, 1 = AHL, 2 = QMJHL (the Quebec junior league). */
-    private static int kind(Espn.League lg) { return lg.path.endsWith("/ahl") ? 1 : lg.path.endsWith("/qmjhl") ? 2 : 0; }
+    private static int kind(Espn.League lg) { return lg.path.endsWith("/ahl") ? 1 : lg.path.endsWith("/qmjhl") ? 2 : lg.path.endsWith("/ohl") ? 3 : 0; }
 
     private static String base(int k) {
         return "https://lscluster.hockeytech.com/feed/index.php?feed=modulekit&key="
-            + (k == 1 ? "ccb91f29d6744675&client_code=ahl" : k == 2 ? "f322673b6bcae299&client_code=lhjmq" : "446521baf8c38984&client_code=pwhl") + "&fmt=json&lang=en";
+            + (k == 1 ? "ccb91f29d6744675&client_code=ahl" : k == 2 ? "f322673b6bcae299&client_code=lhjmq" : k == 3 ? "2976319eb44abe94&client_code=ohl" : "446521baf8c38984&client_code=pwhl") + "&fmt=json&lang=en";
     }
 
-    private static String folder(int k) { return k == 1 ? "ahl" : k == 2 ? "lhjmq" : "pwhl"; }
+    private static String folder(int k) { return k == 1 ? "ahl" : k == 2 ? "lhjmq" : k == 3 ? "ohl" : "pwhl"; }
+
+    /** OHL teams. */
+    private static final Map<String, String> OHL_COLORS = new HashMap<>();
+    static {
+        String[][] c = {{"BFD", "C8102E"}, {"SBY", "F28C28"}, {"KGN", "CE1126"}, {"PBO", "00843D"}, {"NB", "C8102E"}, {"OTT", "A6192E"},
+            {"NIAG", "00A3E0"}, {"OSH", "C8102E"}, {"BRAM", "1F5FBF"}, {"BAR", "F2A900"}, {"GUE", "1F4E9A"}, {"WSR", "1F5FBF"},
+            {"KIT", "1F5FBF"}, {"SOO", "00843D"}, {"FLNT", "F28C28"}, {"ER", "1F5FBF"}, {"LDN", "00843D"}, {"SAR", "C8102E"},
+            {"SAG", "0072CE"}, {"OS", "7A1F2B"}};
+        for (String[] x : c) OHL_COLORS.put(x[0], x[1]);
+    }
 
     /** Team colors (HockeyTech doesn't send them). Unknown teams fall back to grey. */
     private static final Map<String, String> COLORS = new HashMap<>();
@@ -66,7 +76,7 @@ public final class Pwhl {
         for (String[] x : c) QMJHL_COLORS.put(x[0], x[1]);
     }
 
-    static boolean is(Espn.League lg) { return lg.path.endsWith("/pwhl") || lg.path.endsWith("/ahl") || lg.path.endsWith("/qmjhl"); }
+    static boolean is(Espn.League lg) { return lg.path.endsWith("/pwhl") || lg.path.endsWith("/ahl") || lg.path.endsWith("/qmjhl") || lg.path.endsWith("/ohl"); }
 
     /** Bigger logo first, the 50x50 one as a backup (LogoCache tries each, separated by "|"). */
     private static final Map<String, String> SEEN = new HashMap<>();   // league + team id -> this season's logo (from the scores feed)
@@ -90,7 +100,7 @@ public final class Pwhl {
     }
 
     private static int color(int k, String code) {
-        String c = (k == 1 ? AHL_COLORS : k == 2 ? QMJHL_COLORS : COLORS).get(code.toUpperCase(Locale.ROOT));
+        String c = (k == 1 ? AHL_COLORS : k == 2 ? QMJHL_COLORS : k == 3 ? OHL_COLORS : COLORS).get(code.toUpperCase(Locale.ROOT));
         return Espn.pickColor(c == null ? "" : c, "");
     }
 
@@ -153,7 +163,7 @@ public final class Pwhl {
 
     private static void fill(Model.Side s, JSONObject o, String side, int ahl) {
         s.abbr = o.optString(side + "Code", "");
-        if (ahl == 2) s.abbr = s.abbr.toUpperCase(Locale.ROOT);   // the junior feed sends "Mon", "Que"...
+        if (ahl >= 2) s.abbr = s.abbr.toUpperCase(Locale.ROOT);   // the junior feed sends "Mon", "Que"...
         s.name = o.optString(side + "Nickname", s.abbr);
         s.logo = logo(ahl, o.optString(side + "ID", ""), o.optString(side + "Logo", ""));
         s.color = color(ahl, s.abbr);
@@ -193,7 +203,7 @@ public final class Pwhl {
             if (r.optString("name", "").startsWith("-")) continue;   // guest teams from other leagues in the junior table
             Model.Team t = new Model.Team();
             t.abbr = r.optString("team_code");
-            if (kd == 2) t.abbr = t.abbr.toUpperCase(Locale.ROOT);
+            if (kd >= 2) t.abbr = t.abbr.toUpperCase(Locale.ROOT);
             String full = r.optString("name", t.abbr);
             int sp = full.lastIndexOf(' ');
             String nick = r.optString("nickname", "");

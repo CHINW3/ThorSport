@@ -129,6 +129,9 @@ public final class Espn {
         new League("VALORANT", "esports/valorant", new String[0], new String[0], "", ""),
         new League("DOTA 2", "esports/dota2", new String[0], new String[0], "", ""),
         new League("R6 SIEGE", "esports/r6", new String[0], new String[0], "", ""),
+        // Ontario Hockey League (HockeyTech feed, like the QMJHL): two conferences, 8 teams of each make the playoffs
+        new League("OHL", "hockey/ohl", new String[]{"GP", "W", "L", "OTL", "PTS", "PCT"},
+            new String[]{"games_played", "wins", "losses", "otl_all", "points", "percentage"}, "percentage", "regulation_wins").zones(8, 0, 0),
     };
 
     /** Olympic hockey (IIHF 3-2-1-0 points). ESPN gives no "wins": standings() works it out. */
@@ -149,7 +152,7 @@ public final class Espn {
     public static int folderOf(League l) { return l.path.startsWith("esports") ? 5 : l.path.startsWith("cricket") ? 4 : l.college() ? 2 : l.intl ? 3 : l.soccer() ? 1 : 0; }
 
     private static int[] buildOrder() {
-        String[] first = {"mine", "hockey/nhl", "hockey/ahl", "hockey/pwhl", "hockey/qmjhl", "basketball/nba", "basketball/wnba", "football/nfl",
+        String[] first = {"mine", "hockey/nhl", "hockey/ahl", "hockey/pwhl", "hockey/qmjhl", "hockey/ohl", "basketball/nba", "basketball/wnba", "football/nfl",
             "baseball/mlb", "racing/f1"};
         List<Integer> out = new ArrayList<>();
         for (String p : first) for (int i = 0; i < LEAGUES.length; i++) if (LEAGUES[i].path.equals(p)) out.add(i);
@@ -656,7 +659,7 @@ public final class Espn {
     static String leagueLogo(League lg) {
         String fixed = fixedLogo(lg);
         if (fixed != null) return fixed;
-        if (lg.mine() || lg.path.endsWith("/pwhl") || lg.path.endsWith("/ahl") || lg.path.endsWith("/qmjhl") || lg.path.startsWith("esports")) return null;
+        if (lg.mine() || lg.path.endsWith("/pwhl") || lg.path.endsWith("/ahl") || lg.path.endsWith("/qmjhl") || lg.path.endsWith("/ohl") || lg.path.startsWith("esports")) return null;
         try {
             String url = scoresUrl(lg, null);
             String body = cached(url);
