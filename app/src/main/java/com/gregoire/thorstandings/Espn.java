@@ -643,6 +643,7 @@ public final class Espn {
         if (lg.path.startsWith("esports")) return "asset:league/esports.png";
         if (lg.path.endsWith("/pwhl")) return "asset:league/pwhl.png";
         if (lg.path.endsWith("/ahl")) return "asset:league/ahl.png";
+        if (lg.path.endsWith("/qmjhl")) return "asset:league/qmjhl.png";
         if (lg.path.startsWith("cricket")) return "asset:league/cricket.png";
         if (lg.path.endsWith("mens-college-hockey")) return "asset:league/ncaa_hockey.png";
         String packed = OfflineLogos.league(lg.path);
