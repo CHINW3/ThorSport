@@ -1179,6 +1179,25 @@ public class ThorView extends View {
         postInvalidateDelayed(eco ? Math.max(ms, 500) : ms);
     }
 
+    /** INTL folder icon: a blue globe with meridians and parallels, drawn in code. */
+    private void globe(Canvas c, float cx, float cy, float rad) {
+        p.setShader(new RadialGradient(cx - rad * 0.35f, cy - rad * 0.35f, rad * 1.4f,
+            0xFF4FA3FF, 0xFF0B3D91, Shader.TileMode.CLAMP));
+        c.drawCircle(cx, cy, rad, p);
+        p.setShader(null);
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(Math.max(1.5f, rad * 0.09f));
+        p.setColor(0xCCFFFFFF);
+        c.drawCircle(cx, cy, rad, p);
+        c.drawLine(cx, cy - rad, cx, cy + rad, p);                       // central meridian
+        c.drawLine(cx - rad, cy, cx + rad, cy, p);                       // equator
+        c.drawOval(new RectF(cx - rad * 0.5f, cy - rad, cx + rad * 0.5f, cy + rad), p);   // meridians
+        float py = rad * 0.5f, pw = rad * 0.866f;                        // parallels at ±30°
+        c.drawLine(cx - pw, cy - py, cx + pw, cy - py, p);
+        c.drawLine(cx - pw, cy + py, cx + pw, cy + py, p);
+        p.setStyle(Paint.Style.FILL);
+    }
+
     private static int alpha(int color, int a) { return (color & 0x00FFFFFF) | (Math.max(0, Math.min(255, a)) << 24); }
 
     // UI thread only, so one copy of each is safe. sysFmt is reset when the phone's 12/24h setting may have changed.
@@ -1996,6 +2015,7 @@ public class ThorView extends View {
                 float ls = rowH * 0.62f, lcx = r.left + rowH * 0.25f + ls / 2;
                 String ball = "asset:league/soccer.png";
                 if (i == ITEM_SOCCER && logos != null && logos.get(ball) != null) { logo(c, ball, "", 0, lcx, r.centerY(), ls * 0.9f); }
+                else if (i == ITEM_INTL) globe(c, lcx, r.centerY(), ls * 0.46f);
                 else {
                 p.setColor(0xFF22252D);
                 c.drawCircle(lcx, r.centerY(), ls * 0.48f, p);
