@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.39
+- **New league: AHL.** All 32 teams with live scores (clock and period, records like 17-2-1-1), the standings in the 4 divisions (Atlantic, North, Central, Pacific, in the league's own order, with the playoff line after the top 4), and the playoff picture ("if the playoffs started today": top 4 of each division). Team logos and colors are in, you can pick AHL teams in My teams, and goals trigger the goal screen and sound like in the other leagues. The data comes from the league's own feed, the same one the PWHL uses.
+- **College folder in the league menu.** NCAAF, NCAAM, NCAAW and NCAA Hockey are now grouped in one **COLLEGE** folder (like SOCCER and INTL), so the menu is shorter.
+
 ## 3.38
 - **The win-chance graph shows the whole game, even if you open the app halfway through.** It used to start flat at the moment you opened the app. Now the app asks Polymarket for the price history of the game, one point a minute, from the **start of the game** (puck drop, kickoff, tip-off; not from when the market opened days before) up to now. You can see every swing: the goals, the comebacks. It is refreshed about once a minute in the background, and it ends on the number shown. The graph's caption says "POLYMARKET · WHOLE GAME".
 
