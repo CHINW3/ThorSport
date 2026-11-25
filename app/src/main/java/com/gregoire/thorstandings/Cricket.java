@@ -59,7 +59,51 @@ final class Cricket {
         return k == null ? null : FLAGS.get(k);
     }
 
-    static Model.Scoreboard scores(String date, boolean fromCache) throws Exception {
+    /**
+     * The cricket sections (the CRICKET folder in the league menu). The feed gives every match a class ("Test", "ODI", "Twenty20",
+     * "First-class", "Women's T20"...); cricket/all keeps everything, the others keep one kind of match.
+     * Women's matches go only in WOMEN'S, whatever their format.
+     */
+    static boolean inSection(String path, String card, String name) {
+        String c = card == null ? "" : card.toLowerCase(java.util.Locale.ROOT), n = name == null ? "" : name.toLowerCase(java.util.Locale.ROOT);
+        boolean women = c.contains("women") || n.contains("women");
+        switch (path) {
+            case "cricket/women": return women;
+            case "cricket/test": return !women && (c.equals("test") || c.equals("other match"));          // 5-day internationals
+            case "cricket/odi": return !women && (c.equals("odi") || c.equals("list a") || c.equals("other od"));   // one-day games
+            case "cricket/t20": return !women && (c.equals("t20i") || c.equals("twenty20"));              // the short format, leagues included
+            case "cricket/domestic": return !women && c.equals("first-class");                            // the long domestic games
+            default: return true;
+        }
+    }
+
+    /**
+     * The teams to pick in My teams. Cricket has no standings to read them from, so they are the teams of the matches in the feed
+     * over the last and the next two weeks (national teams on tour, women's teams, the league sides...).
+     */
+    static java.util.List<Model.Team> teams() {
+        Espn.League all = null;
+        for (Espn.League l : Espn.LEAGUES) if (l.path.equals("cricket/all")) all = l;
+        java.util.Map<String, Model.Team> seen = new java.util.LinkedHashMap<>();
+        if (all == null) return new java.util.ArrayList<>();
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        cal.add(java.util.Calendar.DAY_OF_YEAR, -14);
+        java.text.SimpleDateFormat f = new java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US);
+        for (int d = 0; d <= 28; d += 2, cal.add(java.util.Calendar.DAY_OF_YEAR, 2)) {
+            try {
+                for (Model.Game g : scores(all, f.format(cal.getTime()), false).games)
+                    for (Model.Side s : new Model.Side[]{g.away, g.home}) {
+                        if (s.abbr == null || s.abbr.isEmpty() || seen.containsKey(s.abbr)) continue;
+                        Model.Team t = new Model.Team();
+                        t.abbr = s.abbr; t.name = s.name; t.logo = s.logo;
+                        seen.put(s.abbr, t);
+                    }
+            } catch (Exception ignored) { }   // a day that does not load is just skipped
+        }
+        return new java.util.ArrayList<>(seen.values());
+    }
+
+    static Model.Scoreboard scores(Espn.League league, String date, boolean fromCache) throws Exception {
         String url = URL + (date == null ? "" : "&dates=" + date);
         String body = fromCache ? Espn.cached(url) : Espn.get(url);
         if (body == null) throw new Exception("No cache");
@@ -77,6 +121,8 @@ final class Cricket {
                 JSONObject ev = events.getJSONObject(i);
                 JSONArray comps = ev.optJSONArray("competitors");
                 if (comps == null || comps.length() < 2) continue;
+                JSONObject cls = ev.optJSONObject("class");
+                if (!inSection(league.path, cls == null ? "" : cls.optString("generalClassCard", ""), ev.optString("name", "") + " " + lg.optString("name", ""))) continue;
                 Model.Game g = new Model.Game();
                 g.id = ev.optString("id");
                 g.sport = "cricket";

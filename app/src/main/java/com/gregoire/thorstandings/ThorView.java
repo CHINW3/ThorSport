@@ -271,8 +271,8 @@ public class ThorView extends View {
             modeMenuOpen = false; invalidate(); return true;
         }
         if (onboardOpen) {
-            for (int i = 0; i < onboardLeagueRects.size(); i++)
-                if (onboardLeagueRects.get(i).contains(x, y)) { openOnboardLeague(onboardLeagues.get(i)); return true; }
+            for (int i = 0; i < onboardLeagueRects.size() && i < onboardRowIds.size(); i++)
+                if (onboardLeagueRects.get(i).contains(x, y)) { tapOnboardRow(onboardRowIds.get(i)); return true; }
             for (int i = 0; i < onboardRects.size(); i++)
                 if (onboardRects.get(i).contains(x, y) && onboardFirstIdx + i < onboardTeams.size()) { listener.onOnboardToggle(onboardPath, onboardTeams.get(onboardFirstIdx + i).abbr); return true; }
             if (onboardPages > 1 && obPrev.contains(x, y)) { onboardPage = Math.max(0, onboardPage - 1); selOnboard = -1; invalidate(); return true; }
@@ -1989,19 +1989,25 @@ public class ThorView extends View {
         hiddenLeagues.addAll(hidden);
         invalidate();
     }
-    private static final int ITEM_SOCCER = -1, ITEM_BACK = -2, ITEM_INTL = -3, ITEM_COLLEGE = -4;
+    private static final int ITEM_SOCCER = -1, ITEM_BACK = -2, ITEM_INTL = -3, ITEM_COLLEGE = -4, ITEM_CRICKET = -5;
 
     /** Which folder a league lives in (0 = main menu). */
     private static int folderOf(int i) {
         if (i < 0 || i >= Espn.LEAGUES.length) return 0;
         Espn.League l = Espn.LEAGUES[i];
-        return l.college() ? ITEM_COLLEGE : l.intl ? ITEM_INTL : l.soccer() ? ITEM_SOCCER : 0;
+        switch (Espn.folderOf(l)) {
+            case 1: return ITEM_SOCCER;
+            case 2: return ITEM_COLLEGE;
+            case 3: return ITEM_INTL;
+            case 4: return ITEM_CRICKET;
+            default: return 0;
+        }
     }
 
     private List<Integer> pickerItems() {
         List<Integer> out = new ArrayList<>();
         if (pickerFolder != 0) out.add(ITEM_BACK);
-        boolean soccer = false, intl = false, college = false;
+        java.util.Set<Integer> shown = new java.util.HashSet<>();   // the folders already added to the list
         for (int k = 0; k < Espn.ORDER.length; k++) {   // in the sport order (see Espn.ORDER)
             int i = Espn.ORDER[k];
             if (i >= leagueLabels.length) continue;
@@ -2009,9 +2015,7 @@ public class ThorView extends View {
             int f = folderOf(i);
             if (pickerFolder != 0) { if (f == pickerFolder) out.add(i); }
             else if (f == 0) out.add(i);
-            else if (f == ITEM_SOCCER && !soccer) { out.add(ITEM_SOCCER); soccer = true; }
-            else if (f == ITEM_INTL && !intl) { out.add(ITEM_INTL); intl = true; }
-            else if (f == ITEM_COLLEGE && !college) { out.add(ITEM_COLLEGE); college = true; }
+            else if (shown.add(f)) out.add(f);   // a folder's own row, once (its id is the folder's item number)
         }
         return out;
     }
@@ -2061,14 +2065,15 @@ public class ThorView extends View {
                 String ball = "asset:league/soccer.png";
                 if (i == ITEM_SOCCER && logos != null && logos.get(ball) != null) { logo(c, ball, "", 0, lcx, r.centerY(), ls * 0.9f); }
                 else if (i == ITEM_INTL) globe(c, lcx, r.centerY(), ls * 0.46f);
+                else if (i == ITEM_CRICKET && logos != null && logos.get("asset:league/cricket.png") != null) logo(c, "asset:league/cricket.png", "", 0, lcx, r.centerY(), ls * 0.9f);
                 else if (i == ITEM_COLLEGE && logos != null && logos.get("asset:league/ncaa.png") != null) logo(c, "asset:league/ncaa.png", "", 0, lcx, r.centerY(), ls * 0.9f);
                 else if (i == ITEM_COLLEGE) mortarboard(c, lcx, r.centerY(), ls * 0.5f);
                 else {
                 p.setColor(0xFF22252D);
                 c.drawCircle(lcx, r.centerY(), ls * 0.48f, p);
-                text(c, i == ITEM_BACK ? "‹" : i == ITEM_INTL ? "INTL" : "SOC", lcx, r.centerY(), i == ITEM_BACK ? ls * 0.6f : ls * 0.3f, tfBlack, TEXT, Paint.Align.CENTER, ls * 0.9f);
+                text(c, i == ITEM_BACK ? "‹" : i == ITEM_INTL ? "INTL" : i == ITEM_CRICKET ? "CRI" : "SOC", lcx, r.centerY(), i == ITEM_BACK ? ls * 0.6f : ls * 0.3f, tfBlack, TEXT, Paint.Align.CENTER, ls * 0.9f);
                 }
-                text(c, i == ITEM_BACK ? (fr ? "RETOUR" : "BACK") : i == ITEM_INTL ? "INTL  ›" : i == ITEM_COLLEGE ? (fr ? "UNIVERSITAIRE  ›" : "COLLEGE  ›") : "SOCCER  ›", r.left + rowH * 0.45f + ls, r.centerY(), rowH * 0.4f, tfBlack, cur ? ACCENT : TEXT, Paint.Align.LEFT, colW - rowH * 0.7f - ls);
+                text(c, i == ITEM_BACK ? (fr ? "RETOUR" : "BACK") : i == ITEM_INTL ? "INTL  ›" : i == ITEM_COLLEGE ? (fr ? "UNIVERSITAIRE  ›" : "COLLEGE  ›") : i == ITEM_CRICKET ? "CRICKET  ›" : "SOCCER  ›", r.left + rowH * 0.45f + ls, r.centerY(), rowH * 0.4f, tfBlack, cur ? ACCENT : TEXT, Paint.Align.LEFT, colW - rowH * 0.7f - ls);
                 continue;
             }
             if (cur) {
@@ -2102,6 +2107,36 @@ public class ThorView extends View {
     private Set<String> favKeysView = new java.util.HashSet<>();
     private final List<Integer> onboardLeagues = new ArrayList<>();
     private final List<RectF> onboardRects = new ArrayList<>(), onboardLeagueRects = new ArrayList<>();
+    // The column of leagues shows the main leagues plus a row for each folder (SOCCER, COLLEGE, INTL), like the league menu: with
+    // all 25+ leagues in one column each row was tiny. onboardFolder = the folder that is open (0 = the main list).
+    private int onboardFolder;
+    private final List<Integer> onboardRowIds = new ArrayList<>();   // what each row of the column is: league number, -folder, or ONB_BACK
+    private static final int ONB_BACK = -10;
+
+    private List<Integer> onboardRows() {
+        List<Integer> rows = new ArrayList<>();
+        if (onboardFolder != 0) rows.add(ONB_BACK);
+        java.util.Set<Integer> shown = new java.util.HashSet<>();
+        for (int li : onboardLeagues) {   // already in the sport order
+            int f = Espn.folderOf(Espn.LEAGUES[li]);
+            if (f == 4) f = 0;            // cricket has one entry here: no folder for it
+            if (onboardFolder != 0) { if (f == onboardFolder) rows.add(li); }
+            else if (f == 0) rows.add(li);
+            else if (shown.add(f)) rows.add(-f);
+        }
+        return rows;
+    }
+
+    private void tapOnboardRow(int id) {
+        if (id == ONB_BACK) { onboardFolder = 0; invalidate(); return; }
+        if (id < 0) {   // a folder: open it, and show its first league
+            onboardFolder = -id;
+            for (int li : onboardLeagues) if (Espn.folderOf(Espn.LEAGUES[li]) == -id) { openOnboardLeague(li); return; }
+            invalidate();
+            return;
+        }
+        openOnboardLeague(id);
+    }
     private final RectF onboardDoneRect = new RectF();
 
     /** Opens the team picker. first = welcome wording (first start). */
@@ -2128,6 +2163,8 @@ public class ThorView extends View {
 
     private void openOnboardLeague(int idx) {
         onboardLeague = idx;
+        int f = Espn.folderOf(Espn.LEAGUES[idx]);
+        onboardFolder = f == 4 ? 0 : f;
         onboardPage = 0;
         onboardPath = Espn.LEAGUES[idx].path;
         onboardTeams = new ArrayList<>();
@@ -2166,19 +2203,40 @@ public class ThorView extends View {
 
         // leagues (left)
         float sideW = w * 0.21f, top = headH + gap * 0.2f, bottom = h - h * 0.12f;
-        float lh = Math.min(h * 0.075f, (bottom - top) / Math.max(1, onboardLeagues.size()));
-        for (int i = 0; i < onboardLeagues.size(); i++) {
-            int li = onboardLeagues.get(i);
+        List<Integer> colRows = onboardRows();
+        onboardRowIds.clear();
+        onboardRowIds.addAll(colRows);
+        float lh = Math.min(h * 0.075f, (bottom - top) / Math.max(1, colRows.size()));
+        for (int i = 0; i < colRows.size(); i++) {
+            int id = colRows.get(i);
             RectF r = new RectF(gap, top + i * lh + lh * 0.07f, gap + sideW, top + (i + 1) * lh - lh * 0.07f);
-            boolean on = li == onboardLeague;
+            boolean folder = id < 0 && id != ONB_BACK, back = id == ONB_BACK;
+            int li = id;   // (a league row)
+            boolean on = folder ? Espn.folderOf(Espn.LEAGUES[onboardLeague < 0 ? 1 : onboardLeague]) == -id : !back && li == onboardLeague;
             int count = 0;
-            for (String k : favKeysView) if (k.startsWith(Espn.LEAGUES[li].path + "|")) count++;
+            if (!back) for (String k : favKeysView) {
+                for (int q : onboardLeagues) {
+                    Espn.League ql = Espn.LEAGUES[q];
+                    boolean mine = folder ? Espn.folderOf(ql) == -id : q == li;
+                    if (mine && k.startsWith(ql.path + "|")) { count++; break; }
+                }
+            }
             p.setColor(on ? ACCENT : 0xFF171A21);
             c.drawRoundRect(r, r.height() * 0.3f, r.height() * 0.3f, p);
-            String url = li < leagueLogos.length ? leagueLogos[li] : null;
-            if (url != null && logos != null && logos.get(url) != null) logo(c, url, "", 0, r.left + r.height() * 0.5f, r.centerY(), r.height() * 0.6f);
-            String name = leagueName(li < leagueLabels.length ? leagueLabels[li] : Espn.LEAGUES[li].label);
-            text(c, name, r.left + r.height() * 0.95f, r.centerY(), r.height() * 0.36f, tfBlack, on ? 0xFF000000 : TEXT, Paint.Align.LEFT, r.width() - r.height() * 1.7f);
+            String name;
+            if (back) {
+                name = fr ? "‹ RETOUR" : "‹ BACK";
+            } else if (folder) {
+                String img = id == -1 ? "asset:league/soccer.png" : id == -2 ? "asset:league/ncaa.png" : null;
+                if (id == -3) globe(c, r.left + r.height() * 0.5f, r.centerY(), r.height() * 0.3f);
+                else if (img != null && logos != null && logos.get(img) != null) logo(c, img, "", 0, r.left + r.height() * 0.5f, r.centerY(), r.height() * 0.6f);
+                name = (id == -1 ? "SOCCER" : id == -2 ? (fr ? "UNIVERSITAIRE" : "COLLEGE") : "INTL") + "  ›";
+            } else {
+                String url = li < leagueLogos.length ? leagueLogos[li] : null;
+                if (url != null && logos != null && logos.get(url) != null) logo(c, url, "", 0, r.left + r.height() * 0.5f, r.centerY(), r.height() * 0.6f);
+                name = leagueName(li < leagueLabels.length ? leagueLabels[li] : Espn.LEAGUES[li].label);
+            }
+            text(c, name, r.left + (back ? r.height() * 0.3f : r.height() * 0.95f), r.centerY(), r.height() * 0.36f, tfBlack, on ? 0xFF000000 : TEXT, Paint.Align.LEFT, r.width() - r.height() * 1.7f);
             if (count > 0) {
                 float bs = r.height() * 0.56f;
                 RectF b = new RectF(r.right - bs - r.height() * 0.2f, r.centerY() - bs / 2, r.right - r.height() * 0.2f, r.centerY() + bs / 2);
@@ -2300,12 +2358,12 @@ public class ThorView extends View {
     private static final String[][] PAGES = {
         {"Games", "Matchs"}, {"My teams", "Mes équipes"}, {"Goal", "But"}, {"Sound", "Son"}, {"Display", "Affichage"}, {"App", "Appli"},
         {"Goal effects", "Effets du but"}, {"Sounds by event", "Sons par événement"}, {"Field demos", "Démos de terrain"},
-        {"Leagues", "Ligues"}, {"Soccer", "Soccer"}, {"College", "Universitaire"}, {"International", "International"}};
+        {"Leagues", "Ligues"}, {"Soccer", "Soccer"}, {"College", "Universitaire"}, {"International", "International"}, {"Cricket", "Cricket"}};
     private static final int HOME_CARDS = 6;
     /** Icon of each page (numbers of the drawings in drawSectionIcon): board, "!", star, horn, screen, info, sliders. */
-    private static final int[] PAGE_ICON = {6, 4, 2, 3, 1, 7, 0, 0, 6, 0, 0, 0, 0};   // (-1 would mean no icon)
+    private static final int[] PAGE_ICON = {6, 4, 2, 3, 1, 7, 0, 0, 6, 0, 0, 0, 0, 0};   // (-1 would mean no icon)
     /** Where "back" goes: -1 = the home. */
-    private static final int[] PAGE_PARENT = {-1, -1, -1, -1, -1, -1, 2, 3, 5, 0, 9, 9, 9};
+    private static final int[] PAGE_PARENT = {-1, -1, -1, -1, -1, -1, 2, 3, 5, 0, 9, 9, 9, 9};
     private int settingsPage = -1;   // -1 = the home with the cards
     private int homeSel;             // the selected card on the home (controller)
     private List<String[]> settingCards = new ArrayList<>();   // {line 1, line 2} of each card: what is set right now
@@ -2389,8 +2447,6 @@ public class ThorView extends View {
                 : tr(PAGES[settingsPage][0], PAGES[settingsPage][1]);
             text(c, title, settingsBack.right + gap * 0.8f, headH * 0.55f, headH * 0.4f, tfBlack, TEXT, Paint.Align.LEFT, w * 0.5f);
         }
-        if (cursorOn) text(c, settingsPage < 0 ? tr("←↑↓→ move   A open   B close", "←↑↓→ bouger   A ouvrir   B fermer")
-                : tr("↑↓ move   A change   ←/B back   L1/R1 next", "↑↓ bouger   A changer   ←/B retour   L1/R1 suivant"), w * 0.6f, headH * 0.55f, headH * 0.17f, tfCond, MUTED, Paint.Align.CENTER, w * 0.32f);
         RectF done = new RectF(w - gap * 1.5f - headH * 1.9f, headH * 0.22f, w - gap * 1.5f, headH * 0.88f);
         p.setColor(ACCENT);
         c.drawRoundRect(done, done.height() / 2, done.height() / 2, p);

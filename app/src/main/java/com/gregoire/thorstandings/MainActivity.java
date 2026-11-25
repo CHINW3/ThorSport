@@ -709,6 +709,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         for (int i : Espn.ORDER) {   // in the same sport order as the league menu
             Espn.League l = Espn.LEAGUES[i];
             if (l.mine() || l.path.startsWith("racing") || l.path.startsWith("esports") || l.noTable()) continue;
+            if (l.path.startsWith("cricket/") && !l.path.equals("cricket/all")) continue;   // the cricket sections show the same teams as CRICKET
             if (leagueHidden(i) && favAbbrsFor(l.path).isEmpty()) continue;   // a league you switched off (and have no team in)
             out.add(i);
         }
@@ -720,7 +721,8 @@ public class MainActivity extends Activity implements ThorView.Listener {
         final Espn.League lg = Espn.LEAGUES[idx];
         new Thread(() -> {
             List<Model.Team> teams = new ArrayList<>();
-            for (boolean cache : new boolean[]{true, false}) {
+            if (Cricket.is(lg)) teams = Cricket.teams();   // no standings in cricket: the teams of the recent and coming matches
+            else for (boolean cache : new boolean[]{true, false}) {
                 try {
                     Map<String, Model.Team> seen = new java.util.LinkedHashMap<>();
                     for (Model.Group g : fetchStandings(lg, cache)) for (Model.Team t : g.teams) if (t.abbr != null && !t.abbr.isEmpty()) seen.put(t.abbr, t);
@@ -1162,7 +1164,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         it.add(item(8, t("Football field", "Terrain de football"), "▶", ThorView.SET_DEMO_NFL, t("Preview the football field view", "Aperçu du terrain de football")));
         it.add(item(8, t("Hockey rink", "Patinoire"), "▶", ThorView.SET_DEMO_NHL, t("Preview the hockey rink view", "Aperçu de la patinoire de hockey")));
         // 9 LEAGUES, 10 SOCCER, 11 COLLEGE, 12 INTERNATIONAL (from Games → Leagues): switch a league off and it leaves the menu
-        int[] hiddenIn = new int[4], totalIn = new int[4];
+        int[] hiddenIn = new int[5], totalIn = new int[5];
         for (int idx : Espn.ORDER) {
             Espn.League l = Espn.LEAGUES[idx];
             if (l.mine()) continue;
@@ -1171,8 +1173,8 @@ public class MainActivity extends Activity implements ThorView.Listener {
             totalIn[f]++; if (off) hiddenIn[f]++;
             it.add(item(f == 0 ? 9 : 9 + f, l.label, onOff(!off), ThorView.SET_LEAGUE + idx, t("Show it in the league menu", "L'afficher dans le menu des ligues")));
         }
-        String[][] folderNames = {{"", ""}, {"Soccer", "Soccer"}, {"College sports", "Sports universitaires"}, {"International", "International"}};
-        for (int f = 1; f <= 3; f++)
+        String[][] folderNames = {{"", ""}, {"Soccer", "Soccer"}, {"College sports", "Sports universitaires"}, {"International", "International"}, {"Cricket", "Cricket"}};
+        for (int f = 1; f <= 4; f++)
             it.add(item(9, t(folderNames[f][0], folderNames[f][1]), (totalIn[f] - hiddenIn[f]) + " / " + totalIn[f] + "  ›", ThorView.SET_OPEN_PAGE + 9 + f,
                 t("Pick which of these leagues show", "Choisis lesquelles de ces ligues s'affichent")));
         // the cards of the home: what is set right now (two short lines each)

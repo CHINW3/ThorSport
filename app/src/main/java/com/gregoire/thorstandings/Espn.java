@@ -115,6 +115,12 @@ public final class Espn {
         new League("AHL", "hockey/ahl",
             new String[]{"GP", "W", "L", "OTL", "PTS", "PCT"},
             new String[]{"games_played", "wins", "losses", "otl_all", "points", "percentage"}, "percentage", "regulation_wins").zones(4, 0, 0),
+        // cricket sections (the CRICKET folder): the same feed as "cricket/all", one kind of match each (see Cricket.inSection)
+        new League("TEST", "cricket/test", new String[0], new String[0], "", ""),
+        new League("ONE-DAY", "cricket/odi", new String[0], new String[0], "", ""),
+        new League("T20", "cricket/t20", new String[0], new String[0], "", ""),
+        new League("WOMEN'S", "cricket/women", new String[0], new String[0], "", ""),
+        new League("DOMESTIC", "cricket/domestic", new String[0], new String[0], "", ""),
     };
 
     /** Olympic hockey (IIHF 3-2-1-0 points). ESPN gives no "wins": standings() works it out. */
@@ -131,15 +137,15 @@ public final class Espn {
      */
     public static final int[] ORDER = buildOrder();
 
-    /** 0 = the main menu, 1 = SOCCER folder, 2 = COLLEGE folder, 3 = INTL folder. */
-    public static int folderOf(League l) { return l.college() ? 2 : l.intl ? 3 : l.soccer() ? 1 : 0; }
+    /** 0 = the main menu, 1 = SOCCER folder, 2 = COLLEGE folder, 3 = INTL folder, 4 = CRICKET folder. */
+    public static int folderOf(League l) { return l.path.startsWith("cricket") ? 4 : l.college() ? 2 : l.intl ? 3 : l.soccer() ? 1 : 0; }
 
     private static int[] buildOrder() {
         String[] first = {"mine", "hockey/nhl", "hockey/ahl", "hockey/pwhl", "basketball/nba", "basketball/wnba", "football/nfl",
-            "baseball/mlb", "racing/f1", "esports/lol", "cricket/all"};
+            "baseball/mlb", "racing/f1", "esports/lol"};
         List<Integer> out = new ArrayList<>();
         for (String p : first) for (int i = 0; i < LEAGUES.length; i++) if (LEAGUES[i].path.equals(p)) out.add(i);
-        for (int g = 0; g <= 3; g++)   // then the rest of the main menu, and each folder, in the order of LEAGUES
+        for (int g : new int[]{0, 1, 4, 2, 3})   // then the rest of the main menu, and each folder (SOCCER, CRICKET, COLLEGE, INTL), in the order of LEAGUES
             for (int i = 0; i < LEAGUES.length; i++) if (folderOf(LEAGUES[i]) == g && !out.contains(i)) out.add(i);
         int[] a = new int[out.size()];
         for (int i = 0; i < a.length; i++) a[i] = out.get(i);
@@ -318,7 +324,7 @@ public final class Espn {
     /** date = "yyyyMMdd" or null for today. */
     public static Model.Scoreboard scores(League lg, String date, boolean fromCache) throws Exception {
         if (Pwhl.is(lg)) return Pwhl.scores(lg, date, fromCache);
-        if (Cricket.is(lg)) return Cricket.scores(date, fromCache);
+        if (Cricket.is(lg)) return Cricket.scores(lg, date, fromCache);
         String url = scoresUrl(lg, date);
         String body = fromCache ? cached(url) : get(url);
         if (body == null) throw new Exception("No cache");
