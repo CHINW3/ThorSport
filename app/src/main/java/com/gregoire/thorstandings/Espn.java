@@ -111,6 +111,10 @@ public final class Espn {
         soccer("FRIENDLIES", "soccer/fifa.friendly", 0, 0).intl(),
         olyHockey("OLY HOCKEY", "hockey/olympics-mens-ice-hockey"),
         olyHockey("OLY HOCKEY W", "hockey/olympics-womens-ice-hockey"),
+        // American Hockey League (HockeyTech feed, like the PWHL): 4 divisions, the playoff line is the top 4 of each
+        new League("AHL", "hockey/ahl",
+            new String[]{"GP", "W", "L", "OTL", "PTS", "PCT"},
+            new String[]{"games_played", "wins", "losses", "otl_all", "points", "percentage"}, "percentage", "regulation_wins").zones(4, 0, 0),
     };
 
     /** Olympic hockey (IIHF 3-2-1-0 points). ESPN gives no "wins": standings() works it out. */
@@ -277,7 +281,7 @@ public final class Espn {
     // ------------------------------------------------------------------ scores
     /** date = "yyyyMMdd" or null for today. */
     public static Model.Scoreboard scores(League lg, String date, boolean fromCache) throws Exception {
-        if (Pwhl.is(lg)) return Pwhl.scores(date, fromCache);
+        if (Pwhl.is(lg)) return Pwhl.scores(lg, date, fromCache);
         if (Cricket.is(lg)) return Cricket.scores(date, fromCache);
         String url = scoresUrl(lg, date);
         String body = fromCache ? cached(url) : get(url);
@@ -594,7 +598,7 @@ public final class Espn {
     static String leagueLogo(League lg) {
         String fixed = fixedLogo(lg);
         if (fixed != null) return fixed;
-        if (lg.mine() || lg.path.endsWith("/pwhl") || lg.path.startsWith("esports")) return null;
+        if (lg.mine() || lg.path.endsWith("/pwhl") || lg.path.endsWith("/ahl") || lg.path.startsWith("esports")) return null;
         try {
             String url = scoresUrl(lg, null);
             String body = cached(url);

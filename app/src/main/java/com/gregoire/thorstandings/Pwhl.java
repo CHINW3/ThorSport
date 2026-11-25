@@ -12,14 +12,19 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * PWHL isn't on ESPN, so it comes from HockeyTech (the feed behind thepwhl.com),
- * using the public key embedded in the league's website.
+ * The PWHL and the AHL aren't on ESPN, so they come from HockeyTech (the feed behind thepwhl.com and theahl.com),
+ * using the public key embedded in each league's website. (The class keeps its old name; it handles both leagues.)
  */
 public final class Pwhl {
     private Pwhl() {}
 
-    private static final String BASE = "https://lscluster.hockeytech.com/feed/index.php?feed=modulekit"
-        + "&key=446521baf8c38984&client_code=pwhl&fmt=json&lang=en";
+    private static String base(boolean ahl) {
+        return "https://lscluster.hockeytech.com/feed/index.php?feed=modulekit&key="
+            + (ahl ? "ccb91f29d6744675&client_code=ahl" : "446521baf8c38984&client_code=pwhl") + "&fmt=json&lang=en";
+    }
+
+    private static boolean ahl(Espn.League lg) { return lg.path.endsWith("/ahl"); }
+    private static String folder(boolean ahl) { return ahl ? "ahl" : "pwhl"; }
 
     /** Team colors (HockeyTech doesn't send them). Unknown teams fall back to grey. */
     private static final Map<String, String> COLORS = new HashMap<>();
@@ -29,36 +34,57 @@ public final class Pwhl {
         COLORS.put("SEA", "3F8F8A"); COLORS.put("VAN", "E0B341");
     }
 
+    /** AHL teams (mostly the colors of the NHL team they belong to). */
+    private static final Map<String, String> AHL_COLORS = new HashMap<>();
+    static {
+        String[][] c = {{"ABB", "1F6FB2"}, {"BAK", "F26522"}, {"BEL", "C8102E"}, {"CGY", "C8102E"}, {"CHI", "1E7B4C"}, {"CLE", "CE1126"},
+            {"CLT", "C8102E"}, {"COL", "236192"}, {"CV", "E8452C"}, {"GR", "CE1126"}, {"HAM", "AF1E2D"}, {"HER", "8B5A2B"},
+            {"HFD", "0038A8"}, {"HSK", "B4975A"}, {"IA", "2A7F4F"}, {"LAV", "AF1E2D"}, {"LV", "F74902"}, {"MB", "2F6EB5"},
+            {"MIL", "FFB81C"}, {"ONT", "9EA2A2"}, {"PRO", "FFB81C"}, {"RFD", "CF0A2C"}, {"ROC", "0A59B5"}, {"SD", "F47A38"},
+            {"SJ", "006D75"}, {"SPR", "C8102E"}, {"SYR", "00549F"}, {"TEX", "006847"}, {"TOR", "1F5FBF"}, {"TUC", "71AFE5"},
+            {"UTC", "CE1126"}, {"WBS", "FCB514"}};
+        for (String[] x : c) AHL_COLORS.put(x[0], x[1]);
+    }
+
     private static final Map<String, int[]> LEDS = new HashMap<>();
     static { LEDS.put("MTL", new int[]{0xFFFF0000, 0xFF0000B0}); }   // Victoire: red + navy, no pink
+    private static final Map<String, int[]> AHL_LEDS = new HashMap<>();
+    static {
+        AHL_LEDS.put("HSK", new int[]{0xFFFFB000, 0xFFC8D8E4});   // Silver Knights: gold + steel
+        AHL_LEDS.put("HFD", new int[]{0xFF0038FF, 0xFFD00000});   // Wolf Pack: blue + red
+        AHL_LEDS.put("HER", new int[]{0xFFFF7A00, 0xFFFFFFFF});   // Bears: brown shows as orange, not mud
+    }
 
-    static boolean is(Espn.League lg) { return lg.path.endsWith("/pwhl"); }
+    static boolean is(Espn.League lg) { return lg.path.endsWith("/pwhl") || lg.path.endsWith("/ahl"); }
 
     /** Bigger logo first, the 50x50 one as a backup (LogoCache tries each, separated by "|"). */
-    private static final Map<String, String> SEEN = new HashMap<>();   // team id -> this season's logo (from the scores feed)
+    private static final Map<String, String> SEEN = new HashMap<>();   // league + team id -> this season's logo (from the scores feed)
 
-    private static String logo(String teamId, String given) {
-        if ("3".equals(teamId)) return "asset:teams/pwhl/mtl.png|https://assets.leaguestat.com/pwhl/logos/3_5.png";   // Montréal Victoire, packed
+    private static String logo(boolean ahl, String teamId, String given) {
+        String dir = folder(ahl);
+        if (!ahl && "3".equals(teamId)) return "asset:teams/pwhl/mtl.png|https://assets.leaguestat.com/pwhl/logos/3_5.png";   // Montréal Victoire, packed
+        String key = dir + teamId;
         // the season's own logo first (e.g. 3_5.png): the plain "<id>.png" is the old logo (Montréal's was too pink)
-        if ((given == null || given.isEmpty()) && SEEN.containsKey(teamId)) given = SEEN.get(teamId);
+        if ((given == null || given.isEmpty()) && SEEN.containsKey(key)) given = SEEN.get(key);
         if (given != null && !given.isEmpty()) {
-            SEEN.put(teamId, given);
+            SEEN.put(key, given);
             String full = given.replace("/50x50/", "/");
-            return full + "|" + given + "|https://assets.leaguestat.com/pwhl/logos/" + teamId + ".png";
+            return full + "|" + given + "|https://assets.leaguestat.com/" + dir + "/logos/" + teamId + ".png";
         }
-        String big = "https://assets.leaguestat.com/pwhl/logos/" + teamId + ".png";
-        String small = given != null && !given.isEmpty() ? given : "https://assets.leaguestat.com/pwhl/logos/50x50/" + teamId + ".png";
+        String big = "https://assets.leaguestat.com/" + dir + "/logos/" + teamId + ".png";
+        String small = given != null && !given.isEmpty() ? given : "https://assets.leaguestat.com/" + dir + "/logos/50x50/" + teamId + ".png";
         return big + "|" + small;
     }
 
-    private static int color(String code) {
-        String c = COLORS.get(code);
+    private static int color(boolean ahl, String code) {
+        String c = (ahl ? AHL_COLORS : COLORS).get(code);
         return Espn.pickColor(c == null ? "" : c, "");
     }
 
     // ------------------------------------------------------------------ scores
-    static Model.Scoreboard scores(String date, boolean fromCache) throws Exception {
-        String url = BASE + "&view=scorebar&numberofdaysback=8&numberofdaysahead=8";
+    static Model.Scoreboard scores(Espn.League lg, String date, boolean fromCache) throws Exception {
+        boolean a = ahl(lg);
+        String url = base(a) + "&view=scorebar&numberofdaysback=" + (a ? 6 : 8) + "&numberofdaysahead=" + (a ? 6 : 8);
         String body = fromCache ? Espn.cached(url) : Espn.get(url);
         if (body == null) throw new Exception("No cache");
         JSONObject kit = new JSONObject(body).optJSONObject("SiteKit");
@@ -75,9 +101,9 @@ public final class Pwhl {
             JSONObject o = list.optJSONObject(i);
             if (o == null || !want.equals(o.optString("Date"))) continue;
             Model.Game g = new Model.Game();
-            g.id = "pwhl" + o.optString("ID");
+            g.id = folder(a) + o.optString("ID");
             g.sport = "hockey";
-            g.league = "hockey/pwhl";
+            g.league = lg.path;
             try {
                 Date d = iso.parse(o.optString("GameDateISO8601", ""));
                 if (d != null) g.startMs = d.getTime();
@@ -99,73 +125,94 @@ public final class Pwhl {
             }
             g.tv = "";
 
-            fill(g.home, o, "Home");
-            fill(g.away, o, "Visitor");
+            fill(g.home, o, "Home", a);
+            fill(g.away, o, "Visitor", a);
             int hg = g.home.scoreInt(), vg = g.away.scoreInt();
             if (g.isFinal() && hg >= 0 && vg >= 0) { g.home.winner = hg > vg; g.away.winner = vg > hg; }
             sb.games.add(g);
         }
-        sb.games.sort((a, b) -> {
-            int ra = Espn.rank(a), rb = Espn.rank(b);
-            return ra != rb ? ra - rb : Long.compare(a.startMs, b.startMs);
+        sb.games.sort((x, y) -> {
+            int rx = Espn.rank(x), ry = Espn.rank(y);
+            return rx != ry ? rx - ry : Long.compare(x.startMs, y.startMs);
         });
         return sb;
     }
 
-    private static void fill(Model.Side s, JSONObject o, String side) {
+    private static void fill(Model.Side s, JSONObject o, String side, boolean ahl) {
         s.abbr = o.optString(side + "Code", "");
         s.name = o.optString(side + "Nickname", s.abbr);
-        s.logo = logo(o.optString(side + "ID", ""), o.optString(side + "Logo", ""));
-        s.color = color(s.abbr);
+        s.logo = logo(ahl, o.optString(side + "ID", ""), o.optString(side + "Logo", ""));
+        s.color = color(ahl, s.abbr);
         s.ledA = s.color;
         s.ledB = 0xFFFFFFFF;
-        int[] led = LEDS.get(s.abbr);   // LEDs wash dark/mixed colors out (burgundy looked pink): use pure ones
+        int[] led = (ahl ? AHL_LEDS : LEDS).get(s.abbr);   // LEDs wash dark/mixed colors out (burgundy looked pink): use pure ones
         if (led != null) { s.ledA = led[0]; s.ledB = led[1]; }
         s.score = o.optInt("GameStatus", 1) == 1 ? "" : o.optString(side + "Goals", "");
         s.record = o.optString(side + "Wins", "0") + "-" + o.optString(side + "RegulationLosses", "0")
-            + "-" + o.optString(side + "OTLosses", "0");
+            + "-" + o.optString(side + "OTLosses", "0") + (ahl ? "-" + o.optString(side + "ShootoutLosses", "0") : "");
     }
 
     // ------------------------------------------------------------------ standings
+    /** PWHL: one table. AHL: one table per division (the playoff line is the top 4 of each). */
     static List<Model.Group> standings(Espn.League lg, boolean fromCache) throws Exception {
-        String url = BASE + "&view=statviewtype&type=standings&stat=conference";
+        boolean a = ahl(lg);
+        String url = base(a) + "&view=statviewtype&type=standings&stat=" + (a ? "division" : "conference");
         String body = fromCache ? Espn.cached(url) : Espn.get(url);
         if (body == null) throw new Exception("No cache");
         JSONObject kit = new JSONObject(body).optJSONObject("SiteKit");
         JSONArray rows = kit == null ? null : kit.optJSONArray("Statviewtype");
         if (rows == null) throw new Exception("No standings");
 
-        Model.Group g = new Model.Group();
-        g.title = "PWHL";
+        List<Model.Group> out = new ArrayList<>();
+        Model.Group cur = null;
+        if (!a) { cur = new Model.Group(); cur.title = "PWHL"; out.add(cur); }
         for (int i = 0; i < rows.length(); i++) {
             JSONObject r = rows.optJSONObject(i);
-            if (r == null || r.optString("team_code", "").isEmpty()) continue; // header rows
+            if (r == null) continue;
+            if (r.optString("team_code", "").isEmpty()) {   // header rows
+                String title = r.optString("name", "");
+                if (a && !title.isEmpty() && !"null".equals(title)) { cur = new Model.Group(); cur.title = title; out.add(cur); }
+                continue;
+            }
+            if (cur == null) continue;
             Model.Team t = new Model.Team();
             t.abbr = r.optString("team_code");
             String full = r.optString("name", t.abbr);
             int sp = full.lastIndexOf(' ');
-            t.name = sp > 0 ? full.substring(sp + 1) : full;
-            t.logo = logo(r.optString("team_id", ""), null);
+            String nick = r.optString("nickname", "");
+            t.name = !nick.isEmpty() && !"null".equals(nick) ? nick : sp > 0 ? full.substring(sp + 1) : full;
+            t.logo = logo(a, r.optString("team_id", ""), null);
             t.vals = new String[lg.statNames.length];
-            for (int k = 0; k < lg.statNames.length; k++) {
-                String v = r.optString(lg.statNames[k], "");
-                t.vals[k] = v.isEmpty() ? "-" : v;
+            for (int k = 0; k < lg.statNames.length; k++) t.vals[k] = value(r, lg.statNames[k]);
+            if (a) {   // the league's own order (points percentage, then the tiebreakers)
+                t.sortKey = 1000 - r.optInt("rank", i);
+                t.tieKey = 0;
+            } else {
+                t.sortKey = num(r.optString(lg.sortStat, "0"));
+                t.tieKey = num(r.optString(lg.tieStat, "0")) * 1000 - i;   // keep the league's own order when points are tied
             }
-            t.sortKey = num(r.optString(lg.sortStat, "0"));
-            t.tieKey = num(r.optString(lg.tieStat, "0"));
-            // keep the league's own order when points are tied
-            t.tieKey = t.tieKey * 1000 - i;
-            g.teams.add(t);
+            cur.teams.add(t);
         }
-        g.teams.sort((a, b) -> {
-            int c = Double.compare(b.sortKey, a.sortKey);
-            return c != 0 ? c : Double.compare(b.tieKey, a.tieKey);
-        });
-        for (int r = 0; r < g.teams.size(); r++) g.teams.get(r).rank = r + 1;
-        List<Model.Group> out = new ArrayList<>();
-        if (!g.teams.isEmpty()) out.add(g);
-        if (out.isEmpty()) throw new Exception("No standings");
-        return out;
+        List<Model.Group> ok = new ArrayList<>();
+        for (Model.Group g : out) {
+            g.teams.sort((x, y) -> {
+                int c = Double.compare(y.sortKey, x.sortKey);
+                return c != 0 ? c : Double.compare(y.tieKey, x.tieKey);
+            });
+            for (int r = 0; r < g.teams.size(); r++) g.teams.get(r).rank = r + 1;
+            if (!g.teams.isEmpty()) ok.add(g);
+        }
+        if (ok.isEmpty()) throw new Exception("No standings");
+        return ok;
+    }
+
+    /** One column of a standings row. "otl_all" = overtime + shootout losses; "percentage" without the leading zero (.700). */
+    private static String value(JSONObject r, String stat) {
+        if ("otl_all".equals(stat)) return String.valueOf(r.optInt("ot_losses", 0) + r.optInt("shootout_losses", 0));
+        String v = r.optString(stat, "");
+        if (v.isEmpty() || "null".equals(v)) return "-";
+        if ("percentage".equals(stat) && v.startsWith("0.")) return v.substring(1);
+        return v;
     }
 
     private static double num(String s) {

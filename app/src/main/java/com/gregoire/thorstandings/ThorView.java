@@ -1203,6 +1203,35 @@ public class ThorView extends View {
         text(c, "★", cx, cy + h * 0.2f, rad * 0.95f, tfBlack, 0xFF15171D, Paint.Align.CENTER, rad);
     }
 
+    /** COLLEGE folder icon: a graduation cap (mortarboard with a tassel), drawn in code. */
+    private void mortarboard(Canvas c, float cx, float cy, float rad) {
+        p.setColor(0xFF22252D);
+        c.drawCircle(cx, cy, rad * 0.98f, p);
+        Path top = new Path();   // the flat board, seen from the side: a diamond
+        top.moveTo(cx, cy - rad * 0.55f);
+        top.lineTo(cx + rad * 0.95f, cy - rad * 0.12f);
+        top.lineTo(cx, cy + rad * 0.31f);
+        top.lineTo(cx - rad * 0.95f, cy - rad * 0.12f);
+        top.close();
+        p.setColor(0xFFF2F4F8);
+        c.drawPath(top, p);
+        Path cap = new Path();   // the cap under it
+        cap.moveTo(cx - rad * 0.5f, cy + rad * 0.02f);
+        cap.lineTo(cx - rad * 0.5f, cy + rad * 0.42f);
+        cap.quadTo(cx, cy + rad * 0.72f, cx + rad * 0.5f, cy + rad * 0.42f);
+        cap.lineTo(cx + rad * 0.5f, cy + rad * 0.02f);
+        cap.lineTo(cx, cy + rad * 0.2f);
+        cap.close();
+        p.setColor(0xFFC9CDD6);
+        c.drawPath(cap, p);
+        p.setColor(0xFFFFC400);   // the tassel
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(Math.max(2f, rad * 0.07f));
+        c.drawLine(cx + rad * 0.82f, cy - rad * 0.08f, cx + rad * 0.82f, cy + rad * 0.5f, p);
+        p.setStyle(Paint.Style.FILL);
+        c.drawCircle(cx + rad * 0.82f, cy + rad * 0.55f, rad * 0.1f, p);
+    }
+
     /** INTL folder icon: a blue globe with meridians and parallels, drawn in code. */
     private void globe(Canvas c, float cx, float cy, float rad) {
         p.setShader(new RadialGradient(cx - rad * 0.35f, cy - rad * 0.35f, rad * 1.4f,
@@ -1947,26 +1976,27 @@ public class ThorView extends View {
     // ------------------------------------------------------------------ league picker
     /** Dropdown list under the league chip: tap once, pick once. */
     // League menu: club soccer sits in a SOCCER folder, national teams (soccer + hockey) in an INTL folder.
-    private int pickerFolder;   // 0 = main menu, else ITEM_SOCCER / ITEM_INTL
-    private static final int ITEM_SOCCER = -1, ITEM_BACK = -2, ITEM_INTL = -3;
+    private int pickerFolder;   // 0 = main menu, else ITEM_SOCCER / ITEM_INTL / ITEM_COLLEGE
+    private static final int ITEM_SOCCER = -1, ITEM_BACK = -2, ITEM_INTL = -3, ITEM_COLLEGE = -4;
 
     /** Which folder a league lives in (0 = main menu). */
     private static int folderOf(int i) {
         if (i < 0 || i >= Espn.LEAGUES.length) return 0;
         Espn.League l = Espn.LEAGUES[i];
-        return l.intl ? ITEM_INTL : l.soccer() ? ITEM_SOCCER : 0;
+        return l.college() ? ITEM_COLLEGE : l.intl ? ITEM_INTL : l.soccer() ? ITEM_SOCCER : 0;
     }
 
     private List<Integer> pickerItems() {
         List<Integer> out = new ArrayList<>();
         if (pickerFolder != 0) out.add(ITEM_BACK);
-        boolean soccer = false, intl = false;
+        boolean soccer = false, intl = false, college = false;
         for (int i = 0; i < leagueLabels.length && i < Espn.LEAGUES.length; i++) {
             int f = folderOf(i);
             if (pickerFolder != 0) { if (f == pickerFolder) out.add(i); }
             else if (f == 0) out.add(i);
             else if (f == ITEM_SOCCER && !soccer) { out.add(ITEM_SOCCER); soccer = true; }
             else if (f == ITEM_INTL && !intl) { out.add(ITEM_INTL); intl = true; }
+            else if (f == ITEM_COLLEGE && !college) { out.add(ITEM_COLLEGE); college = true; }
         }
         return out;
     }
@@ -2016,12 +2046,13 @@ public class ThorView extends View {
                 String ball = "asset:league/soccer.png";
                 if (i == ITEM_SOCCER && logos != null && logos.get(ball) != null) { logo(c, ball, "", 0, lcx, r.centerY(), ls * 0.9f); }
                 else if (i == ITEM_INTL) globe(c, lcx, r.centerY(), ls * 0.46f);
+                else if (i == ITEM_COLLEGE) mortarboard(c, lcx, r.centerY(), ls * 0.5f);
                 else {
                 p.setColor(0xFF22252D);
                 c.drawCircle(lcx, r.centerY(), ls * 0.48f, p);
                 text(c, i == ITEM_BACK ? "‹" : i == ITEM_INTL ? "INTL" : "SOC", lcx, r.centerY(), i == ITEM_BACK ? ls * 0.6f : ls * 0.3f, tfBlack, TEXT, Paint.Align.CENTER, ls * 0.9f);
                 }
-                text(c, i == ITEM_BACK ? (fr ? "RETOUR" : "BACK") : i == ITEM_INTL ? "INTL  ›" : "SOCCER  ›", r.left + rowH * 0.45f + ls, r.centerY(), rowH * 0.4f, tfBlack, cur ? ACCENT : TEXT, Paint.Align.LEFT, colW - rowH * 0.7f - ls);
+                text(c, i == ITEM_BACK ? (fr ? "RETOUR" : "BACK") : i == ITEM_INTL ? "INTL  ›" : i == ITEM_COLLEGE ? (fr ? "UNIVERSITAIRE  ›" : "COLLEGE  ›") : "SOCCER  ›", r.left + rowH * 0.45f + ls, r.centerY(), rowH * 0.4f, tfBlack, cur ? ACCENT : TEXT, Paint.Align.LEFT, colW - rowH * 0.7f - ls);
                 continue;
             }
             if (cur) {
