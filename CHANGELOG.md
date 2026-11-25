@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.29
+- **Sound settings, cleaned up.** Settings → Sound is now short: Sound on/off, Volume, **Style**, Team goal horns, Length, Vibrate, Menu sounds, Test the sound. The long list of one sound per event (Goal, Touchdown, Field goal…) is tucked behind "Customize each sound".
+- **Sound styles:** one tap sets every sound at once, and you hear it. **ARENA** (the new default: arena horn for goals, a stadium cannon for touchdowns, the organ "Charge!" for field goals, a fanfare for wins), **CLASSIC** (the sounds from before), **PARTY** (air horns and sirens) and **MELLOW** (bells). Change a single sound yourself and it shows CUSTOM. If you had picked your own sounds, they are kept.
+- **All the sounds are new:** a brass arena horn, a foghorn-style deep horn, a goal siren, a bell chime, a crowd with cheering and clapping, a stadium organ, a net swish, a fanfare, an air horn, a bat crack, and softer menu ticks. All in stereo and leveled to the same loudness. Plus a stadium **cannon** made inside the app.
+- **NHL team goal horns:** when an NHL team scores, you hear that team's own horn (6 seconds, fading out) instead of the generic goal sound. All 32 teams have their own horn. Turn it off in Settings → Sound → Team goal horns (NHL). "Goal: none" silences them too, and SHORT length cuts them to about a second.
+- **Sound pack:** under "Customize each sound" you can switch between the NEW PACK and the BUILT-IN sounds made inside the app (the built-in ones are also the backup if a file ever fails).
+- **No sound on some devices, fixed again:** the old way could report "playing" while the speaker stayed silent, so the backup never ran. Now the app checks that the audio really starts, and if not it tries two other ways.
+- **Test the sound:** plays your goal sound and shows the result right there (OK / VOLUME 0 / FAILED). If the media volume is at 0 you get a message, since goal sounds follow the media volume (volume buttons).
+- The sounds are loaded at start-up in the background, so the first goal isn't late.
+- Removed the screensaver clock (the big clock that appeared after 10 minutes without touching the screen).
+
 ## 3.28
 - New globe icon for the INTL folder in the league menu.
 - New team jersey icon for ★ MY TEAMS in the league menu.

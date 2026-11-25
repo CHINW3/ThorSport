@@ -1,4 +1,4 @@
-# ThorSport 3.28
+# ThorSport 3.29
 
 Live sports for the **AYN Thor bottom screen** (1240×1080) and the **Retroid Pocket Duo** (1280×960). Everything is drawn to fill the screen exactly.
 
@@ -69,9 +69,9 @@ scores are hidden, and when the next score happens live a big button asks you to
 your stream — the delay is set to exactly that.
 
 ## Settings (tap the clock)
-Two-screen mode · spoiler delay · goal horn, volume, length · mute alerts 1 h · vibrate on goals (off by default) · menu sounds & vibration ·
+Two-screen mode · spoiler delay · goal sounds (4 styles in one tap: Arena, Classic, Party, Mellow; 10 sounds to customize per event; each NHL team's own horn), volume, length, Test the sound · mute alerts 1 h · vibrate on goals (off by default) · menu sounds & vibration ·
 goal screen + length · celebrate all games / my teams · game reminder · replay last goal · stick lights + brightness · test a goal ·
-screen brightness · screensaver clock · keep screen on (always / live games / never) · live refresh speed · open on · rotate live games ·
+screen brightness · keep screen on (always / live games / never) · live refresh speed · open on · rotate live games ·
 hide finished games · auto-open Board · accent color · 12/24 h clock · English / Français · help · clear MY TEAMS · reset settings
 
 ## Controller
