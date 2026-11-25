@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.37
+- Two-screen mode: removed the "TWO-SCREEN MODE · tap ▭ to go back to one screen" text from the top screen. The two-screen button is still there.
+
 ## 3.36
 - Removed the icon of the **My teams** card in Settings.
 
