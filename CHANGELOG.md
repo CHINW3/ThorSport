@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.61
+- **Sherbrooke Phoenix logo:** the shield on top, over the navy Phoenix picture.
+
 ## 3.60
 - **Sherbrooke Phoenix: new logo on its navy background**, so it stands out on the dark screens.
 
