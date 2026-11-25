@@ -2067,6 +2067,7 @@ public class ThorView extends View {
                 if (i == ITEM_SOCCER && logos != null && logos.get(ball) != null) { logo(c, ball, "", 0, lcx, r.centerY(), ls * 0.9f); }
                 else if (i == ITEM_INTL) globe(c, lcx, r.centerY(), ls * 0.46f);
                 else if (i == ITEM_CRICKET && logos != null && logos.get("asset:league/cricket.png") != null) logo(c, "asset:league/cricket.png", "", 0, lcx, r.centerY(), ls * 0.9f);
+                else if (i == ITEM_ESPORTS && logos != null && logos.get("asset:league/esports.png") != null) logo(c, "asset:league/esports.png", "", 0, lcx, r.centerY(), ls * 0.9f);
                 else if (i == ITEM_COLLEGE && logos != null && logos.get("asset:league/ncaa.png") != null) logo(c, "asset:league/ncaa.png", "", 0, lcx, r.centerY(), ls * 0.9f);
                 else if (i == ITEM_COLLEGE) mortarboard(c, lcx, r.centerY(), ls * 0.5f);
                 else {

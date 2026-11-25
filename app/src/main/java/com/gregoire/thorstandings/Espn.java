@@ -632,6 +632,7 @@ public final class Espn {
     /** Leagues whose logo we know without asking ESPN. */
     static String fixedLogo(League lg) {
         if (lg.path.startsWith("esports/lol")) return "asset:league/lol.png";
+        if (lg.path.startsWith("esports")) return "asset:league/esports.png";
         if (lg.path.endsWith("/pwhl")) return "asset:league/pwhl.png";
         if (lg.path.endsWith("/ahl")) return "asset:league/ahl.png";
         if (lg.path.startsWith("cricket")) return "asset:league/cricket.png";
