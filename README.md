@@ -7,7 +7,8 @@ https://chinw3.github.io/ThorSport/
 - `og.png`: the 1200×630 preview image shown when the link is shared.
 - `horns/`: the goal horns the goal button plays (Montréal, Toronto, Boston, Edmonton, Dallas, Seattle), copied from
   `app/src/main/assets/horns` on `main`. Recording credits are in that folder's README.txt.
-- `sitemap.xml`, `apple-touch-icon.png`: for search engines and home-screen shortcuts.
+- `sitemap.xml`: for search engines.
+- `favicon.png`, `apple-touch-icon.png`: the app's launcher icon (from `app/src/main/res/drawable-xxxhdpi` on `main`).
 - `.nojekyll`: serve the files as they are.
 
 The handheld mockups are drawn in CSS/SVG. To show real screenshots instead, add
