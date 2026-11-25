@@ -82,7 +82,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
     private final Map<String, String> lastDetail = new HashMap<>();
     private final Map<String, Integer> lastPeriod = new HashMap<>();
     private long followedFinalAt;
-    private boolean quietHours, vibrate, saver, french, bigStandings, menuFx;
+    private boolean quietHours, vibrate, french, bigStandings, menuFx;
     // 3.17 options
     private long muteUntil;                 // alerts muted until (Settings → Mute alerts 1 h)
     private boolean celebMine, fastLive, lowBattWarned;
@@ -252,7 +252,14 @@ public class MainActivity extends Activity implements ThorView.Listener {
         ThorView.fxConfetti = prefs.getBoolean("fxConfetti", true);
         ThorView.fxFireworks = prefs.getBoolean("fxFireworks", true);
         ThorView.fxShake = prefs.getBoolean("fxShake", true);
-        for (int i = 0; i < Horn.eventSound.length; i++) Horn.eventSound[i] = prefs.getInt("evSound" + i, Horn.DEFAULT_SOUNDS[i]);
+        // 3.29 added two sounds before "none": a saved "none" (7) now has another number
+        boolean oldSounds = prefs.getInt("soundsVer", 1) < 2;
+        for (int i = 0; i < Horn.eventSound.length; i++) {
+            int v = prefs.getInt("evSound" + i, Horn.DEFAULT_SOUNDS[i]);
+            if (oldSounds && prefs.contains("evSound" + i) && v == Horn.OLD_NONE) { v = Horn.NONE; prefs.edit().putInt("evSound" + i, v).apply(); }
+            Horn.eventSound[i] = Math.max(0, Math.min(Horn.NONE, v));
+        }
+        if (oldSounds) prefs.edit().putInt("soundsVer", 2).apply();
         if (!prefs.contains("evSound0")) Horn.eventSound[Horn.EV_GOAL] = prefs.getInt("hornSound", Horn.DEFAULT_SOUNDS[Horn.EV_GOAL]);   // the 3.21 "Sound" setting
         ledGoal = prefs.getBoolean("ledGoal", true);
         notify = prefs.getBoolean("otherTeams", true);
@@ -275,12 +282,15 @@ public class MainActivity extends Activity implements ThorView.Listener {
         bigStandings = prefs.getBoolean("bigStandings", true);
         vibrate = prefs.getBoolean("vibrateGoal", false);   // off by default (3.16)
         menuFx = prefs.getBoolean("menuFx", false);
-        saver = prefs.getBoolean("saver", true);
         french = prefs.getBoolean("fr", java.util.Locale.getDefault().getLanguage().equals("fr"));
         celebLen = prefs.getInt("celebLen", 1);
         accentIdx = prefs.getInt("accent", 0);
         clockMode = prefs.getInt("clock", 0);
         Horn.vibrate = vibrate;
+        Horn.onStatus = () -> runOnUiThread(this::pushSettings);   // Settings → Sound → Sound check shows the last result
+        Horn.usePack = prefs.getBoolean("soundPack", true);
+        Horn.teamHorns = prefs.getBoolean("teamHorns", true);
+        Horn.warm(this);                                           // load/build the sounds now so the first goal isn't late
         ThorView.fr = french;
         ThorView.setAccent(ACCENTS[accentIdx]);
 
@@ -949,9 +959,12 @@ public class MainActivity extends Activity implements ThorView.Listener {
     /** Goal horn + vibration, both silenced by Settings → Mute alerts. */
     private void horn(float volume, boolean batCrack) { horn(volume, batCrack, Horn.EV_GOAL); }
 
-    private void horn(float volume, boolean batCrack, int event) {
+    private void horn(float volume, boolean batCrack, int event) { horn(volume, batCrack, event, null); }
+
+    /** teamAbbr: the NHL team that scored, for its own goal horn (Settings → Sound → Team goal horns). */
+    private void horn(float volume, boolean batCrack, int event, String teamAbbr) {
         if (quietNow()) return;
-        Horn.play(this, sound, volume, batCrack, event);
+        Horn.play(this, sound, volume, batCrack, event, teamAbbr);
     }
 
     /** Which sound goes with this celebration word (Settings → Sound). */
@@ -981,12 +994,18 @@ public class MainActivity extends Activity implements ThorView.Listener {
 
     private static String t(String en, String fr) { return ThorView.tr(en, fr); }
 
+    private boolean soundMore;   // Settings → Sound → Customize: shows the per-event rows
+
+    private String soundStyleName() {
+        int st = Horn.styleOf();
+        return st < 0 ? t("CUSTOM", "PERSONNALISÉ") : t(Horn.STYLE_NAMES[st][0], Horn.STYLE_NAMES[st][1]);
+    }
+
     private void pushSettings() {
         all(v -> v.setSound(sound));
         all(v -> v.setDim(lowBattery() ? Math.max(0.5f, DIM_LEVELS[dimLevel]) : DIM_LEVELS[dimLevel]));
         all(v -> v.setCelebrationMs(CELEB_MS[celebLen]));
         all(v -> v.setClockMode(clockMode));
-        view.setSaver(saver);
         all(v -> v.setBigStandings(bigStandings));
         all(v -> v.setSettings(delaySec, ledsOn, ledsAvailable, Math.round((1 - DIM_LEVELS[dimLevel]) * 100), autoBoard));
         all(v -> v.setDisplayPrefs(hideFinal, nightMode, shotMap));
@@ -1002,7 +1021,6 @@ public class MainActivity extends Activity implements ThorView.Listener {
         it.add(item(1, t("Accent color", "Couleur d'accent"), ACCENT_NAMES[accentIdx], ThorView.SET_ACCENT));
         it.add(item(1, t("Clock", "Horloge"), CLOCK_NAMES[clockMode], ThorView.SET_CLOCK));
         it.add(item(1, t("Keep screen on", "Garder l'écran allumé"), keepName(), ThorView.SET_KEEP_ON));
-        it.add(item(1, t("Screensaver clock (10 min)", "Économiseur horloge (10 min)"), onOff(saver), ThorView.SET_SAVER));
         // 2 CELEBRATIONS
         it.add(item(2, t("Test a goal", "Tester un but"), "▶", ThorView.SET_TEST));
         if (lastAlertWord != null) it.add(item(2, t("Replay last goal", "Revoir le dernier but"), "▶", ThorView.SET_REPLAY));
@@ -1015,16 +1033,23 @@ public class MainActivity extends Activity implements ThorView.Listener {
         it.add(item(2, t("Confetti", "Confettis"), onOff(ThorView.fxConfetti), ThorView.SET_FX_CONFETTI));
         it.add(item(2, t("Fireworks", "Feux d'artifice"), onOff(ThorView.fxFireworks), ThorView.SET_FX_FIREWORKS));
         it.add(item(2, t("Screen shake", "Écran qui tremble"), onOff(ThorView.fxShake), ThorView.SET_FX_SHAKE));
-        // 3 SOUND
-        it.add(item(3, t("Goal sound", "Son de but"), onOff(sound), ThorView.SET_HORN));
-        for (int i = 0; i < Horn.EVENTS.length; i++) {   // one sound per event; tapping cycles and plays it
-            int st = Horn.eventSound[i];
-            it.add(item(3, t(Horn.EVENTS[i][0], Horn.EVENTS[i][1]), t(Horn.SOUND_NAMES[st][0], Horn.SOUND_NAMES[st][1]) + (st == Horn.NONE ? "" : "  ▶"), ThorView.SET_EV_SOUND + i));
-        }
+        // 3 SOUND: the everyday rows first; the per-event list is tucked behind "Customize"
+        it.add(item(3, t("Sound", "Son"), onOff(sound), ThorView.SET_HORN));
         it.add(item(3, t("Volume", "Volume"), LEVELS[hornVol], ThorView.SET_HORN_VOL));
+        it.add(item(3, t("Style", "Style"), soundStyleName() + "  ▶", ThorView.SET_SOUND_STYLE));
+        it.add(item(3, t("Team goal horns (NHL)", "Klaxons des équipes (LNH)"), onOff(Horn.teamHorns), ThorView.SET_TEAM_HORN));
         it.add(item(3, t("Length", "Durée"), Horn.shortHorn ? t("SHORT", "COURT") : t("FULL", "COMPLET"), ThorView.SET_HORN_SHORT));
         it.add(item(3, t("Vibrate on goals", "Vibrer aux buts"), onOff(vibrate), ThorView.SET_VIBRATE));
         it.add(item(3, t("Menu sounds & vibration", "Sons et vibration des menus"), onOff(menuFx), ThorView.SET_MENU_FX));
+        it.add(item(3, t("Test the sound", "Tester le son"), "▶  " + Horn.status, ThorView.SET_SOUND_CHECK));
+        it.add(item(3, t("Customize each sound", "Personnaliser chaque son"), soundMore ? t("HIDE  ▾", "CACHER  ▾") : t("SHOW  ›", "VOIR  ›"), ThorView.SET_SOUND_MORE));
+        if (soundMore) {
+            for (int i = 0; i < Horn.EVENTS.length; i++) {   // one sound per event; tapping cycles and plays it
+                int st = Horn.eventSound[i];
+                it.add(item(3, "   " + t(Horn.EVENTS[i][0], Horn.EVENTS[i][1]), t(Horn.SOUND_NAMES[st][0], Horn.SOUND_NAMES[st][1]) + (st == Horn.NONE ? "" : "  ▶"), ThorView.SET_EV_SOUND + i));
+            }
+            it.add(item(3, "   " + t("Sound pack", "Banque de sons"), Horn.usePack ? t("NEW PACK  ▶", "NOUVELLE  ▶") : t("BUILT-IN  ▶", "INTÉGRÉE  ▶"), ThorView.SET_SOUND_SET));
+        }
         // 4 ALERTS
         it.add(item(4, t("Mute alerts", "Couper les alertes"), muteLabel(), ThorView.SET_MUTE));
         it.add(item(4, t("Your other games", "Tes autres matchs"), onOff(notify), ThorView.SET_OTHER_TEAMS));
@@ -1146,6 +1171,40 @@ public class MainActivity extends Activity implements ThorView.Listener {
             return;
         }
         switch (id) {
+            case ThorView.SET_SOUND_CHECK: {   // plays the goal sound for real and shows what happened (also as a toast if it fails)
+                int st = Horn.eventSound[Horn.EV_GOAL] == Horn.NONE ? 0 : Horn.eventSound[Horn.EV_GOAL];
+                Horn.playType(this, st, HORN_VOLS[hornVol], false, true);
+                return;
+            }
+            case ThorView.SET_SOUND_STYLE: {   // ARENA -> CLASSIC -> PARTY -> MELLOW, sets every event at once and plays the goal sound
+                int cur = Horn.styleOf(), n = Horn.STYLES.length;
+                int next = cur < 0 ? (dir < 0 ? n - 1 : 0) : ((cur + (dir < 0 ? -1 : 1)) % n + n) % n;
+                Horn.applyStyle(next);
+                for (int i = 0; i < Horn.eventSound.length; i++) e.putInt("evSound" + i, Horn.eventSound[i]);
+                e.apply();
+                Horn.warm(this);
+                if (Horn.eventSound[Horn.EV_GOAL] != Horn.NONE) Horn.playType(this, Horn.eventSound[Horn.EV_GOAL], HORN_VOLS[hornVol], false);
+                pushSettings();
+                return;
+            }
+            case ThorView.SET_SOUND_MORE:
+                soundMore = !soundMore;
+                pushSettings();
+                return;
+            case ThorView.SET_TEAM_HORN:   // each NHL team's own horn when it scores (teams without a file keep the normal goal sound)
+                Horn.teamHorns = !Horn.teamHorns;
+                e.putBoolean("teamHorns", Horn.teamHorns).apply();
+                if (Horn.teamHorns) Horn.previewTeamHorn(this, HORN_VOLS[hornVol]);
+                pushSettings();
+                return;
+            case ThorView.SET_SOUND_SET: {   // pack <-> built-in, and you hear the goal sound of the new set right away
+                Horn.setPack(!Horn.usePack);
+                e.putBoolean("soundPack", Horn.usePack).apply();
+                int st = Horn.eventSound[Horn.EV_GOAL] == Horn.NONE ? 0 : Horn.eventSound[Horn.EV_GOAL];
+                Horn.playType(this, st, HORN_VOLS[hornVol], false);
+                pushSettings();
+                return;
+            }
             case ThorView.SET_DELAY:
                 view.closeSettings();
                 view.openDelay();
@@ -1252,8 +1311,6 @@ public class MainActivity extends Activity implements ThorView.Listener {
                 french = !french; ThorView.fr = french; e.putBoolean("fr", french); break;
             case ThorView.SET_STAND_SIZE:
                 bigStandings = !bigStandings; e.putBoolean("bigStandings", bigStandings); break;
-            case ThorView.SET_SAVER:
-                saver = !saver; e.putBoolean("saver", saver); break;
             case ThorView.SET_DUAL:
                 e.apply(); setDual(!dual); return;
             case ThorView.SET_TEST:
@@ -2217,7 +2274,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         else if (celebrations) view.celebrate(g, side, word);
         else all(v -> v.banner(word + " " + side.abbr + " · " + g.away.abbr + " " + g.away.score + " – " + g.home.score + " " + g.home.abbr, side.color | 0xFF000000));
         boolean homer = ThorView.isHomeRunWord(word);
-        horn(HORN_VOLS[hornVol], homer, soundEvent(word, homer));
+        horn(HORN_VOLS[hornVol], homer, soundEvent(word, homer), "hockey/nhl".equals(g.league) ? side.abbr : null);
         if (!ledGoal) { }
         else if (ledsAvailable && ledsOn && homer) {
             // the light follows the ball from the left stick to the right one, then the team's colors (gold for a grand slam)

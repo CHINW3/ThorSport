@@ -64,10 +64,10 @@ public class ThorView extends View {
     public static final int SET_DELAY = 0, SET_HORN = 1, SET_LEDS = 2, SET_DIM = 3, SET_AUTOBOARD = 4,
         SET_HORN_VOL = 5, SET_LED_BRI = 6, SET_CELEB = 7, SET_KEEP_ON = 8, SET_NIGHT = 9, SET_HIDE_FINAL = 10,
         SET_TEST = 11, SET_HELP = 12, SET_RESET = 13, SET_DUAL = 14, SET_QUIET = 15, SET_VIBRATE = 16,
-        SET_CELEB_LEN = 17, SET_ACCENT = 18, SET_CLOCK = 19, SET_LANG = 20, SET_SAVER = 21, SET_STAND_SIZE = 22, SET_DEMO_MLB = 23, SET_DEMO_NFL = 24, SET_DEMO_NHL = 25, SET_SHOT_MAP = 26, SET_UPDATE = 27, SET_COMPANION = 28, SET_MY_TEAMS = 29, SET_OTHER_TEAMS = 30, SET_MENU_FX = 31,
+        SET_CELEB_LEN = 17, SET_ACCENT = 18, SET_CLOCK = 19, SET_LANG = 20,  SET_STAND_SIZE = 22, SET_DEMO_MLB = 23, SET_DEMO_NFL = 24, SET_DEMO_NHL = 25, SET_SHOT_MAP = 26, SET_UPDATE = 27, SET_COMPANION = 28, SET_MY_TEAMS = 29, SET_OTHER_TEAMS = 30, SET_MENU_FX = 31,
         SET_MUTE = 32, SET_HORN_SHORT = 33, SET_REPLAY = 34, SET_CELEB_MINE = 35,
         SET_ROTATE = 38, SET_FAST_LIVE = 39, SET_RESET_SETTINGS = 41, SET_START_LEAGUE = 42, SET_REMINDER = 43, SET_EXTRA_ALERTS = 44,
-        SET_FX_FLASH = 45, SET_FX_BEAMS = 46, SET_FX_CONFETTI = 47, SET_FX_FIREWORKS = 48, SET_FX_SHAKE = 49, SET_HORN_SOUND = 50, SET_LED_GOAL = 51, SET_FX_PRESET = 52, SET_EV_SOUND = 60;
+        SET_FX_FLASH = 45, SET_FX_BEAMS = 46, SET_FX_CONFETTI = 47, SET_FX_FIREWORKS = 48, SET_FX_SHAKE = 49, SET_HORN_SOUND = 50, SET_LED_GOAL = 51, SET_FX_PRESET = 52, SET_EV_SOUND = 60, SET_SOUND_CHECK = 70, SET_SOUND_SET = 71, SET_TEAM_HORN = 72, SET_SOUND_MORE = 73, SET_SOUND_STYLE = 74;
     private static final int GAMES_PER_PAGE = 8;
     private static final long AUTO_PAGE_MS = 10_000;
     private long CELEBRATION_MS = 6500;
@@ -172,9 +172,8 @@ public class ThorView extends View {
     private List<String[]> settingItems = new ArrayList<>();  // {label, value, id, "1" = stepper}
     private final RectF dateLabelRect = new RectF();
     private final RectF dualRect = new RectF();
-    private boolean topMode, dual, saverOn;
+    private boolean topMode, dual;
     private int clockMode;                 // 0 = phone setting, 1 = 12 h, 2 = 24 h
-    private long lastTouch = System.currentTimeMillis();
     private int goalsPage;
     private final RectF scorersRect = new RectF();
 
@@ -408,7 +407,6 @@ public class ThorView extends View {
     private final List<RectF> settingCells = new ArrayList<>();
 
     private void wakeCursor() {
-        lastTouch = System.currentTimeMillis();
         cursorOn = true;
     }
 
@@ -929,7 +927,6 @@ public class ThorView extends View {
     public void setDisplayPrefs(boolean hideFinished, boolean night, boolean shots) { hideFinal = hideFinished; nightMode = night; shotMap = shots; page = 0; invalidate(); }
     /** This view is the TOP screen of two-screen mode: always the Board, no tabs. */
     public void setClockMode(int m) { clockMode = m; invalidate(); }
-    public void setSaver(boolean on) { saverOn = on; invalidate(); }
     public void toggleSettings() { openSettings(); }
     public boolean closeOverlays() {
         boolean any = modeMenuOpen || settingsOpen || pickerOpen || helpOpen || delayOpen || celebrating();
@@ -955,10 +952,6 @@ public class ThorView extends View {
         invalidate();
     }
     private boolean overlayOpen() { return modeMenuOpen || onboardOpen || settingsOpen || pickerOpen || helpOpen || delayOpen || syncState > 0 || celebrating(); }
-
-    private boolean saverActive() {
-        return saverOn && !topMode && System.currentTimeMillis() - lastTouch > 10 * 60_000 && !anyLive() && !celebrating();
-    }
 
     public void setTopMode(boolean on) { topMode = on; tab = TAB_BOARD; invalidate(); }
     public void setDual(boolean on) { dual = on; invalidate(); }
@@ -1130,10 +1123,7 @@ public class ThorView extends View {
     @Override protected void onAttachedToWindow() { super.onAttachedToWindow(); sysFmt = null; postDelayed(autoPage, AUTO_PAGE_MS); }
     @Override protected void onDetachedFromWindow() { removeCallbacks(autoPage); super.onDetachedFromWindow(); }
     @Override public boolean onTouchEvent(MotionEvent e) {
-        boolean wasSaver = saverActive();
-        lastTouch = System.currentTimeMillis();
         if (cursorOn) { cursorOn = false; invalidate(); }
-        if (wasSaver) { invalidate(); return true; }  // first touch only wakes the screen
         return gestures.onTouchEvent(e);
     }
 
@@ -1312,14 +1302,6 @@ public class ThorView extends View {
         float dx = (slot % 3) - 1, dy = ((slot / 3) % 3) - 1;
         c.save();
         c.translate(dx * 2, dy * 2);
-
-        if (saverActive()) {
-            drawSaver(c, w, h);
-            c.restore();
-            postInvalidateDelayed(20_000);
-            return;
-        }
-        if (saverOn) postInvalidateDelayed(60_000);
 
         float headerH = h * 0.1f;
         headerBottom = headerH;
@@ -1911,17 +1893,7 @@ public class ThorView extends View {
         postInvalidateDelayed(50);
     }
 
-    // ------------------------------------------------------------------ screensaver / ticker
-    private void drawSaver(Canvas c, int w, int h) {
-        p.setColor(0xFF000000);
-        c.drawRect(-10, -10, w + 10, h + 10, p);
-        long now = System.currentTimeMillis();
-        float drift = (float) Math.sin(now / 60_000.0) * h * 0.08f;   // keeps moving: no burn-in
-        text(c, fmtTime(now), w / 2f, h * 0.42f + drift, h * 0.22f, tfBlack, 0xFF6B6F78, Paint.Align.CENTER, w * 0.9f);
-        text(c, DateFormat.format("EEEE d MMMM", now).toString().toUpperCase(), w / 2f, h * 0.6f + drift, h * 0.04f, tfCond, 0xFF3E424A, Paint.Align.CENTER, w);
-        text(c, tr("Tap to wake", "Touchez pour réveiller"), w / 2f, h * 0.9f, h * 0.028f, tfReg, 0xFF2E3138, Paint.Align.CENTER, w);
-    }
-
+    // ------------------------------------------------------------------ ticker
     /** Top screen: the scrolling line lives in its own view (see TickerView). */
     public TickerView ticker;
     private boolean tickerOn;
