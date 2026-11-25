@@ -164,32 +164,43 @@ public final class Extras {
     private static String ordinal(int n) { return n == 1 ? "st" : n == 2 ? "nd" : n == 3 ? "rd" : "th"; }
 
     // ------------------------------------------------------------------ Polymarket
-    private static final Map<String, float[]> polyCache = new HashMap<>();
-    private static final Map<String, Long> polyAt = new HashMap<>();
+    // Several threads touch these (the refresh and the background price fetches), so they are concurrent maps.
+    private static final float[] POLY_NONE = new float[0];   // "looked, no market" (a concurrent map can't hold null)
+    private static final Map<String, float[]> polyCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Map<String, Long> polyAt = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Set<String> polyBusy = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private static final java.util.concurrent.ExecutorService polyPool = java.util.concurrent.Executors.newFixedThreadPool(3);
     private static final long POLY_TTL = 5 * 60_000;       // before the game
-    private static final long POLY_TTL_LIVE = 30_000;      // during the game: prices move with every goal
+    private static final long POLY_TTL_LIVE = 6_000;       // during the game: prices move with every goal
 
     /** Polymarket game markets live at slugs like "nhl-edm-car-2026-11-21". */
     public static void polymarket(List<Model.Game> games) {
         for (Model.Game g : games) {
             String prefix = POLY_PREFIX.get(g.league);
             if (prefix == null || g.isFinal()) continue;
-            float[] res;
             Long at = polyAt.get(g.id);
-            long ttl = g.isLive() ? POLY_TTL_LIVE : POLY_TTL;
-            if (at != null && System.currentTimeMillis() - at < ttl) res = polyCache.get(g.id);
-            else {
-                res = fetchPoly(prefix, g);
-                polyCache.put(g.id, res);
-                polyAt.put(g.id, System.currentTimeMillis());
+            boolean noMarket = polyCache.get(g.id) == POLY_NONE;
+            long ttl = noMarket ? 3 * POLY_TTL : g.isLive() ? POLY_TTL_LIVE : POLY_TTL;   // no market: don't keep asking every few seconds
+            if (at == null) {   // the first time we see this game: ask now, so the odds are there on the first screen
+                store(g.id, fetchPoly(prefix, g));
+            } else if (System.currentTimeMillis() - at >= ttl && polyBusy.add(g.id)) {
+                // later: ask in the background and use the last answer meanwhile, so a slow price never holds back the score
+                final String id = g.id; final String pf = prefix;
+                polyPool.execute(() -> { try { store(id, fetchPoly(pf, g)); } catch (Exception ignored) { } finally { polyBusy.remove(id); } });
             }
-            if (res != null) {
+            float[] res = polyCache.get(g.id);
+            if (res != null && res.length == 2) {
                 g.away.odds = res[0];
                 g.home.odds = res[1];
                 g.drawOdds = -1;
                 g.oddsSource = "POLYMARKET";
             }
         }
+    }
+
+    private static void store(String id, float[] res) {
+        polyCache.put(id, res == null ? POLY_NONE : res);
+        polyAt.put(id, System.currentTimeMillis());
     }
 
     private static float[] fetchPoly(String prefix, Model.Game g) {

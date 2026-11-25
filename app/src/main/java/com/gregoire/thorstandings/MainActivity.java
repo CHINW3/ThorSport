@@ -49,8 +49,10 @@ public class MainActivity extends Activity implements ThorView.Listener {
         if (top != null) f.accept(top);
     }
 
-    private static final long BOARD_REFRESH_MS = 10_000;       // BOARD tab, followed game live
-    private static final long LIVE_REFRESH_MS = 30_000;        // while a game is live
+    private static final long BOARD_REFRESH_MS = 10_000;       // the game you follow is live (NORMAL mode)
+    private static final long LIVE_REFRESH_MS = 30_000;        // while a game is live (NORMAL mode)
+    private static final long FAST_MINE_MS = 5_000;            // FAST mode: the game you follow, or one of your teams, is live
+    private static final long FAST_LIVE_MS = 10_000;           // FAST mode: other live games (ESPN itself only updates every few seconds)
     private static final long IDLE_REFRESH_MS = 3 * 60_000;    // otherwise
     private static final long NIGHT_REFRESH_MS = 15 * 60_000;  // 1 AM–8 AM with nothing live (saves battery)
     private static final long RETRY_MS = 20_000;               // after a failed refresh
@@ -571,8 +573,8 @@ public class MainActivity extends Activity implements ThorView.Listener {
         if (dateOffset != 0 && System.currentTimeMillis() - dateChangedAt > 30 * 60_000) main.post(() -> onDateShift(-dateOffset));
         if (lastFailed) return RETRY_MS;
         Model.Game b = view.boardGame();
-        if (tab == ThorView.TAB_BOARD && b != null && b.isLive()) return BOARD_REFRESH_MS;
-        if (view.anyLive()) return fastLive ? 15_000 : LIVE_REFRESH_MS;
+        if (b != null && b.isLive() && (fastLive || tab == ThorView.TAB_BOARD)) return fastLive ? FAST_MINE_MS : BOARD_REFRESH_MS;   // the game you follow, on any tab
+        if (view.anyLive()) return fastLive ? (view.anyLiveOfMine() ? FAST_MINE_MS : FAST_LIVE_MS) : LIVE_REFRESH_MS;
         int hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
         return hour >= 1 && hour < 8 ? NIGHT_REFRESH_MS : IDLE_REFRESH_MS;
     }
@@ -1015,7 +1017,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         // 0 GAMES: what you watch, and how it updates
         it.add(item(0, t("Open on", "Ouvrir sur"), startLeague == 1 ? t("MY TEAMS", "MES ÉQUIPES") : t("LAST LEAGUE", "DERNIÈRE LIGUE"), ThorView.SET_START_LEAGUE,
             t("Which league the app starts on", "La ligue affichée au démarrage")));
-        it.add(item(0, t("Live refresh", "Rafraîchissement en direct"), fastLive ? t("FAST (15 s)", "RAPIDE (15 s)") : "NORMAL (30 s)", ThorView.SET_FAST_LIVE,
+        it.add(item(0, t("Live refresh", "Rafraîchissement en direct"), fastLive ? t("FAST (5-10 s)", "RAPIDE (5-10 s)") : "NORMAL (30 s)", ThorView.SET_FAST_LIVE,
             t("How often scores are checked in games", "Fréquence de mise à jour pendant les matchs")));
         it.add(item(0, t("Spoiler delay", "Délai anti-spoiler"), (delaySec == 0 ? onOff(false) : delaySec + " s") + "  ›", ThorView.SET_DELAY,
             t("Hold scores back to match your TV", "Retarde les scores pour suivre ta télé")));

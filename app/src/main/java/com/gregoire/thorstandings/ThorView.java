@@ -1100,6 +1100,12 @@ public class ThorView extends View {
 
     public boolean anyLive() { return liveCount() > 0; }
 
+    /** A game of one of your teams is live right now. */
+    public boolean anyLiveOfMine() {
+        for (Model.Game g : games) if (g.isLive() && g.involves(favorites)) return true;
+        return false;
+    }
+
     private List<Model.Game> shownCache;
     private long shownCacheFrame = -1;
     private long frame;
