@@ -15,6 +15,13 @@ final class Synth {
     static final int COUNT = 10;   // sounds 0..9 (see Horn.SOUND_NAMES)
     private static final double TAU = 2 * Math.PI;
 
+    /**
+     * How loud everything is made: the average level before the soft limiter, and how hard a single loud peak may be squashed.
+     * 0.60 / 3.4 gives about -9 dBFS on average (the 3.29 values, 0.24 / 3.5, were about -14 dBFS and far too quiet on the
+     * Thor's small speakers). A little grit on the peaks is what makes a horn sound big.
+     */
+    private static final double TARGET_RMS = 0.60, MAX_DRIVE = 3.4;
+
     private Synth() {}
 
     /** Sound `type` as interleaved stereo PCM. */
@@ -483,7 +490,7 @@ final class Synth {
             if (Math.abs(m) > peak * 0.01) { sum += m * m; cnt++; }   // only the part you actually hear
         }
         double rms = Math.sqrt(sum / Math.max(1, cnt));
-        double gain = Math.min(0.24 / Math.max(rms, 1e-9), 3.5 / peak);
+        double gain = Math.min(TARGET_RMS / Math.max(rms, 1e-9), MAX_DRIVE / peak);
         short[] out = new short[end * 2];
         int fin = (int) (0.003 * RATE), fout = (int) (0.1 * RATE);
         for (int i = 0; i < end; i++) {

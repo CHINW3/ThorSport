@@ -25,6 +25,8 @@ public final class Horn {
     private Horn() {}
 
     public static boolean vibrate = true;
+    /** Settings → Sound → Volume: MAX adds Android's loudness enhancer (about +9 dB) on top of full volume. Off for every other level. */
+    public static boolean boost;
     /** Settings → Length: SHORT plays about 1.2 s instead of the full blast. */
     public static boolean shortHorn;
 
@@ -68,6 +70,23 @@ public final class Horn {
 
     public static void applyStyle(int style) {
         System.arraycopy(STYLES[Math.max(0, Math.min(STYLES.length - 1, style))], 0, eventSound, 0, eventSound.length);
+    }
+
+    private static android.media.audiofx.LoudnessEnhancer boostOn(int audioSession) {
+        if (!boost) return null;
+        try {
+            android.media.audiofx.LoudnessEnhancer le = new android.media.audiofx.LoudnessEnhancer(audioSession);
+            le.setTargetGain(900);
+            le.setEnabled(true);
+            return le;
+        } catch (Throwable e) {   // some devices don't have it: just no boost
+            Log.w("ThorSport", "loudness boost not available", e);
+            return null;
+        }
+    }
+
+    private static void boostOff(android.media.audiofx.LoudnessEnhancer le) {
+        if (le != null) try { le.release(); } catch (Throwable ignored) { }
     }
 
     // ------------------------------------------------------------------ status (Settings → Sound check)
@@ -278,6 +297,7 @@ public final class Horn {
         AudioFocusRequest focus = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK).setAudioAttributes(media).build();
         try { if (am != null) am.requestAudioFocus(focus); } catch (Exception ignored) { }
         MediaPlayer mp = new MediaPlayer();
+        android.media.audiofx.LoudnessEnhancer le = boostOn(mp.getAudioSessionId());
         try (android.content.res.AssetFileDescriptor afd = app.getAssets().openFd("horns/" + file + ".mp3")) {
             mp.setAudioAttributes(media);
             mp.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
@@ -297,6 +317,7 @@ public final class Horn {
             return true;
         } finally {
             try { mp.release(); } catch (Exception ignored) { }
+            boostOff(le);
             try { if (am != null) am.abandonAudioFocusRequest(focus); } catch (Exception ignored) { }
         }
     }
@@ -371,6 +392,7 @@ public final class Horn {
             .setBufferSizeInBytes(data.length * 2)
             .setTransferMode(AudioTrack.MODE_STATIC)
             .build();
+        android.media.audiofx.LoudnessEnhancer le = boostOn(t.getAudioSessionId());
         try {
             if (t.getState() != AudioTrack.STATE_INITIALIZED) return false;
             if (t.write(data, 0, data.length) != data.length) return false;
@@ -387,6 +409,7 @@ public final class Horn {
         } finally {
             try { t.stop(); } catch (Exception ignored) { }
             t.release();
+            boostOff(le);
         }
     }
 
@@ -395,6 +418,7 @@ public final class Horn {
         java.io.File f = new java.io.File(app.getCacheDir(), "sound_backup.wav");
         writeWav(f, data);
         MediaPlayer mp = new MediaPlayer();
+        android.media.audiofx.LoudnessEnhancer le = boostOn(mp.getAudioSessionId());
         try {
             mp.setAudioAttributes(attrs);
             mp.setDataSource(f.getAbsolutePath());
@@ -408,6 +432,7 @@ public final class Horn {
             return true;
         } finally {
             try { mp.release(); } catch (Exception ignored) { }
+            boostOff(le);
         }
     }
 

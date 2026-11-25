@@ -76,7 +76,8 @@ public class MainActivity extends Activity implements ThorView.Listener {
     private BroadcastReceiver updateReceiver;
     private volatile int updatePct = -2;   // -2 idle, -1 downloading (size unknown), 0..100 downloading
     private long resetArmedAt;
-    private static final float[] HORN_VOLS = {0.5f, 0.8f, 1f};
+    private static final float[] HORN_VOLS = {0.55f, 0.85f, 1f, 1f};   // LOW MED HIGH MAX (MAX = full volume + the loudness boost)
+    private static final String[] VOL_NAMES = {"LOW", "MED", "HIGH", "MAX"};
     private static final float[] LED_BRIS = {0.3f, 0.7f, 1f};
     private static final String[] LEVELS = {"LOW", "MED", "HIGH"};
     private final Map<String, String> lastDetail = new HashMap<>();
@@ -244,7 +245,8 @@ public class MainActivity extends Activity implements ThorView.Listener {
         prefs.edit().putInt("delay", 0).apply();
         ledsOn = prefs.getBoolean("leds", true);
         autoBoard = prefs.getBoolean("autoBoard", true);
-        hornVol = prefs.getInt("hornVol", 1);
+        hornVol = Math.max(0, Math.min(HORN_VOLS.length - 1, prefs.getInt("hornVol", 2)));   // HIGH unless you chose otherwise
+        Horn.boost = hornVol == 3;
         ledBri = prefs.getInt("ledBri", 1);
         celebrations = prefs.getBoolean("celebrations", true);
         ThorView.fxFlash = prefs.getBoolean("fxFlash", true);
@@ -1035,7 +1037,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         it.add(item(2, t("Screen shake", "Écran qui tremble"), onOff(ThorView.fxShake), ThorView.SET_FX_SHAKE));
         // 3 SOUND: the everyday rows first; the per-event list is tucked behind "Customize"
         it.add(item(3, t("Sound", "Son"), onOff(sound), ThorView.SET_HORN));
-        it.add(item(3, t("Volume", "Volume"), LEVELS[hornVol], ThorView.SET_HORN_VOL));
+        it.add(item(3, t("Volume", "Volume"), VOL_NAMES[hornVol], ThorView.SET_HORN_VOL));
         it.add(item(3, t("Style", "Style"), soundStyleName() + "  ▶", ThorView.SET_SOUND_STYLE));
         it.add(item(3, t("Team goal horns (NHL)", "Klaxons des équipes (LNH)"), onOff(Horn.teamHorns), ThorView.SET_TEAM_HORN));
         it.add(item(3, t("Length", "Durée"), Horn.shortHorn ? t("SHORT", "COURT") : t("FULL", "COMPLET"), ThorView.SET_HORN_SHORT));
@@ -1219,7 +1221,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
             case ThorView.SET_AUTOBOARD:
                 autoBoard = !autoBoard; e.putBoolean("autoBoard", autoBoard); break;
             case ThorView.SET_HORN_VOL:
-                hornVol = (hornVol + 1) % HORN_VOLS.length; e.putInt("hornVol", hornVol);
+                hornVol = (hornVol + 1) % HORN_VOLS.length; Horn.boost = hornVol == 3; e.putInt("hornVol", hornVol);
                 Horn.play(this, true, HORN_VOLS[hornVol]);
                 break;
             case ThorView.SET_LED_BRI:
