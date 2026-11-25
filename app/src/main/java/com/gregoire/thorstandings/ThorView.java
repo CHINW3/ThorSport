@@ -2043,7 +2043,7 @@ public class ThorView extends View {
         }
     }
 
-    // ------------------------------------------------------------------ "Pick your teams" (first start, or Settings → App)
+    // ------------------------------------------------------------------ "Pick your teams" (first start, or Settings → Teams & alerts)
     private boolean onboardOpen, onboardFirst, onboardLoading;
     private int onboardLeague = -1, selOnboard = -1;
     private String onboardPath = "";
@@ -2178,7 +2178,7 @@ public class ThorView extends View {
         // bottom bar
         float bh = h * 0.08f, by = h - gap * 0.6f - bh;
         int total = favKeysView.size();
-        text(c, total == 0 ? (onboardPages > 1 ? tr("Tap a team to add it.", "Touche une équipe pour l'ajouter.") : tr("Tap a team to add it. Later: long-press any team, or Settings → App → My teams.", "Touche une équipe pour l'ajouter. Plus tard : appui long, ou Réglages → Appli → Mes équipes."))
+        text(c, total == 0 ? (onboardPages > 1 ? tr("Tap a team to add it.", "Touche une équipe pour l'ajouter.") : tr("Tap a team to add it. Later: long-press any team, or Settings → Teams & alerts → My teams.", "Touche une équipe pour l'ajouter. Plus tard : appui long, ou Réglages → Équipes & alertes → Mes équipes."))
                 : total + (total == 1 ? tr(" team selected", " équipe choisie") : tr(" teams selected", " équipes choisies")),
             gap * 1.5f, by + bh / 2, bh * 0.3f, tfMed, total == 0 ? MUTED : TEXT, Paint.Align.LEFT, w - bh * (onboardPages > 1 ? 9.5f : 3.6f) - gap * 3);
         onboardDoneRect.set(w - gap - bh * 3.2f, by, w - gap, by + bh);
@@ -2241,9 +2241,15 @@ public class ThorView extends View {
     }
 
     // ------------------------------------------------------------------ settings panel
+    /**
+     * Settings sections, one idea each. MainActivity.pushSettings() puts every row in one of them by this number:
+     * 0 Games (what you watch and how it updates), 1 Teams & alerts, 2 Goal screen, 3 Sound, 4 Stick lights, 5 Display, 6 App.
+     */
     private static final String[][] SECTIONS = {
-        {"General", "Général"}, {"Display", "Affichage"}, {"Celebrations", "Célébrations"}, {"Sound", "Son"},
-        {"Alerts", "Alertes"}, {"Stick lights", "Lumières"}, {"Scores & Board", "Scores & tableau"}, {"App", "Appli"}};
+        {"Games", "Matchs"}, {"Teams & alerts", "Équipes & alertes"}, {"Goal screen", "Écran de but"}, {"Sound", "Son"},
+        {"Stick lights", "Lumières"}, {"Display", "Affichage"}, {"App", "Appli"}};
+    /** Icon of each section (numbers of the drawings in drawSectionIcon): board, "!", star, horn, ring, screen, info. */
+    private static final int[] SECTION_ICON = {6, 4, 2, 3, 5, 1, 7};
     private int sectionCount() { return SECTIONS.length; }
     private int settingsSection, settingsFocus;   // focus 0 = sections, 1 = rows
 
@@ -2302,7 +2308,7 @@ public class ThorView extends View {
             boolean on = i == settingsSection;
             p.setColor(on ? ACCENT : 0xFF171A21);
             c.drawRoundRect(r, r.height() * 0.28f, r.height() * 0.28f, p);
-            drawSectionIcon(c, i, r.left + r.height() * 0.55f, r.centerY(), r.height() * 0.42f, on ? 0xFF000000 : MUTED);
+            drawSectionIcon(c, SECTION_ICON[i], r.left + r.height() * 0.55f, r.centerY(), r.height() * 0.42f, on ? 0xFF000000 : MUTED);
             text(c, tr(SECTIONS[i][0], SECTIONS[i][1]), r.left + r.height() * 1.0f, r.centerY(), r.height() * 0.27f, tfBlack,
                 on ? 0xFF000000 : TEXT, Paint.Align.LEFT, r.width() - r.height() * 1.2f);
             sectionRects.add(r);
@@ -2312,6 +2318,7 @@ public class ThorView extends View {
         List<String[]> vis = visibleSettings();
         float x0 = gap * 2 + sideW, x1 = w - gap;
         float rowH = Math.min(h * 0.105f, (bottom - top) / Math.max(1, vis.size()));
+        boolean showDesc = rowH >= h * 0.072f;   // a second line only fits when the list is short enough
         RectF card = new RectF(x0, top + sh * 0.08f, x1, top + sh * 0.08f + rowH * vis.size());
         p.setColor(0xFF171A21);
         c.drawRoundRect(card, rowH * 0.3f, rowH * 0.3f, p);
@@ -2319,7 +2326,7 @@ public class ThorView extends View {
             String[] it = vis.get(i);
             RectF cell = new RectF(x0, card.top + i * rowH, x1, card.top + (i + 1) * rowH);
             settingCells.add(cell);
-            settingCell(c, cell, rowH, it[0], it[1], Integer.parseInt(it[2]), i < vis.size() - 1);
+            settingCell(c, cell, rowH, it[0], it[1], Integer.parseInt(it[2]), i < vis.size() - 1, showDesc && it.length > 5 ? it[5] : "");
         }
     }
 
@@ -2407,9 +2414,14 @@ public class ThorView extends View {
         p.setStyle(Paint.Style.FILL);
     }
 
-    private void settingCell(Canvas c, RectF cell, float rowH, String label, String value, int id, boolean divider) {
+    private void settingCell(Canvas c, RectF cell, float rowH, String label, String value, int id, boolean divider, String desc) {
         float pad = rowH * 0.35f;
-        text(c, label, cell.left + pad, cell.centerY(), rowH * 0.3f, tfMed, TEXT, Paint.Align.LEFT, cell.width() * 0.56f);
+        if (desc.isEmpty()) {
+            text(c, label, cell.left + pad, cell.centerY(), rowH * 0.3f, tfMed, TEXT, Paint.Align.LEFT, cell.width() * 0.56f);
+        } else {   // the setting, and in small grey under it what it does
+            text(c, label, cell.left + pad, cell.centerY() - rowH * 0.14f, rowH * 0.28f, tfMed, TEXT, Paint.Align.LEFT, cell.width() * 0.56f);
+            text(c, desc, cell.left + pad, cell.centerY() + rowH * 0.22f, rowH * 0.19f, tfReg, MUTED, Paint.Align.LEFT, cell.width() * 0.56f);
+        }
         float bh = rowH * 0.56f, right = cell.right - pad;
         boolean on = "ON".equals(value), off = !on && ("OFF".equals(value) || "N/A".equals(value));
         RectF hit;

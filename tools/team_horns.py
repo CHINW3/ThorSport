@@ -9,20 +9,21 @@ Every file whose name contains an NHL team name ("... Boston Bruins Goal Horn.mp
 because that is what the app looks up when a team scores.
 
 Each horn is cut to 6 seconds with a 1.5 second fade-out (and a 5 ms fade-in), brought to the same average loudness
-(-9 dB) with a limiter on the peaks, and saved as a 112 kbps stereo MP3 (about 80 KB each). Needs ffmpeg.
+(-11.5 dB) with a limiter on the peaks, and saved as a 112 kbps stereo MP3 (about 80 KB each). Needs ffmpeg.
 """
 import os
 import re
 import subprocess
 import sys
 
-LENGTH, FADE, TARGET_DB = 6.0, 1.5, -9.0   # -9 dB average: as loud as the built-in sounds (3.29 used -13 and was too quiet)
+LENGTH, FADE, TARGET_DB = 6.0, 1.5, -11.5   # about as loud as the built-in sounds, and still clean (-9 was louder but harsh, -13 too quiet)
 # Some horns have left and right partly out of phase: fine on two speakers, but on one speaker (or Bluetooth mono) they lose
 # several dB and sound thin. Those get a centered mono mix, and their level is set on that mix.
 MONO = "pan=stereo|c0=0.5*c0+0.5*c1|c1=0.5*c0+0.5*c1,"
 PHASEY_DB = 1.0
 # Dead air at the start (some uploads have a second of nothing) would delay the horn: cut it.
-TRIM = "silenceremove=start_periods=1:start_threshold=-50dB:start_silence=0.02,"
+# Nothing below 160 Hz either: the Thor's speakers can't play it, it only uses up the headroom.
+TRIM = "silenceremove=start_periods=1:start_threshold=-50dB:start_silence=0.02,highpass=f=160,"
 
 TEAMS = {  # name (lowercase, no punctuation) -> ESPN abbreviation
     "anaheim ducks": "ana", "arizona coyotes": "ari", "boston bruins": "bos", "buffalo sabres": "buf",
@@ -64,7 +65,7 @@ def mean_db(path, pre=""):
 
 def encode(path, dst, length, gain, pre=""):
     fade = FADE if length >= LENGTH - 0.05 else min(0.6, length / 3)   # a clip shorter than 6 s is a whole horn already: only fade its tail
-    flt = pre + f"afade=t=in:d=0.005,volume={gain:.2f}dB,alimiter=limit=0.89:level=disabled,afade=t=out:st={max(0.0, length - fade):.2f}:d={fade:.2f}"
+    flt = pre + f"afade=t=in:d=0.005,volume={gain:.2f}dB,alimiter=limit=0.84:level=disabled:attack=3:release=120,afade=t=out:st={max(0.0, length - fade):.2f}:d={fade:.2f}"
     return subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", path, "-af", flt, "-t", f"{length:.2f}",
                            "-ar", "44100", "-ac", "2", "-c:a", "libmp3lame", "-b:a", "112k", dst], capture_output=True, text=True)
 

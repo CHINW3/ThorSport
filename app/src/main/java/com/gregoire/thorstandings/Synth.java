@@ -20,24 +20,27 @@ final class Synth {
      * 0.60 / 3.4 gives about -9 dBFS on average (the 3.29 values, 0.24 / 3.5, were about -14 dBFS and far too quiet on the
      * Thor's small speakers). A little grit on the peaks is what makes a horn sound big.
      */
-    private static final double TARGET_RMS = 0.60, MAX_DRIVE = 3.4;
+    private static final double TARGET_RMS = 0.40;
+    private static final double CEILING = 0.95, BASS_CUT_HZ = 160;
 
     private Synth() {}
 
     /** Sound `type` as interleaved stereo PCM. */
     static short[] render(int type) {
         switch (type) {
-            case 0: return finish(arena());
-            case 1: return finish(deep());
-            case 2: return finish(siren());
-            case 3: return finish(chime());
-            case 4: return finish(crowd());
-            case 5: return finish(organ());
-            case 6: return finish(swish());
-            case 7: return finish(fanfare());
-            case 8: return finish(airhorn());
-            case 9: return finish(cannon());
-            default: return finish(arena());
+            // second number: how much harder to push it. Short, punchy sounds have a few tall peaks and little in between, so at the
+            // same ceiling they come out quieter than a horn: they get a bit more limiting so everything feels equally loud.
+            case 0: return finish(arena(), 1.0);
+            case 1: return finish(deep(), 1.15);
+            case 2: return finish(siren(), 1.0);
+            case 3: return finish(chime(), 1.3);
+            case 4: return finish(crowd(), 1.2);
+            case 5: return finish(organ(), 1.0);
+            case 6: return finish(swish(), 1.25);
+            case 7: return finish(fanfare(), 1.1);
+            case 8: return finish(airhorn(), 1.0);
+            case 9: return finish(cannon(), 1.7);
+            default: return finish(arena(), 1.0);
         }
     }
 
@@ -77,6 +80,9 @@ final class Synth {
         float[] x = buf(seconds + 1.0);
         int n = (int) (seconds * RATE);
         double ph = 0, ph2 = 0;
+        double[] hp = new double[15];   // own starting phase per harmonic: same sound, lower peaks
+        Random pr = new Random(5);
+        for (int h = 0; h < hp.length; h++) hp[h] = pr.nextDouble() * TAU;
         double wailEnd = seconds - windDown, fEnd = 0;
         for (int i = 0; i < n; i++) {
             double t = (double) i / RATE;
@@ -103,7 +109,7 @@ final class Synth {
             for (int h = 1; h <= 14; h++) {
                 double w = Math.pow(h, -0.85);
                 if (h * f > 9000) break;
-                v += w * Math.sin(h * ph) + 0.6 * w * Math.sin(h * ph2);
+                v += w * Math.sin(h * ph + hp[h]) + 0.6 * w * Math.sin(h * ph2 + hp[h] * 1.7);
             }
             double env = Math.min(1, t / 0.04);
             env *= 0.92 + 0.08 * Math.sin(TAU * 22 * t);        // blade chop
@@ -175,6 +181,7 @@ final class Synth {
         double at = 0;
         double[] draw = {0.55, 1.0, 0.75, 0.55, 0.35, 0.22, 0.14};   // harmonics 0.5x,1x,1.5x(≈3rd),2x,3x,4x,5x like drawbars
         double[] mult = {0.5, 1, 3, 2, 4, 6, 8};
+        double[] ophase = {0, 2.1, 4.0, 1.2, 5.2, 3.3, 0.7};   // own phase per drawbar: lower peaks
         for (double[] nt : notes) {
             int s0 = (int) (at * RATE), len = (int) (nt[1] * RATE);
             for (int i = 0; i < len && s0 + i < x.length; i++) {
@@ -183,7 +190,7 @@ final class Synth {
                 if (nt[1] > 0.8) env *= 1 - 0.18 * Math.min(1, t / 0.9);   // the long note leans down a little
                 double vib = 1 + 0.004 * Math.sin(TAU * 6.4 * t);          // rotating speaker
                 double v = 0;
-                for (int h = 0; h < draw.length; h++) v += draw[h] * Math.sin(TAU * nt[0] * mult[h] * vib * t);
+                for (int h = 0; h < draw.length; h++) v += draw[h] * Math.sin(TAU * nt[0] * mult[h] * vib * t + ophase[h]);
                 v *= 0.88 + 0.12 * Math.sin(TAU * 6.4 * t + 1.0);
                 x[s0 + i] += (float) (v * env);
             }
@@ -303,7 +310,7 @@ final class Synth {
             double wood = Math.sin(TAU * 1850 * t) * 0.5 + Math.sin(TAU * 720 * t) * 0.6 + Math.sin(TAU * 330 * t) * 0.5;
             x[i] = (float) ((hp * Math.exp(-t * 90) * 1.1 + wood * Math.exp(-t * 38)) * Math.min(1, t / 0.0008));
         }
-        return finish(space(x, 0.18, 0.7, 0.4, 0.5));
+        return finish(space(x, 0.18, 0.7, 0.4, 0.5), 2.0);
     }
 
     // ------------------------------------------------------------------ building blocks
@@ -328,6 +335,8 @@ final class Synth {
             lite[h] = formant * Math.pow(h, -(1.15 - 0.55 * bright));
         }
         Random r = new Random(seed * 7919L + 13);
+        double[] hp = new double[top + 1];   // each harmonic starts at its own phase: it sounds the same, but the peaks are far lower,
+        for (int h = 1; h <= top; h++) hp[h] = r.nextDouble() * TAU;   // so the sound can be made louder without clipping it
         double ph = 0, vph = r.nextDouble() * TAU;
         double jitterTarget = 0, jitter = 0;
         for (int i = 0; i < n; i++) {
@@ -343,7 +352,7 @@ final class Synth {
             ph += TAU * f / RATE;
             if (ph > TAU) ph -= TAU;
             double v = 0;
-            for (int h = 1; h <= top; h++) v += (dark[h] + sw * (lite[h] - dark[h])) * Math.sin(h * ph);
+            for (int h = 1; h <= top; h++) v += (dark[h] + sw * (lite[h] - dark[h])) * Math.sin(h * ph + hp[h]);
             out[idx] += (float) (v * a * amp);
         }
     }
@@ -399,6 +408,21 @@ final class Synth {
 
     private static void tremolo(float[] x, double hz, double depth) {
         for (int i = 0; i < x.length; i++) x[i] *= (float) (1 - depth + depth * Math.sin(TAU * hz * i / RATE));
+    }
+
+    /** Second-order high-pass (RBJ biquad, no resonance). */
+    private static float[] highpass(float[] in, double f0) {
+        double w0 = TAU * f0 / RATE, cs = Math.cos(w0), alpha = Math.sin(w0) / (2 * 0.7071);
+        double a0 = 1 + alpha, b0 = (1 + cs) / 2 / a0, b1 = -(1 + cs) / a0, b2 = b0, a1 = -2 * cs / a0, a2 = (1 - alpha) / a0;
+        float[] y = new float[in.length];
+        double x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+        for (int i = 0; i < in.length; i++) {
+            double x0 = in[i];
+            double v = b0 * x0 + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+            x2 = x1; x1 = x0; y2 = y1; y1 = v;
+            y[i] = (float) v;
+        }
+        return y;
     }
 
     /** Resonant band-pass (RBJ biquad), unity gain at the centre. */
@@ -474,11 +498,17 @@ final class Synth {
 
     /**
      * Float stereo -> loud 16-bit interleaved PCM. Levels every sound by its average loudness (not its loudest
-     * instant, so a bell doesn't come out quiet), rounds off the peaks with a soft limiter instead of clipping,
-     * cuts the inaudible end of the reverb, and fades the ends so there are no clicks.
+     * instant, so a bell doesn't come out quiet), keeps the peaks under a ceiling with a clean look-ahead limiter
+     * (it turns the gain down smoothly just before a peak and lets it back up slowly, so nothing is clipped or
+     * squashed), cuts the inaudible end of the reverb, and fades the ends so there are no clicks.
      */
-    private static short[] finish(float[][] st) {
+    private static short[] finish(float[][] st) { return finish(st, 1.0); }
+
+    private static short[] finish(float[][] st, double push) {
         int n = st[0].length;
+        // Nothing below ~160 Hz: the Thor's small speakers can't play it, so it only used up the headroom (and made the
+        // speaker itself distort at full volume). Without it the same ceiling gives a clearly louder, cleaner sound.
+        st = new float[][]{highpass(st[0], BASS_CUT_HZ), highpass(st[1], BASS_CUT_HZ)};
         double peak = 1e-9;
         for (int ch = 0; ch < 2; ch++) for (int i = 0; i < n; i++) peak = Math.max(peak, Math.abs(st[ch][i]));
         int end = n;   // last audible frame (-54 dB from the peak) + a little tail
@@ -490,13 +520,48 @@ final class Synth {
             if (Math.abs(m) > peak * 0.01) { sum += m * m; cnt++; }   // only the part you actually hear
         }
         double rms = Math.sqrt(sum / Math.max(1, cnt));
-        double gain = Math.min(TARGET_RMS / Math.max(rms, 1e-9), MAX_DRIVE / peak);
+        double gain = TARGET_RMS * push / Math.max(rms, 1e-9);
+        float[] lim = limiter(st, gain, end);
         short[] out = new short[end * 2];
         int fin = (int) (0.003 * RATE), fout = (int) (0.1 * RATE);
         for (int i = 0; i < end; i++) {
             double fade = Math.min(1.0, (double) i / fin) * Math.min(1.0, (double) (end - 1 - i) / fout);
-            for (int ch = 0; ch < 2; ch++) out[i * 2 + ch] = (short) Math.round(Math.tanh(st[ch][i] * gain) * 0.97 * fade * 32767);
+            for (int ch = 0; ch < 2; ch++) {
+                double v = Math.max(-CEILING, Math.min(CEILING, st[ch][i] * gain * lim[i])) * fade;
+                out[i * 2 + ch] = (short) Math.round(v * 32767);
+            }
         }
         return out;
+    }
+
+    /**
+     * Look-ahead peak limiter: the gain (0..1) to apply on top of `gain` so that no frame goes over CEILING. The gain
+     * starts dropping 2 ms before a peak (so it is smooth, not a click) and comes back over about 120 ms (so low notes
+     * are not chopped up).
+     */
+    private static float[] limiter(float[][] st, double gain, int end) {
+        int look = (int) (0.002 * RATE);
+        double[] need = new double[end + look];
+        Arrays.fill(need, 1.0);
+        for (int i = 0; i < end; i++) {
+            double a = Math.max(Math.abs(st[0][i]), Math.abs(st[1][i])) * gain;
+            need[i] = a > CEILING ? CEILING / a : 1.0;
+        }
+        double[] ahead = new double[end];   // the lowest gain needed in the next `look` frames
+        for (int i = 0; i < end; i++) {
+            double m = 1.0;
+            for (int k = 0; k < look; k++) m = Math.min(m, need[i + k]);
+            ahead[i] = m;
+        }
+        float[] g = new float[end];
+        double run = 0, cur = 1.0, rel = 1 - Math.exp(-1.0 / (0.12 * RATE));
+        for (int i = 0; i < end; i++) {
+            run += ahead[i];
+            if (i >= look) run -= ahead[i - look];
+            double smooth = run / Math.min(i + 1, look);   // average of the last `look` values: already low when the peak arrives
+            cur = Math.min(smooth, cur + (1 - cur) * rel);
+            g[i] = (float) cur;
+        }
+        return g;
     }
 }
