@@ -475,7 +475,9 @@ public class MainActivity extends Activity implements ThorView.Listener {
             case KeyEvent.KEYCODE_BUTTON_R2: switchLeague(stepLeague(1)); return true;
             case KeyEvent.KEYCODE_BUTTON_START: v.openSettings(); return true;
             case KeyEvent.KEYCODE_BUTTON_SELECT: v.openLeaguePicker(); return true;
-            case KeyEvent.KEYCODE_BUTTON_THUMBL: refresh(true); return true;
+            case KeyEvent.KEYCODE_BUTTON_THUMBL:   // L3: back to today when you are on another day, else refresh
+                if (dateOffset != 0) { v.hideCursor(); onDateShift(-dateOffset); } else refresh(true);
+                return true;
             case KeyEvent.KEYCODE_BUTTON_THUMBR: onViewMode(dual ? 0 : 2); return true;   // R3: one screen / two screens
             default: return false;
         }
