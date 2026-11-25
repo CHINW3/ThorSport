@@ -1758,8 +1758,6 @@ kbd{display:inline-grid;place-items:center;min-width:72px;height:28px;padding:0 
           addEventListener('pointermove', e => ry((e.clientX / innerWidth - .5) * 12), { passive: true });
         }
       }
-      // story labels drift as the device stays pinned
-      G.fromTo('.chip', { y: 30 }, { y: -30, ease: 'none', scrollTrigger: { trigger: '#story', start: 'top bottom', end: 'bottom top', scrub: true } });
       // the odds line draws itself; the spec numbers count up
       $$('.spec b').forEach(b => { const m = b.textContent.match(/^(\d+)(.*)$/); if (!m) return; const o = { v: 0 }, end = +m[1];
         G.to(o, { v: end, duration: 1.4, ease: 'power2.out', scrollTrigger: { trigger: b, start: 'top 90%', once: true }, onUpdate: () => { b.textContent = Math.round(o.v) + m[2]; } }); });
