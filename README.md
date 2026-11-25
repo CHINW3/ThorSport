@@ -5,6 +5,8 @@ https://chinw3.github.io/ThorSport/
 
 - `index.html`: the whole site in one file (inline CSS and JS; GSAP, ScrollTrigger and Lenis load from CDNs).
 - `og.png`: the 1200×630 preview image shown when the link is shared.
+- `horns/`: the goal horns the goal button plays (Montréal, Toronto, Boston, Edmonton, Dallas, Seattle), copied from
+  `app/src/main/assets/horns` on `main`. Recording credits are in that folder's README.txt.
 - `.nojekyll`: serve the files as they are.
 
 The handheld mockups are drawn in CSS/SVG. To show real screenshots instead, add

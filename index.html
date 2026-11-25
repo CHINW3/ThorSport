@@ -1218,7 +1218,7 @@ main{display:block;overflow-x:clip}
           <div class="gb-wrap"><button class="goal-btn" id="goalBtn" type="button"><span class="goal-btn__label">GOAL!</span><span class="goal-btn__sub">Press to score</span></button></div>
           <div class="goal__opts">
             <label class="toggle"><input class="sw" type="checkbox" role="switch" id="snd" checked>Goal horn</label>
-            <p class="hint">This horn is synthesized in your browser. The app plays each NHL team's own horn.</p>
+            <p class="hint">Each team plays its own goal horn, the same recording the app uses.</p>
             <p class="hint" id="padHint" aria-live="polite">Controller connected? Press A while this section is on screen.</p>
           </div>
         </div>
@@ -1541,15 +1541,39 @@ main{display:block;overflow-x:clip}
     } catch (e) { /* audio unavailable */ }
   }
 
+  /* ---------- goal horns: each team's own horn (the app's files), synthesized horn as a fallback ---------- */
+  const horns = {};
+  let playing = null;
+  const getHorn = k => {
+    if (!horns[k]) {
+      const a = new Audio();
+      a.preload = 'auto'; a.volume = .85; a.dataset.ok = '1';
+      a.addEventListener('error', () => { a.dataset.ok = ''; });
+      a.src = 'horns/' + k + '.mp3';
+      horns[k] = a;
+    }
+    return horns[k];
+  };
+  function playHorn(k) {
+    if (playing) playing.pause();
+    const a = getHorn(k);
+    if (!a.dataset.ok) { horn(); return; }
+    try { a.currentTime = 0; } catch (e) { /* not seekable yet */ }
+    playing = a;
+    const p = a.play();
+    if (p && p.catch) p.catch(err => { if (playing === a && err && err.name !== 'AbortError') horn(); });
+  }
+
   /* ---------- the goal button ---------- */
   const gd = dev.goal;
   const goalSec = $('#goal'), gBtn = $('#goalBtn'), takeover = $('#takeover'), announce = $('#announce'), snd = $('#snd'), padHint = $('#padHint');
-  let picked = 'mtl', lastGoal = 0, tkT = 0, hitT = 0;
+  let picked = 'mtl', lastGoal = 0, tkT = 0, hitT = 0, goalVisible = false;
   function pickTeam(k) {
     picked = k;
     if (gd) { gd.teams(k, RIVAL[k]); gd.reset(); }
     if (goalSec) goalSec.style.setProperty('--t1', TEAMS[k].c1);
     if (takeover) takeover.style.setProperty('--t1', TEAMS[k].c1);
+    if (goalVisible) getHorn(k);
   }
   $$('input[name="team"]').forEach(r => r.addEventListener('change', () => { if (r.checked) pickTeam(r.value); }));
   pickTeam(($('input[name="team"]:checked') || {}).value || 'mtl');
@@ -1561,7 +1585,7 @@ main{display:block;overflow-x:clip}
     const T = TEAMS[picked];
     announce.textContent = `Goal! ${T.name} leads ${gd.st.h + 1} to ${gd.st.a}.`;
     gd.goal(2600);
-    if (snd && snd.checked) horn();
+    if (snd && snd.checked) playHorn(picked);
     restart(gBtn, 'is-hit'); clearTimeout(hitT); hitT = setTimeout(() => gBtn.classList.remove('is-hit'), 520);
     clearTimeout(tkT);
     if (REDUCE) {
@@ -1580,9 +1604,10 @@ main{display:block;overflow-x:clip}
   if (gBtn) gBtn.addEventListener('click', celebrate);
 
   /* A on any connected controller scores, while the goal section is on screen */
-  let goalVisible = false, gpRaf = 0;
+  let gpRaf = 0;
   const gpPrev = {};
-  onView(goalSec, v => { goalVisible = v; }, { threshold: .2 });
+  onView(goalSec, v => { goalVisible = v; if (v) getHorn(picked); }, { threshold: .2 });
+  if (snd) snd.addEventListener('change', () => { if (!snd.checked && playing) playing.pause(); });
   const poll = () => {
     let pads = [];
     try { pads = navigator.getGamepads ? Array.from(navigator.getGamepads()) : []; } catch (e) { pads = []; }
