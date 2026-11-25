@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.53
+- **You can now pick favorite esports teams** (LoL, CS2, Valorant, Dota 2, R6 Siege) in My teams: their games show on MY TEAMS and you get the alerts.
+
 ## 3.52
 - **Team picker works fully with the controller:** D-pad left from the first column goes to the list of sports and folders (A opens one), down from the last row goes to the ‹ › DONE buttons, and B inside a folder goes back to the list (B on the list = done).
 
