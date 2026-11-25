@@ -1457,8 +1457,6 @@ public class ThorView extends View {
         c.drawRoundRect(new RectF(ix - iw * 0.4f, cy + segH * 0.04f, ix + iw * 0.4f, cy + segH * 0.04f + ih * 0.9f), 3, 3, p);
         p.setStyle(Paint.Style.FILL);
         if (topMode) {
-            text(c, "TWO-SCREEN MODE · tap ▭ to go back to one screen", dualRect.left - hh * 0.3f, cy, hh * 0.22f, tfCond, DIM,
-                Paint.Align.RIGHT, dualRect.left - leagueRect.right - hh * 0.6f);
             p.setColor(HAIRLINE);
             c.drawRect(0, hh - 1, w, hh, p);
             return;
