@@ -386,7 +386,11 @@ public class ThorView extends View {
         if (delayOpen) return sel(delayRects, selDelay);
         if (syncState == 3) return sel(syncRects, selSync);
         if (welcomeOpen) return sel(welcomeRects, selWelcome);
-        if (onboardOpen) return sel(onboardRects, selOnboard - onboardFirstIdx);
+        if (onboardOpen) {
+            if (onboardZone == 1) return sel(onboardLeagueRects, selOnboardRow);
+            if (onboardZone == 2) return selOnboardBtn == 0 ? obPrev : selOnboardBtn == 1 ? obNext : onboardDoneRect;
+            return sel(onboardRects, selOnboard - onboardFirstIdx);
+        }
         if (settingsOpen) return settingsPage < 0 ? sel(sectionRects, homeSel) : sel(settingCells, selSetting);
         if (pickerOpen) return sel(pickerRects, selPicker);
         if (tab == TAB_SCORES) return sel(cardRects, selCard);
@@ -437,10 +441,23 @@ public class ThorView extends View {
             return true;
         }
         if (onboardOpen) {
-            int cols = onboardCols();
-            if (selOnboard < 0) selOnboard = 0;
-            else if (dx != 0) selOnboard = clamp(selOnboard + dx, onboardTeams.size());
-            else selOnboard = clamp(selOnboard + dy * cols, onboardTeams.size());
+            int cols = onboardCols(), nT = onboardTeams.size();
+            if (onboardZone == 1) {   // the list of sports / folders on the left
+                if (dy != 0) selOnboardRow = clamp(selOnboardRow + dy, Math.max(1, onboardRowIds.size()));
+                else if (dx > 0 && nT > 0) { onboardZone = 0; if (selOnboard < 0) selOnboard = 0; }
+            } else if (onboardZone == 2) {   // the buttons at the bottom: ‹ › DONE
+                if (dx != 0) {
+                    int k = selOnboardBtn + dx;
+                    while (k >= 0 && k <= 2 && (k < 2 && onboardPages <= 1)) k += dx;   // no page arrows when there is one page
+                    if (k >= 0 && k <= 2) selOnboardBtn = k;
+                } else if (dy < 0) onboardZone = nT > 0 ? 0 : 1;
+            } else {
+                if (selOnboard < 0) selOnboard = 0;
+                else if (dx < 0 && selOnboard % cols == 0) { onboardZone = 1; int at = onboardRowIds.indexOf(onboardLeague); selOnboardRow = at >= 0 ? at : 0; }
+                else if (dy > 0 && selOnboard + cols >= nT && (selOnboard / cols) >= (nT - 1) / cols) { onboardZone = 2; selOnboardBtn = 2; }
+                else if (dx != 0) selOnboard = clamp(selOnboard + dx, nT);
+                else selOnboard = clamp(selOnboard + dy * cols, nT);
+            }
             invalidate();
             return true;
         }
@@ -540,6 +557,14 @@ public class ThorView extends View {
     public void controllerSelect() {
         if (welcomeOpen) { welcomePress(selWelcome); return; }
         if (onboardOpen) {
+            if (onboardZone == 1) { if (selOnboardRow >= 0 && selOnboardRow < onboardRowIds.size()) { tapOnboardRow(onboardRowIds.get(selOnboardRow)); onboardZone = onboardRowIds.get(selOnboardRow) < 0 ? 1 : 0; } return; }
+            if (onboardZone == 2) {
+                if (selOnboardBtn == 0) { onboardPage = Math.max(0, onboardPage - 1); selOnboard = onboardPage * Math.max(1, onboardRects.size()); }
+                else if (selOnboardBtn == 1) { onboardPage = Math.min(onboardPages - 1, onboardPage + 1); selOnboard = onboardPage * Math.max(1, onboardRects.size()); }
+                else { onboardOpen = false; listener.onOnboardDone(); }
+                invalidate();
+                return;
+            }
             if (selOnboard >= 0 && selOnboard < onboardTeams.size()) listener.onOnboardToggle(onboardPath, onboardTeams.get(selOnboard).abbr);
             return;
         }
@@ -591,7 +616,10 @@ public class ThorView extends View {
     public boolean controllerBack() {
         if (settingsOpen && settingsBack()) return true;   // a page goes back to where it came from; on the home B closes settings
         if (welcomeOpen) { welcomePress(WELCOME_GROUPS.length + 2); return true; }   // B = skip ahead (NEXT)
-        if (onboardOpen) { onboardOpen = false; listener.onOnboardDone(); invalidate(); return true; }
+        if (onboardOpen) {
+            if (onboardFolder != 0 && onboardRowIds.contains(ONB_BACK)) { tapOnboardRow(ONB_BACK); onboardZone = 1; selOnboardRow = 0; return true; }   // inside a folder: back to the list
+            onboardOpen = false; listener.onOnboardDone(); invalidate(); return true;
+        }
         if (syncState > 0) { listener.onSyncCancel(); return true; }
         if (demoGame != null) { demoGame = null; invalidate(); return true; }
         if (closeOverlays()) return true;
@@ -2121,6 +2149,7 @@ public class ThorView extends View {
     // ------------------------------------------------------------------ "Pick your teams" (first start, or Settings → Teams & alerts)
     private boolean onboardOpen, onboardFirst, onboardLoading;
     private int onboardLeague = -1, selOnboard = -1;
+    private int onboardZone, selOnboardRow, selOnboardBtn = 2;   // controller focus: 0 teams, 1 sports list, 2 bottom buttons
     private String onboardPath = "";
     private List<Model.Team> onboardTeams = new ArrayList<>();
     private Set<String> favKeysView = new java.util.HashSet<>();
@@ -2161,6 +2190,7 @@ public class ThorView extends View {
     /** Opens the team picker. first = welcome wording (first start). */
     public void openOnboarding(boolean first, List<Integer> leagues) {
         onboardFirst = first;
+        onboardZone = 0;
         onboardLeagues.clear();
         onboardLeagues.addAll(leagues);
         settingsOpen = false;
