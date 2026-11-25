@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.41
+- **NHL goals show up faster.** ESPN gets its data from the NHL and has been seen a full minute behind on a goal (the Golden Knights' one). While an NHL game is live, the app now also reads the NHL's own live feed every few seconds, with a trick so the NHL's server gives the freshest copy instead of one up to 19 seconds old. Whichever score is ahead is the one you see, so the goal (and the goal screen, horn and lights) comes as soon as the NHL has it, instead of waiting for ESPN.
+- **The league menu is organized by sport.** NHL, AHL and PWHL together, then NBA and WNBA, then NFL, MLB, F1, LoL and Cricket, then the folders SOCCER, COLLEGE and INTL. The L2 / R2 buttons and the My teams picker follow the same order.
+- **Hide the leagues you don't care about.** Settings → Games → **Leagues**: switch a league off and it leaves the league menu and the L2 / R2 buttons (the league you are on stays until you leave it, and your favorite teams in it still show in MY TEAMS). Soccer, College and International each have their own page to pick leagues one by one.
+- The COLLEGE folder now shows the NCAA logo and the AHL its own logo.
+
 ## 3.40
 - Removed the jersey icon from **★ MY TEAMS** in the sport/league menu (the entry is just its name now), and put the icon back on the My teams card in Settings, which 3.36 removed by mistake.
 

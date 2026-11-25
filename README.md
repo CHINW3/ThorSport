@@ -1,4 +1,4 @@
-# ThorSport 3.40
+# ThorSport 3.41
 
 Live sports for the **AYN Thor bottom screen** (1240×1080) and the **Retroid Pocket Duo** (1280×960). Everything is drawn to fill the screen exactly.
 
@@ -70,7 +70,7 @@ your stream — the delay is set to exactly that.
 
 ## Settings (tap the clock)
 Settings opens on a **home of 6 big cards**, each one showing what is set right now. Tap a card (or A) to open its page; **‹** or B goes back, L1 / R1 jump to the next card. Every row has a short line under it saying what it does.
-- **Games**: open on · live refresh speed (fast by default) · spoiler delay · hide finished games · auto-open Board · rotate live games · standings size · NHL shot map
+- **Games**: open on · **leagues** (hide the ones you don't care about) · live refresh speed (fast by default) · spoiler delay · hide finished games · auto-open Board · rotate live games · standings size · NHL shot map
 - **My teams**: my teams · celebrate all games / my teams · your other games · game reminder · extra alerts · mute alerts for 1 hour
 - **Goal**: test a goal · replay last goal · goal screen on/off · style (full / clean / simple) · length · stick lights · flash lights on goals · vibrate on goals · **Effects** (flash, beams, confetti, fireworks, shake)
 - **Sound**: sound on/off · volume (low / med / high / max) · **style** (Arena, Classic, Party, Mellow: a whole set of sounds in one tap) · each NHL team's own horn · sound length · menu sounds · test the sound · **Sounds by event** (the sound for a goal, touchdown, field goal, win, home run, OT winner, your other games, 3-pointer; new sound pack or built-in)
