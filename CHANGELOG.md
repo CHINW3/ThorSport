@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.66
+- **Logo fix:** that picture is the Saint John Sea Dogs, not the Armada. It is now on the Sea Dogs, and the Armada is back to the league feed's own logo.
+
 ## 3.65
 - **Sherbrooke Phoenix:** the main shield logo is in front again, and the navy Phoenix "P" picture is the big background logo behind it.
 
