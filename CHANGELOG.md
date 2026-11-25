@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.52
+- **Team picker works fully with the controller:** D-pad left from the first column goes to the list of sports and folders (A opens one), down from the last row goes to the ‹ › DONE buttons, and B inside a folder goes back to the list (B on the list = done).
+
 ## 3.51
 - **New first-start setup.** Step 1: language and the sports you follow (switch off the ones you don't, they leave the menu and the team picker). Step 2: pick your teams. Hold B to skip ahead. You can change all of it later in Settings.
 - **Faster MLB scores:** a run shows up a few seconds sooner (MLB's own feed is read next to ESPN's).
