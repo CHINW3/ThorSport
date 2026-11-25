@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.60
+- **Sherbrooke Phoenix: new logo on its navy background**, so it stands out on the dark screens.
+
 ## 3.59
 - **Better Blainville-Boisbriand Armada logo** (QMJHL): the league feed's own picture was low quality.
 
