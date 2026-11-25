@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.32
+- **The settings page is redone.** It opens on a home of 6 big cards (**Games, My teams, Goal, Sound, Display, App**), and each card shows what is set right now ("Refresh FAST · Spoiler delay OFF", "6 teams followed", "Sound ON · HIGH · Style ARENA"…). Tap a card to open a short page with only its settings; **‹** goes back. Controller: arrows move over the cards, A opens, B goes back, L1 / R1 jump to the next card.
+- **Fewer things on screen at once.** The 5 goal effects (flash, beams, confetti, fireworks, shake) are under Goal → Effects, the sound for each event is under Sound → Sounds by event, and the 3 field demos are under App → Field demos. No page has more than 10 rows, every row says what it does, and the text is never squeezed.
+- **Things are where you look for them.** Everything that happens on a goal is in Goal (screen, lights, vibration); all your teams' settings (including Mute alerts) are in My teams; stick light brightness is next to screen brightness in Display.
+- **Live refresh is FAST by default** (scores checked every 15 seconds instead of 30). If you had already picked NORMAL yourself, it stays NORMAL.
+- **Fixed: old football games showing under TODAY.** On a Tuesday, the NFL tab and MY TEAMS still listed Sunday's finished games (your Bills, who were not playing). ESPN answers a football request with the whole week until Wednesday, so the app now only shows games that start today, games still live, and games that ended a few hours ago.
+
 ## 3.31
 - **Settings reorganized.** Everything was all over the place (two "Test a goal", two "Style", two "Length", your teams spread over three pages). Now there are 7 sections with one idea each: **Games**, **Teams & alerts** (everything about your teams in one place, including Mute alerts), **Goal screen**, **Sound**, **Stick lights**, **Display** and **App**.
 - **Every setting now says what it does** in a short grey line under its name. (On a very long list the lines hide so the rows stay readable.)

@@ -1,4 +1,4 @@
-# ThorSport 3.31
+# ThorSport 3.32
 
 Live sports for the **AYN Thor bottom screen** (1240×1080) and the **Retroid Pocket Duo** (1280×960). Everything is drawn to fill the screen exactly.
 
@@ -69,14 +69,13 @@ scores are hidden, and when the next score happens live a big button asks you to
 your stream — the delay is set to exactly that.
 
 ## Settings (tap the clock)
-Seven sections, one idea each, and every row has a short line under it saying what it does:
-- **Games**: open on · live refresh speed · spoiler delay · hide finished games · auto-open Board · rotate live games · standings size · NHL shot map
-- **Teams & alerts**: my teams · celebrate all games / my teams · your other games · game reminder · extra alerts · mute alerts for 1 hour
-- **Goal screen**: test a goal · replay last goal · goal screen on/off · style (full / clean / simple) · length · flash, beams, confetti, fireworks, shake
-- **Sound**: sound on/off · volume (low / med / high / max) · **style** (Arena, Classic, Party, Mellow: a whole set of sounds in one tap) · each NHL team's own horn · sound length · vibrate on goals · menu sounds · test the sound · customize each sound
-- **Stick lights**: on/off · brightness · flash on goals
-- **Display**: two-screen mode · English / Français · screen brightness · accent color · 12/24 h clock · keep screen on
-- **App**: app update · help · field demos · clear MY TEAMS · reset settings
+Settings opens on a **home of 6 big cards**, each one showing what is set right now. Tap a card (or A) to open its page; **‹** or B goes back, L1 / R1 jump to the next card. Every row has a short line under it saying what it does.
+- **Games**: open on · live refresh speed (fast by default) · spoiler delay · hide finished games · auto-open Board · rotate live games · standings size · NHL shot map
+- **My teams**: my teams · celebrate all games / my teams · your other games · game reminder · extra alerts · mute alerts for 1 hour
+- **Goal**: test a goal · replay last goal · goal screen on/off · style (full / clean / simple) · length · stick lights · flash lights on goals · vibrate on goals · **Effects** (flash, beams, confetti, fireworks, shake)
+- **Sound**: sound on/off · volume (low / med / high / max) · **style** (Arena, Classic, Party, Mellow: a whole set of sounds in one tap) · each NHL team's own horn · sound length · menu sounds · test the sound · **Sounds by event** (the sound for a goal, touchdown, field goal, win, home run, OT winner, your other games, 3-pointer; new sound pack or built-in)
+- **Display**: two-screen mode · English / Français · screen brightness · stick light brightness · accent color · 12/24 h clock · keep screen on
+- **App**: app update · help · **Field demos** (baseball, football, hockey) · clear MY TEAMS · reset settings
 
 ## Controller
 Always drives the bottom screen (in two-screen mode the top screen follows the game you open).
