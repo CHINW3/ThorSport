@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.40
+- Removed the jersey icon from **★ MY TEAMS** in the sport/league menu (the entry is just its name now), and put the icon back on the My teams card in Settings, which 3.36 removed by mistake.
+
 ## 3.39
 - **New league: AHL.** All 32 teams with live scores (clock and period, records like 17-2-1-1), the standings in the 4 divisions (Atlantic, North, Central, Pacific, in the league's own order, with the playoff line after the top 4), and the playoff picture ("if the playoffs started today": top 4 of each division). Team logos and colors are in, you can pick AHL teams in My teams, and goals trigger the goal screen and sound like in the other leagues. The data comes from the league's own feed, the same one the PWHL uses.
 - **College folder in the league menu.** NCAAF, NCAAM, NCAAW and NCAA Hockey are now grouped in one **COLLEGE** folder (like SOCCER and INTL), so the menu is shorter.
