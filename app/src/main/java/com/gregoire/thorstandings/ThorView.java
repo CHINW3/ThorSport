@@ -2061,8 +2061,9 @@ public class ThorView extends View {
             }
             float ls = rowH * 0.62f, lcx = r.left + rowH * 0.25f + ls / 2;
             String url = i < leagueLogos.length ? leagueLogos[i] : null;
-            if (leagueLabels[i].startsWith("★")) {
-                jersey(c, lcx, r.centerY(), ls * 0.5f);
+            boolean mine = leagueLabels[i].startsWith("★");   // MY TEAMS: just the name, no icon
+            if (mine) {
+                // (nothing drawn)
             } else if (url != null && logos != null && logos.get(url) != null) {
                 logo(c, url, "", 0, lcx, r.centerY(), ls);
             } else {   // badge until the logo is known (or for leagues without one)
@@ -2072,7 +2073,8 @@ public class ThorView extends View {
                 String ab = leagueLabels[i].replace(" ", "");
                 text(c, ab.length() > 4 ? ab.substring(0, 3) : ab, lcx, r.centerY(), ls * 0.32f, tfCond, TEXT, Paint.Align.CENTER, ls * 0.9f);
             }
-            text(c, leagueName(leagueLabels[i]), r.left + rowH * 0.45f + ls, r.centerY(), rowH * 0.4f, tfBlack, cur ? ACCENT : TEXT, Paint.Align.LEFT, colW - rowH * 0.7f - ls);
+            float tx = mine ? r.left + rowH * 0.3f : r.left + rowH * 0.45f + ls;
+            text(c, leagueName(leagueLabels[i]), tx, r.centerY(), rowH * 0.4f, tfBlack, cur ? ACCENT : TEXT, Paint.Align.LEFT, colW - (tx - r.left) - rowH * 0.25f);
         }
     }
 
@@ -2284,7 +2286,7 @@ public class ThorView extends View {
         {"Goal effects", "Effets du but"}, {"Sounds by event", "Sons par événement"}, {"Field demos", "Démos de terrain"}};
     private static final int HOME_CARDS = 6;
     /** Icon of each page (numbers of the drawings in drawSectionIcon): board, "!", star, horn, screen, info, sliders. */
-    private static final int[] PAGE_ICON = {6, -1, 2, 3, 1, 7, 0, 0, 6};   // -1 = no icon (My teams)
+    private static final int[] PAGE_ICON = {6, 4, 2, 3, 1, 7, 0, 0, 6};   // (-1 would mean no icon)
     /** Where "back" goes: -1 = the home. */
     private static final int[] PAGE_PARENT = {-1, -1, -1, -1, -1, -1, 2, 3, 5};
     private int settingsPage = -1;   // -1 = the home with the cards
