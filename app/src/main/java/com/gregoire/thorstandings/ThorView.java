@@ -954,6 +954,9 @@ public class ThorView extends View {
         page = to;
         invalidate();
     }
+    /** A menu, the settings, a celebration... is on screen (the controller then does not change the day). */
+    public boolean overlayShown() { return overlayOpen(); }
+
     private boolean overlayOpen() { return modeMenuOpen || onboardOpen || settingsOpen || pickerOpen || helpOpen || delayOpen || syncState > 0 || celebrating(); }
 
     public void setTopMode(boolean on) { topMode = on; tab = TAB_BOARD; invalidate(); }

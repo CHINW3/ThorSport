@@ -496,7 +496,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         }
     }
 
-    private boolean stickArmed = true;
+    private boolean stickArmed = true, rightArmed = true;
     private long stickHeldSince, stickLastRepeat;
 
     /**
@@ -505,6 +505,15 @@ public class MainActivity extends Activity implements ThorView.Listener {
      */
     boolean handleStick(ThorView v, MotionEvent e) {
         if ((e.getSource() & InputDevice.SOURCE_JOYSTICK) != InputDevice.SOURCE_JOYSTICK || e.getAction() != MotionEvent.ACTION_MOVE) return false;
+        // RIGHT stick, left / right: change the day on the Scores tab (one push = one day, back to the centre before the next)
+        float rx = e.getAxisValue(MotionEvent.AXIS_Z), rx2 = e.getAxisValue(MotionEvent.AXIS_RX);   // (controllers differ on the axis)
+        if (Math.abs(rx2) > Math.abs(rx)) rx = rx2;
+        if (Math.abs(rx) < 0.35f) rightArmed = true;
+        else if (rightArmed && Math.abs(rx) >= 0.65f && tab == ThorView.TAB_SCORES && !v.overlayShown()) {
+            rightArmed = false;
+            menuFeedback(KeyEvent.KEYCODE_DPAD_DOWN);
+            onDateShift(rx > 0 ? 1 : -1);
+        }
         float x = e.getAxisValue(MotionEvent.AXIS_X), y = e.getAxisValue(MotionEvent.AXIS_Y);
         float hx = e.getAxisValue(MotionEvent.AXIS_HAT_X), hy = e.getAxisValue(MotionEvent.AXIS_HAT_Y);
         if (Math.abs(hx) > 0.5f || Math.abs(hy) > 0.5f) { x = hx; y = hy; }
