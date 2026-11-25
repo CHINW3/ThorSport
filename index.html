@@ -402,6 +402,9 @@ kbd{display:inline-grid;place-items:center;min-width:72px;height:28px;padding:0 
   .cf{display:none}
 }
 
+.progress{position:fixed;left:0;right:0;top:env(safe-area-inset-top,0px);height:2px;z-index:80;background:var(--accent);transform:scaleX(0);transform-origin:0 50%}
+.goal-btn{will-change:transform}
+
 /* ---------- device (drawn AYN Thor) ---------- */
 .dev-wrap{container-type:inline-size;width:100%}
 .dev{position:relative;--led-l:var(--t1);--led-r:var(--t2);padding-top:1.4cqw}
@@ -753,6 +756,7 @@ kbd{display:inline-grid;place-items:center;min-width:72px;height:28px;padding:0 
   </div>
 </template>
 
+<div class="progress" aria-hidden="true"></div>
 <a class="skip" href="#main">Skip to content</a>
 
 <header class="nav" id="nav">
@@ -1729,6 +1733,37 @@ kbd{display:inline-grid;place-items:center;min-width:72px;height:28px;padding:0 
         .to(lines, { yPercent: 0, duration: 1.4, stagger: .12 })
         .to(fades, { opacity: 1, y: 0, duration: 1.1, stagger: .08 }, .35)
         .fromTo('.hero__stage', { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 1.2 }, .3);
+
+      // sections slide in as they enter (anything already passed shows at once)
+      const rv = $$('.sec__head > *, .feat, .steps li, .install__note, .faq details, .foot__cta, .lgbar .mq');
+      G.set(rv, { opacity: 0, y: 40 });
+      ST.batch(rv, {
+        start: 'top 90%', once: true,
+        onEnter: b => {
+          const past = b.filter(el => el.getBoundingClientRect().bottom < innerHeight * .15), rest = b.filter(el => !past.includes(el));
+          if (past.length) G.set(past, { opacity: 1, y: 0 });
+          if (rest.length) G.to(rest, { opacity: 1, y: 0, duration: 1, ease: 'power3.out', stagger: Math.min(.08, .5 / rest.length), overwrite: true });
+        }
+      });
+      // opening FAQ answers changes the page height: re-measure so nothing below stays hidden
+      $$('.faq details').forEach(d => d.addEventListener('toggle', () => ST.refresh()));
+
+      // hero: the handheld tilts toward the pointer and leans back as you scroll away
+      const dw = $('.hero .dev-wrap');
+      if (dw) {
+        G.set(dw, { transformPerspective: 1400 });
+        G.to(dw, { rotationX: 14, y: 60, scale: .94, ease: 'none', scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: .6 } });
+        if (matchMedia('(hover: hover) and (pointer: fine)').matches) {
+          const ry = G.quickTo(dw, 'rotationY', { duration: 1, ease: 'power3' });
+          addEventListener('pointermove', e => ry((e.clientX / innerWidth - .5) * 12), { passive: true });
+        }
+      }
+      // story labels drift as the device stays pinned
+      G.fromTo('.chip', { y: 30 }, { y: -30, ease: 'none', scrollTrigger: { trigger: '#story', start: 'top bottom', end: 'bottom top', scrub: true } });
+      // the odds line draws itself; the spec numbers count up
+      $$('.spec b').forEach(b => { const m = b.textContent.match(/^(\d+)(.*)$/); if (!m) return; const o = { v: 0 }, end = +m[1];
+        G.to(o, { v: end, duration: 1.4, ease: 'power2.out', scrollTrigger: { trigger: b, start: 'top 90%', once: true }, onUpdate: () => { b.textContent = Math.round(o.v) + m[2]; } }); });
+      G.to('.progress', { scaleX: 1, ease: 'none', scrollTrigger: { start: 0, end: 'max', scrub: .3 } });
 
       // the marquee speeds up with scroll velocity
       let boost = 0, anims = null;
