@@ -1253,6 +1253,29 @@ public class ThorView extends View {
     }
 
     /** COLLEGE folder icon: a graduation cap (mortarboard with a tassel), drawn in code. */
+    /** A hockey icon (for the MORE HOCKEY folder): two crossed sticks and a puck, on a dark disc. */
+    private void hockeyIcon(Canvas c, float cx, float cy, float rad) {
+        p.setColor(0xFF22252D);
+        c.drawCircle(cx, cy, rad * 0.98f, p);
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeCap(Paint.Cap.ROUND);
+        p.setStrokeWidth(Math.max(2f, rad * 0.13f));
+        p.setColor(0xFFF2F4F8);
+        for (int s = -1; s <= 1; s += 2) {   // a stick from the top corner down to its blade, and the same mirrored
+            float tx = cx + s * rad * 0.62f, ty = cy - rad * 0.62f, bx = cx - s * rad * 0.46f, by = cy + rad * 0.5f;
+            c.drawLine(tx, ty, bx, by, p);
+            c.drawLine(bx, by, bx - s * rad * 0.34f, by + rad * 0.02f, p);   // the blade
+        }
+        p.setStyle(Paint.Style.FILL);
+        p.setStrokeCap(Paint.Cap.BUTT);
+        p.setColor(0xFF0B0C10);   // the puck
+        c.drawOval(new RectF(cx - rad * 0.34f, cy + rad * 0.2f, cx + rad * 0.34f, cy + rad * 0.56f), p);
+        p.setColor(0xFF8B919C);
+        c.drawOval(new RectF(cx - rad * 0.34f, cy + rad * 0.14f, cx + rad * 0.34f, cy + rad * 0.5f), p);
+        p.setColor(0xFF22252D);
+        c.drawOval(new RectF(cx - rad * 0.27f, cy + rad * 0.19f, cx + rad * 0.27f, cy + rad * 0.45f), p);
+    }
+
     private void mortarboard(Canvas c, float cx, float cy, float rad) {
         p.setColor(0xFF22252D);
         c.drawCircle(cx, cy, rad * 0.98f, p);
@@ -2035,7 +2058,7 @@ public class ThorView extends View {
         hiddenLeagues.addAll(hidden);
         invalidate();
     }
-    private static final int ITEM_SOCCER = -1, ITEM_BACK = -2, ITEM_INTL = -3, ITEM_COLLEGE = -4, ITEM_CRICKET = -5, ITEM_ESPORTS = -6;
+    private static final int ITEM_SOCCER = -1, ITEM_BACK = -2, ITEM_INTL = -3, ITEM_COLLEGE = -4, ITEM_CRICKET = -5, ITEM_ESPORTS = -6, ITEM_HOCKEY = -7;
 
     /** Which folder a league lives in (0 = main menu). */
     private static int folderOf(int i) {
@@ -2047,6 +2070,7 @@ public class ThorView extends View {
             case 3: return ITEM_INTL;
             case 4: return ITEM_CRICKET;
             case 5: return ITEM_ESPORTS;
+            case 6: return ITEM_HOCKEY;
             default: return 0;
         }
     }
@@ -2114,14 +2138,15 @@ public class ThorView extends View {
                 else if (i == ITEM_INTL) globe(c, lcx, r.centerY(), ls * 0.46f);
                 else if (i == ITEM_CRICKET && logos != null && logos.get("asset:league/cricket.png") != null) logo(c, "asset:league/cricket.png", "", 0, lcx, r.centerY(), ls * 0.9f);
                 else if (i == ITEM_ESPORTS && logos != null && logos.get("asset:league/esports.png") != null) logo(c, "asset:league/esports.png", "", 0, lcx, r.centerY(), ls * 0.9f);
+                else if (i == ITEM_HOCKEY) hockeyIcon(c, lcx, r.centerY(), ls * 0.5f);
                 else if (i == ITEM_COLLEGE && logos != null && logos.get("asset:league/ncaa.png") != null) logo(c, "asset:league/ncaa.png", "", 0, lcx, r.centerY(), ls * 0.9f);
                 else if (i == ITEM_COLLEGE) mortarboard(c, lcx, r.centerY(), ls * 0.5f);
                 else {
                 p.setColor(0xFF22252D);
                 c.drawCircle(lcx, r.centerY(), ls * 0.48f, p);
-                text(c, i == ITEM_BACK ? "‹" : i == ITEM_INTL ? "INTL" : i == ITEM_CRICKET ? "CRI" : i == ITEM_ESPORTS ? "ES" : "SOC", lcx, r.centerY(), i == ITEM_BACK ? ls * 0.6f : ls * 0.3f, tfBlack, TEXT, Paint.Align.CENTER, ls * 0.9f);
+                text(c, i == ITEM_BACK ? "‹" : i == ITEM_INTL ? "INTL" : i == ITEM_CRICKET ? "CRI" : i == ITEM_ESPORTS ? "ES" : i == ITEM_HOCKEY ? "HKY" : "SOC", lcx, r.centerY(), i == ITEM_BACK ? ls * 0.6f : ls * 0.3f, tfBlack, TEXT, Paint.Align.CENTER, ls * 0.9f);
                 }
-                text(c, i == ITEM_BACK ? (fr ? "RETOUR" : "BACK") : i == ITEM_INTL ? "INTL  ›" : i == ITEM_COLLEGE ? (fr ? "UNIVERSITAIRE  ›" : "COLLEGE  ›") : i == ITEM_CRICKET ? "CRICKET  ›" : i == ITEM_ESPORTS ? "ESPORTS  ›" : "SOCCER  ›", r.left + rowH * 0.45f + ls, r.centerY(), rowH * 0.4f, tfBlack, cur ? ACCENT : TEXT, Paint.Align.LEFT, colW - rowH * 0.7f - ls);
+                text(c, i == ITEM_BACK ? (fr ? "RETOUR" : "BACK") : i == ITEM_INTL ? "INTL  ›" : i == ITEM_COLLEGE ? (fr ? "UNIVERSITAIRE  ›" : "COLLEGE  ›") : i == ITEM_CRICKET ? "CRICKET  ›" : i == ITEM_ESPORTS ? "ESPORTS  ›" : i == ITEM_HOCKEY ? (fr ? "AUTRE HOCKEY  ›" : "MORE HOCKEY  ›") : "SOCCER  ›", r.left + rowH * 0.45f + ls, r.centerY(), rowH * 0.4f, tfBlack, cur ? ACCENT : TEXT, Paint.Align.LEFT, colW - rowH * 0.7f - ls);
                 continue;
             }
             if (cur) {
@@ -2347,8 +2372,9 @@ public class ThorView extends View {
             } else if (folder) {
                 String img = id == -1 ? "asset:league/soccer.png" : id == -2 ? "asset:league/ncaa.png" : id == -5 ? "asset:league/esports.png" : null;
                 if (id == -3) globe(c, r.left + r.height() * 0.5f, r.centerY(), r.height() * 0.3f);
+                else if (id == -6) hockeyIcon(c, r.left + r.height() * 0.5f, r.centerY(), r.height() * 0.3f);
                 else if (img != null && logos != null && logos.get(img) != null) logo(c, img, "", 0, r.left + r.height() * 0.5f, r.centerY(), r.height() * 0.6f);
-                name = (id == -1 ? "SOCCER" : id == -2 ? (fr ? "UNIVERSITAIRE" : "COLLEGE") : id == -5 ? "ESPORTS" : "INTL") + "  ›";
+                name = (id == -1 ? "SOCCER" : id == -2 ? (fr ? "UNIVERSITAIRE" : "COLLEGE") : id == -5 ? "ESPORTS" : id == -6 ? (fr ? "AUTRE HOCKEY" : "MORE HOCKEY") : "INTL") + "  ›";
             } else {
                 String url = li < leagueLogos.length ? leagueLogos[li] : null;
                 if (url != null && logos != null && logos.get(url) != null) logo(c, url, "", 0, r.left + r.height() * 0.5f, r.centerY(), r.height() * 0.6f);
@@ -2476,12 +2502,12 @@ public class ThorView extends View {
     private static final String[][] PAGES = {
         {"Games", "Matchs"}, {"My teams", "Mes équipes"}, {"Goal", "But"}, {"Sound", "Son"}, {"Display", "Affichage"}, {"App", "Appli"},
         {"Goal effects", "Effets du but"}, {"Sounds by event", "Sons par événement"}, {"Field demos", "Démos de terrain"},
-        {"Leagues", "Ligues"}, {"Soccer", "Soccer"}, {"College", "Universitaire"}, {"International", "International"}, {"Cricket", "Cricket"}, {"Esports", "Esports"}};
+        {"Leagues", "Ligues"}, {"Soccer", "Soccer"}, {"College", "Universitaire"}, {"International", "International"}, {"Cricket", "Cricket"}, {"Esports", "Esports"}, {"More hockey", "Autre hockey"}};
     private static final int HOME_CARDS = 6;
     /** Icon of each page (numbers of the drawings in drawSectionIcon): board, "!", star, horn, screen, info, sliders. */
-    private static final int[] PAGE_ICON = {6, 4, 2, 3, 1, 7, 0, 0, 6, 0, 0, 0, 0, 0, 0};   // (-1 would mean no icon)
+    private static final int[] PAGE_ICON = {6, 4, 2, 3, 1, 7, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0};   // (-1 would mean no icon)
     /** Where "back" goes: -1 = the home. */
-    private static final int[] PAGE_PARENT = {-1, -1, -1, -1, -1, -1, 2, 3, 5, 0, 9, 9, 9, 9, 9};
+    private static final int[] PAGE_PARENT = {-1, -1, -1, -1, -1, -1, 2, 3, 5, 0, 9, 9, 9, 9, 9, 9};
     private int settingsPage = -1;   // -1 = the home with the cards
     private int homeSel;             // the selected card on the home (controller)
     private List<String[]> settingCards = new ArrayList<>();   // {line 1, line 2} of each card: what is set right now

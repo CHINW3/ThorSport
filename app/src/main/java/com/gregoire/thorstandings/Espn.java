@@ -125,13 +125,19 @@ public final class Espn {
         new League("QMJHL", "hockey/qmjhl",
             new String[]{"GP", "W", "L", "OTL", "PTS", "PCT"},
             new String[]{"games_played", "wins", "losses", "otl_all", "points", "percentage"}, "percentage", "regulation_wins").zones(8, 0, 0),
+        // more hockey (HockeyTech feeds, same as the QMJHL)
+        new League("OHL", "hockey/ohl", new String[]{"GP", "W", "L", "OTL", "PTS", "PCT"},
+            new String[]{"games_played", "wins", "losses", "otl_all", "points", "percentage"}, "percentage", "regulation_wins").zones(8, 0, 0),
+        new League("WHL", "hockey/whl", new String[]{"GP", "W", "L", "OTL", "PTS", "PCT"},
+            new String[]{"games_played", "wins", "losses", "otl_all", "points", "percentage"}, "percentage", "regulation_wins").zones(8, 0, 0),
+        new League("ECHL", "hockey/echl", new String[]{"GP", "W", "L", "OTL", "PTS", "PCT"},
+            new String[]{"games_played", "wins", "losses", "otl_all", "points", "percentage"}, "percentage", "regulation_wins").zones(7, 0, 0),
+        new League("USHL", "hockey/ushl", new String[]{"GP", "W", "L", "OTL", "PTS", "PCT"},
+            new String[]{"games_played", "wins", "losses", "otl_all", "points", "percentage"}, "percentage", "regulation_wins").zones(8, 0, 0),
         new League("CS2", "esports/cs2", new String[0], new String[0], "", ""),
         new League("VALORANT", "esports/valorant", new String[0], new String[0], "", ""),
         new League("DOTA 2", "esports/dota2", new String[0], new String[0], "", ""),
         new League("R6 SIEGE", "esports/r6", new String[0], new String[0], "", ""),
-        // Ontario Hockey League (HockeyTech feed, like the QMJHL): two conferences, 8 teams of each make the playoffs
-        new League("OHL", "hockey/ohl", new String[]{"GP", "W", "L", "OTL", "PTS", "PCT"},
-            new String[]{"games_played", "wins", "losses", "otl_all", "points", "percentage"}, "percentage", "regulation_wins").zones(8, 0, 0),
     };
 
     /** Olympic hockey (IIHF 3-2-1-0 points). ESPN gives no "wins": standings() works it out. */
@@ -148,15 +154,18 @@ public final class Espn {
      */
     public static final int[] ORDER = buildOrder();
 
-    /** 0 = the main menu, 1 = SOCCER folder, 2 = COLLEGE folder, 3 = INTL folder, 4 = CRICKET folder, 5 = ESPORTS folder. */
-    public static int folderOf(League l) { return l.path.startsWith("esports") ? 5 : l.path.startsWith("cricket") ? 4 : l.college() ? 2 : l.intl ? 3 : l.soccer() ? 1 : 0; }
+    /** 0 = the main menu, 1 = SOCCER folder, 2 = COLLEGE folder, 3 = INTL folder, 4 = CRICKET folder, 5 = ESPORTS folder, 6 = MORE HOCKEY folder. */
+    public static int folderOf(League l) { return isJuniorHockey(l.path) ? 6 : l.path.startsWith("esports") ? 5 : l.path.startsWith("cricket") ? 4 : l.college() ? 2 : l.intl ? 3 : l.soccer() ? 1 : 0; }
+
+    /** The MORE HOCKEY folder: the junior leagues and the ECHL. */
+    static boolean isJuniorHockey(String p) { return p.endsWith("/qmjhl") || p.endsWith("/ohl") || p.endsWith("/whl") || p.endsWith("/echl") || p.endsWith("/ushl"); }
 
     private static int[] buildOrder() {
-        String[] first = {"mine", "hockey/nhl", "hockey/ahl", "hockey/pwhl", "hockey/qmjhl", "hockey/ohl", "basketball/nba", "basketball/wnba", "football/nfl",
+        String[] first = {"mine", "hockey/nhl", "hockey/ahl", "hockey/pwhl", "basketball/nba", "basketball/wnba", "football/nfl",
             "baseball/mlb", "racing/f1"};
         List<Integer> out = new ArrayList<>();
         for (String p : first) for (int i = 0; i < LEAGUES.length; i++) if (LEAGUES[i].path.equals(p)) out.add(i);
-        for (int g : new int[]{0, 5, 1, 4, 2, 3})   // then the rest of the main menu, and each folder (SOCCER, CRICKET, COLLEGE, INTL), in the order of LEAGUES
+        for (int g : new int[]{0, 6, 5, 1, 4, 2, 3})   // then the rest of the main menu, and each folder (SOCCER, CRICKET, COLLEGE, INTL), in the order of LEAGUES
             for (int i = 0; i < LEAGUES.length; i++) if (folderOf(LEAGUES[i]) == g && !out.contains(i)) out.add(i);
         int[] a = new int[out.size()];
         for (int i = 0; i < a.length; i++) a[i] = out.get(i);
@@ -647,6 +656,10 @@ public final class Espn {
         if (lg.path.endsWith("/pwhl")) return "asset:league/pwhl.png";
         if (lg.path.endsWith("/ahl")) return "asset:league/ahl.png";
         if (lg.path.endsWith("/qmjhl")) return "asset:league/qmjhl.png";
+        if (lg.path.endsWith("/ohl")) return "asset:league/ohl.png";
+        if (lg.path.endsWith("/whl")) return "asset:league/whl.png";
+        if (lg.path.endsWith("/echl")) return "asset:league/echl.png";
+        if (lg.path.endsWith("/ushl")) return "asset:league/ushl.png";
         if (lg.path.startsWith("cricket")) return "asset:league/cricket.png";
         if (lg.path.endsWith("mens-college-hockey")) return "asset:league/ncaa_hockey.png";
         String packed = OfflineLogos.league(lg.path);
@@ -659,7 +672,7 @@ public final class Espn {
     static String leagueLogo(League lg) {
         String fixed = fixedLogo(lg);
         if (fixed != null) return fixed;
-        if (lg.mine() || lg.path.endsWith("/pwhl") || lg.path.endsWith("/ahl") || lg.path.endsWith("/qmjhl") || lg.path.endsWith("/ohl") || lg.path.startsWith("esports")) return null;
+        if (lg.mine() || lg.path.endsWith("/pwhl") || Pwhl.is(lg) || lg.path.startsWith("esports")) return null;
         try {
             String url = scoresUrl(lg, null);
             String body = cached(url);

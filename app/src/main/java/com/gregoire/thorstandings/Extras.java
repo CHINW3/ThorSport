@@ -369,7 +369,7 @@ public final class Extras {
 
     /** Team stats, leaders, scoring plays, current drive and ESPN's win probability for one game. */
     public static void summary(Model.Game g) {
-        if (g == null || g.league.isEmpty() || g.league.contains("pwhl") || g.league.contains("/ahl") || g.league.contains("/qmjhl") || g.league.contains("/ohl") || "racing".equals(g.sport) || "esports".equals(g.sport)) return;
+        if (g == null || g.league.isEmpty() || Pwhl.isPath(g.league) || "racing".equals(g.sport) || "esports".equals(g.sport)) return;
         String ev = g.id.split("-")[0];
         if (!ev.matches("\\d+")) return;
         Long at = sumAt.get(g.id);
