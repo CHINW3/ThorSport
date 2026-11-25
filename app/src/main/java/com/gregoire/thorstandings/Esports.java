@@ -59,7 +59,71 @@ final class Esports {
             int rx = Espn.rank(x), ry = Espn.rank(y);
             return rx != ry ? rx - ry : Long.compare(x.startMs, y.startMs);
         });
+        for (Model.Game g : sb.games) if (g.isLive() || g.isFinal()) extras(g);
         return sb;
+    }
+
+    private static final java.util.Map<String, String> mapsDone = new java.util.concurrent.ConcurrentHashMap<>();   // finished matches never change
+
+    /** Map results (CS2 / Valorant / R6), and for Dota 2 the live kills and gold lead. */
+    private static void extras(Model.Game g) {
+        try {
+            String parts = g.headline;
+            if (!g.league.equals("esports/dota2")) {
+                String maps = mapsDone.get(g.id);
+                if (maps == null) {
+                    maps = maps(g);
+                    if (g.isFinal()) mapsDone.put(g.id, maps);
+                }
+                if (!maps.isEmpty()) parts = parts.isEmpty() ? maps : maps + "  ·  " + parts;
+            } else if (g.isLive()) {
+                String live = dotaLive(g);
+                if (!live.isEmpty()) parts = parts.isEmpty() ? live : live + "  ·  " + parts;
+            }
+            g.headline = parts;
+        } catch (Exception ignored) { }
+    }
+
+    private static boolean same(String a, String b) {
+        a = a.toLowerCase(Locale.ROOT).trim(); b = b.toLowerCase(Locale.ROOT).trim();
+        return !a.isEmpty() && !b.isEmpty() && (a.equals(b) || a.contains(b) || b.contains(a));
+    }
+
+    private static String maps(Model.Game g) throws Exception {
+        String body = Espn.getFresh("https://api.bo3.gg/api/v1/games?filter%5Bgames.match_id%5D%5Beq%5D=" + g.id.substring(3) + "&sort=number");
+        JSONArray arr = new JSONObject(body).optJSONArray("results");
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; arr != null && i < arr.length(); i++) {
+            JSONObject m = arr.optJSONObject(i);
+            if (m == null || !"finished".equals(m.optString("status"))) continue;
+            int w = m.optInt("winner_clan_score", -1), l = m.optInt("loser_clan_score", -1);
+            if (w < 0 || l < 0) continue;
+            String wn = m.optString("winner_clan_name", "");
+            boolean awayWon = same(wn, g.away.name);
+            if (!awayWon && !same(wn, g.home.name)) continue;
+            String map = m.optString("map_name", "").replaceFirst("^de_", "").replaceFirst("^cs_", "");
+            if (!map.isEmpty()) map = Character.toUpperCase(map.charAt(0)) + map.substring(1);
+            if (sb.length() > 0) sb.append("  ·  ");
+            sb.append(map).append(' ').append(awayWon ? w : l).append('-').append(awayWon ? l : w);
+        }
+        return sb.toString();
+    }
+
+    private static String dotaLive(Model.Game g) throws Exception {
+        JSONArray arr = new JSONArray(Espn.getFresh("https://api.opendota.com/api/live"));
+        for (int i = 0; i < arr.length(); i++) {
+            JSONObject m = arr.optJSONObject(i);
+            if (m == null || m.optInt("league_id") <= 0) continue;
+            String r = m.optString("team_name_radiant", ""), d = m.optString("team_name_dire", "");
+            boolean radAway = same(r, g.away.name) && same(d, g.home.name), radHome = same(r, g.home.name) && same(d, g.away.name);
+            if (!radAway && !radHome) continue;
+            int rk = m.optInt("radiant_score"), dk = m.optInt("dire_score"), lead = m.optInt("radiant_lead");
+            int ak = radAway ? rk : dk, hk = radAway ? dk : rk, aLead = radAway ? lead : -lead;
+            int mins = m.optInt("game_time") / 60;
+            String who = aLead >= 0 ? g.away.abbr : g.home.abbr;
+            return ThorView.tr("Kills ", "Éliminations ") + ak + "-" + hk + "  ·  " + who + " +" + String.format(Locale.US, "%.1fk", Math.abs(aLead) / 1000.0) + " gold  ·  " + mins + " min";
+        }
+        return "";
     }
 
     private static Model.Game game(Espn.League lg, JSONObject m) {
@@ -85,6 +149,15 @@ final class Esports {
         g.period = bo;
         fill(g.away, t1, m.optInt("team1_score", 0));
         fill(g.home, t2, m.optInt("team2_score", 0));
+        JSONObject bet = m.optJSONObject("bet_updates");
+        if (bet != null && !g.isFinal()) {
+            JSONObject b1 = bet.optJSONObject("team_1"), b2 = bet.optJSONObject("team_2");
+            double c1 = b1 == null ? 0 : b1.optDouble("coeff", 0), c2 = b2 == null ? 0 : b2.optDouble("coeff", 0);
+            if (c1 > 1 && c2 > 1) {   // bookmaker odds -> win chance (the margin is split out)
+                double p1 = 1 / c1, p2 = 1 / c2;
+                g.headline = ThorView.tr("Odds ", "Cotes ") + g.away.abbr + " " + Math.round(100 * p1 / (p1 + p2)) + "%  ·  " + g.home.abbr + " " + Math.round(100 * p2 / (p1 + p2)) + "%";
+            }
+        }
         long win = m.optLong("winner_team_id", 0);
         int aw = g.away.scoreInt(), hw = g.home.scoreInt();
         if (g.isFinal()) {

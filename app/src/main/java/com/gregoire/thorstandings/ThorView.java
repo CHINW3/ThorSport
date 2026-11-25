@@ -3463,7 +3463,7 @@ public class ThorView extends View {
         drawSpeaker(c, soundRect, sound);
 
         String tag, msg;
-        if ("esports".equals(g.sport)) { tag = "INFO"; msg = g.note + (g.away.record.isEmpty() ? "" : "  ·  " + g.away.abbr + " " + g.away.record + "  ·  " + g.home.abbr + " " + g.home.record); }
+        if ("esports".equals(g.sport)) { tag = "INFO"; msg = g.note + (g.away.record.isEmpty() ? "" : "  ·  " + g.away.abbr + " " + g.away.record + "  ·  " + g.home.abbr + " " + g.home.record) + (g.headline.isEmpty() ? "" : "  ·  " + g.headline); }
         else if (g.isLive() && !g.downText.isEmpty()) { tag = "DOWN"; msg = g.downText + (g.lastPlay.isEmpty() ? "" : "  ·  " + g.lastPlay); }
         else if (g.isLive() && !g.lastPlay.isEmpty()) { tag = "LAST PLAY"; msg = g.lastPlay; }
         else if (g.isFinal() && !g.headline.isEmpty()) { tag = "RECAP"; msg = g.headline; }
