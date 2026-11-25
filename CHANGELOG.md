@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.28
+- New globe icon for the INTL folder in the league menu.
+- New team jersey icon for ★ MY TEAMS in the league menu.
+
 ## 3.27
 - New **INTL** folder in the league menu for national teams: World Cup, UEFA Nations League, Concacaf Nations League, international friendlies, and Olympic hockey (men and women).
 - Group tables for the World Cup, Nations Leagues and Olympic hockey, plus a PLAYOFFS tab showing which teams would go through (and be relegated in the Nations League) if the groups ended today.
