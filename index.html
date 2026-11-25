@@ -32,124 +32,374 @@
 <link rel="preload" as="script" href="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js">
 <link rel="preload" as="script" href="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js">
 <link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/lenis@1.1.20/dist/lenis.min.js">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:ital,wdth,wght@0,62..125,400..900;1,62..125,400..900&amp;family=Barlow:wght@400;500;600&amp;family=JetBrains+Mono:wght@500;700&amp;display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:ital,wdth,wght@0,62..125,400..900;1,62..125,400..900&amp;family=JetBrains+Mono:wght@500;700&amp;display=swap">
 <script>(function(d){var h=d.documentElement;if(!h.lang)h.lang='en';if(!matchMedia('(prefers-reduced-motion: reduce)').matches){h.classList.add('motion');setTimeout(function(){if(!window.__tsReady)h.classList.remove('motion')},4500)}})(document)</script>
 <style>
-/* Layout: a night-broadcast stage. Full-bleed dark bands on a 12-column grid; a drawn AYN Thor is the recurring hero object, lit in electric blue and in the colors of whichever team just scored. */
+/* Layout: 12-column grid (24px gutters, 1200px max) on an 8px spacing scale. Sections are separated by 1px rules, not boxes.
+   The drawn AYN Thor is the only illustration. Colour comes from the app: blue for actions, the icon's amber for score
+   numerals, its red for "live". Type: Archivo (display + body, variable width) and JetBrains Mono (data only). */
 :root{
   color-scheme:dark;
-  --bg:#04060c;
-  --ink:#eef3ff;
-  --ink-2:#a9b4cf;
-  --ink-3:#7a86a4;
-  --line:rgba(164,188,255,.12);
-  --line-2:rgba(164,188,255,.22);
-  --glass:rgba(150,175,255,.055);
-  --glass-2:rgba(150,175,255,.095);
-  --volt:#2f7bff;
-  --volt-hi:#8cb9ff;
-  --live:#ff3d4e;
-  --clock:#ffd23f;
+  /* surfaces */
+  --bg:#07090d;
+  --surface:#0d1118;
+  --rule:#1c2330;
+  --rule-2:#2a3341;
+  /* text */
+  --ink:#eef1f6;
+  --ink-2:#a4adbf;
+  --ink-3:#7a8497;
+  /* accents: one action colour, two data colours taken from the app icon */
+  --accent:#2f7bff;
+  --accent-hi:#4a8cff;
+  --link:#8cb9ff;
+  --amber:#ffb524;
+  --live:#ff3b30;
+  /* team colours, set per device by script */
   --team:#2f7bff;
   --t1:#e8323f;
   --t2:#3a5bd9;
-  --f-display:"Archivo","Arial Narrow","Helvetica Neue",Arial,sans-serif;
-  --f-body:"Barlow","Segoe UI",system-ui,-apple-system,sans-serif;
+  /* type */
+  --f-display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --f-body:"Archivo","Helvetica Neue",Arial,sans-serif;
   --f-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  /* 8px spacing scale */
+  --s1:8px;--s2:16px;--s3:24px;--s4:32px;--s5:40px;--s6:48px;--s8:64px;--s10:80px;--s12:96px;--s16:128px;
+  /* radii */
+  --r1:4px;--r2:8px;--r3:12px;
+  --nav-h:64px;
+  --pad-l:max(16px,env(safe-area-inset-left,0px));
+  --pad-r:max(16px,env(safe-area-inset-right,0px));
   --ease:cubic-bezier(.2,.8,.2,1);
-  --gut-l:max(clamp(16px,4vw,48px),env(safe-area-inset-left,0px));
-  --gut-r:max(clamp(16px,4vw,48px),env(safe-area-inset-right,0px));
   --dr:1.1; /* drawn device: height / width */
+  /* names the device drawing uses */
+  --volt:var(--accent);--volt-hi:var(--link);--clock:var(--amber);--line:var(--rule);--line-2:var(--rule-2);--gut-l:var(--pad-l);--gut-r:var(--pad-r);
 }
+@media (min-width:720px){:root{--pad-l:max(32px,env(safe-area-inset-left,0px));--pad-r:max(32px,env(safe-area-inset-right,0px))}}
 @property --lc{syntax:"<color>";inherits:false;initial-value:#2f7bff}
 
 /* ---------- base ---------- */
 *,*::before,*::after{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%;background:var(--bg)}
 html:not(.lenis){scroll-behavior:smooth}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:clamp(1rem,.96rem + .2vw,1.125rem);line-height:1.6;overflow-x:clip;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:24px;overflow-x:clip;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+@media (min-width:960px){body{font-size:17px;line-height:28px}}
 img,svg{display:block;max-width:100%}
 a{color:inherit}
 button{font:inherit;color:inherit}
-:focus-visible{outline:2px solid var(--volt-hi);outline-offset:3px;border-radius:8px}
-::selection{background:var(--volt);color:#fff}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:var(--r1)}
+::selection{background:var(--accent);color:#fff}
 .sr-only{position:absolute!important;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
-.skip{position:fixed;left:max(16px,env(safe-area-inset-left,0px));top:-80px;z-index:200;padding:12px 18px;border-radius:12px;background:var(--volt);color:#fff;font-weight:600;text-decoration:none;transition:top .2s}
+.skip{position:fixed;left:var(--pad-l);top:-80px;z-index:200;padding:12px 16px;border-radius:var(--r2);background:var(--accent);color:#fff;font-weight:600;text-decoration:none;transition:top .2s}
 .skip:focus{top:calc(env(safe-area-inset-top,0px) + 12px)}
 html.lenis,html.lenis body{height:auto}
 .lenis.lenis-smooth{scroll-behavior:auto!important}
 .lenis.lenis-stopped{overflow:clip}
-.wrap{width:100%;max-width:calc(1240px + 96px);margin-inline:auto;padding-left:var(--gut-l);padding-right:var(--gut-r)}
+main{display:block;overflow-x:clip}
+.wrap{width:100%;max-width:calc(1200px + var(--pad-l) + var(--pad-r));margin-inline:auto;padding-left:var(--pad-l);padding-right:var(--pad-r)}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));column-gap:var(--s2)}
+@media (min-width:960px){.grid{grid-template-columns:repeat(12,minmax(0,1fr));column-gap:var(--s3)}}
 .logo{display:inline-block;flex:none;width:1em;height:1em;background:center/contain no-repeat}
-
-/* ---------- atmosphere ---------- */
-.atmo{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
-.atmo i{position:absolute;width:80vmax;height:80vmax;border-radius:50%}
-.atmo .a1{top:-40vmax;right:-30vmax;background:radial-gradient(closest-side,rgba(47,123,255,.22),rgba(47,123,255,0))}
-.atmo .a2{top:30vh;left:-48vmax;background:radial-gradient(closest-side,rgba(47,123,255,.1),rgba(47,123,255,0))}
-.atmo .a3{bottom:-52vmax;right:-24vmax;background:radial-gradient(closest-side,rgba(47,123,255,.09),rgba(47,123,255,0))}
-.grain{position:fixed;inset:0;z-index:120;pointer-events:none;opacity:.055;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .6 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
-.progress{position:fixed;left:0;right:0;top:env(safe-area-inset-top,0px);height:2px;z-index:80;background:var(--volt);transform:scaleX(0);transform-origin:0 50%;box-shadow:0 0 12px var(--volt)}
-
-/* ---------- nav ---------- */
-.nav{position:fixed;top:0;left:0;right:0;z-index:70;padding-top:calc(env(safe-area-inset-top,0px) + 12px);padding-left:var(--gut-l);padding-right:var(--gut-r);transition:transform .5s var(--ease)}
-.nav.is-hidden{transform:translateY(calc(-100% - 8px))}
-.nav__bar{max-width:1240px;margin-inline:auto;display:flex;align-items:center;gap:8px;padding:7px 7px 7px 16px;border-radius:999px;background:rgba(8,12,24,.62);-webkit-backdrop-filter:blur(18px) saturate(160%);backdrop-filter:blur(18px) saturate(160%);border:1px solid var(--line);box-shadow:0 10px 40px -12px rgba(0,0,0,.6)}
-.brand{display:inline-flex;align-items:center;gap:10px;text-decoration:none;font-family:var(--f-display);font-weight:800;font-stretch:95%;font-size:1.08rem;letter-spacing:-.01em}
-.brand__icon{display:block;flex:none;width:28px;height:28px;border-radius:8px;box-shadow:0 0 0 1px var(--line)}
-.nav__links{display:none;margin:0 0 0 auto;padding:0;gap:2px;list-style:none}
-.nav__links a{display:block;padding:8px 14px;border-radius:999px;text-decoration:none;color:var(--ink-2);font-size:.95rem;font-weight:500;transition:color .2s,background .2s}
-.nav__links a:hover{color:var(--ink);background:var(--glass-2)}
-.nav__cta{margin-left:auto}
-@media (min-width:880px){.nav__links{display:flex}.nav__cta{margin-left:6px}}
-
-/* ---------- buttons ---------- */
-.btn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:52px;padding:0 26px;border-radius:999px;font-family:var(--f-display);font-weight:700;font-stretch:95%;font-size:1.02rem;text-decoration:none;white-space:nowrap;border:1px solid var(--line-2);background:var(--glass);color:var(--ink);cursor:pointer;transition:transform .35s var(--ease),box-shadow .35s var(--ease),background .25s,border-color .25s}
-.btn svg{width:18px;height:18px;flex:none}
-.btn:hover{transform:translateY(-2px);border-color:rgba(164,188,255,.38);background:var(--glass-2)}
-.btn--primary{color:#fff;border-color:rgba(255,255,255,.18);background:var(--volt);box-shadow:0 12px 32px -10px rgba(47,123,255,.85),inset 0 1px 0 rgba(255,255,255,.3)}
-.btn--primary:hover{background:#3d86ff;box-shadow:0 18px 44px -10px rgba(47,123,255,1),inset 0 1px 0 rgba(255,255,255,.35)}
-.btn--sm{min-height:40px;padding:0 16px;font-size:.92rem}
+.link{color:var(--link);font-weight:600;text-decoration:none}
+.link:hover{text-decoration:underline}
 
 /* ---------- type ---------- */
-.eyebrow{display:inline-flex;align-items:center;gap:10px;margin:0;font-family:var(--f-mono);font-weight:500;font-size:.76rem;letter-spacing:.16em;text-transform:uppercase;color:var(--volt-hi)}
-.dot-live{width:8px;height:8px;border-radius:50%;background:var(--live);animation:ping 1.8s infinite}
-@keyframes ping{0%{box-shadow:0 0 0 0 rgba(255,61,78,.6)}80%,100%{box-shadow:0 0 0 10px rgba(255,61,78,0)}}
-.display{margin:0;font-family:var(--f-display);font-weight:900;font-stretch:90%;line-height:.9;letter-spacing:-.045em;font-size:clamp(3rem,13.2vw,10rem)}
-.display .line{display:block;overflow:hidden;padding:0 .05em .12em;margin-bottom:-.12em}
+.display{margin:0;font-family:var(--f-display);font-weight:900;font-stretch:90%;font-size:clamp(48px,13vw,64px);line-height:.92;letter-spacing:-.04em}
+@media (min-width:960px){.display{font-size:clamp(64px,6.6vw,104px)}}
+.display .line{display:block;overflow:hidden;padding:0 .04em .12em;margin:0 -.04em -.12em}
 .display .line__in{display:block}
-.display .line:last-child .line__in{color:var(--volt)}
-.h2{margin:0;font-family:var(--f-display);font-weight:850;font-stretch:92%;line-height:.96;letter-spacing:-.035em;font-size:clamp(2.4rem,6.4vw,5.25rem);text-wrap:balance}
-.h3{margin:0;font-family:var(--f-display);font-weight:800;font-stretch:96%;line-height:1.08;letter-spacing:-.02em;font-size:clamp(1.3rem,1.1rem + .9vw,1.8rem);text-wrap:balance}
-.lede{margin:0;color:var(--ink-2);font-size:clamp(1.06rem,1rem + .45vw,1.3rem);line-height:1.55;max-width:58ch;text-wrap:pretty}
-.sec{position:relative;padding-block:clamp(88px,12vw,168px)}
-.sec__head{display:grid;gap:20px;justify-items:start;max-width:900px;margin-bottom:clamp(40px,6vw,72px)}
-.motion .reveal{opacity:0}
+.display .line:last-child .line__in{color:var(--accent)}
+.h2{margin:0;font-family:var(--f-display);font-weight:800;font-stretch:92%;font-size:clamp(32px,5vw,56px);line-height:1.04;letter-spacing:-.03em;text-wrap:balance}
+.h3{margin:0;font-family:var(--f-display);font-weight:800;font-stretch:96%;font-size:24px;line-height:32px;letter-spacing:-.015em;text-wrap:balance}
+.lede{margin:0;color:var(--ink-2);font-size:18px;line-height:28px;max-width:60ch;text-wrap:pretty}
+@media (min-width:960px){.lede{font-size:20px;line-height:32px}}
+.spec{margin:0;font-family:var(--f-mono);font-size:13px;line-height:24px;color:var(--ink-3)}
+.spec b{color:var(--ink);font-weight:700}
+.sec{padding-block:var(--s10)}
+@media (min-width:960px){.sec{padding-block:var(--s16)}}
+.sec__head{display:grid;gap:var(--s2);max-width:760px;margin-bottom:var(--s6)}
+
+/* ---------- nav ---------- */
+.nav{position:fixed;top:0;left:0;right:0;z-index:70;padding-top:env(safe-area-inset-top,0px);background:var(--bg);border-bottom:1px solid var(--rule)}
+.nav__bar{display:flex;align-items:center;gap:var(--s3);height:var(--nav-h)}
+.brand{display:inline-flex;align-items:center;gap:12px;font-family:var(--f-display);font-weight:800;font-size:18px;letter-spacing:-.01em;text-decoration:none}
+.brand__icon{display:block;flex:none;width:28px;height:28px;border-radius:7px}
+.nav__links{display:none;gap:var(--s3);margin:0 0 0 auto;padding:0;list-style:none}
+.nav__links a{font-size:15px;color:var(--ink-2);text-decoration:none}
+.nav__links a:hover{color:var(--ink)}
+.nav__cta{margin-left:auto}
+@media (min-width:880px){.nav__links{display:flex}.nav__cta{margin-left:var(--s1)}}
+
+/* ---------- buttons ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;height:48px;padding:0 var(--s3);border:1px solid var(--rule-2);border-radius:var(--r2);background:transparent;color:var(--ink);font-family:var(--f-display);font-weight:700;font-size:16px;text-decoration:none;white-space:nowrap;cursor:pointer;transition:background .2s,border-color .2s}
+.btn:hover{background:var(--surface);border-color:var(--ink-3)}
+.btn svg{width:18px;height:18px;flex:none}
+.btn--primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn--primary:hover{background:var(--accent-hi);border-color:var(--accent-hi)}
+.btn--sm{height:40px;padding:0 var(--s2);font-size:15px}
 
 /* ---------- hero ---------- */
-main{display:block;overflow-x:clip}
-.hero{position:relative;overflow-x:clip}
-.hero__grid{position:absolute;inset:0 0 auto;height:min(1100px,130vh);pointer-events:none;z-index:-1;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:72px 72px;background-position:center top;-webkit-mask-image:radial-gradient(ellipse 65% 55% at 50% 0%,#000,transparent 75%);mask-image:radial-gradient(ellipse 65% 55% at 50% 0%,#000,transparent 75%);opacity:.55}
-.hero__pin{position:relative;display:flex;flex-direction:column;align-items:center;gap:clamp(44px,7vw,72px);padding-top:calc(env(safe-area-inset-top,0px) + clamp(112px,16vw,150px));padding-bottom:clamp(56px,8vw,96px)}
-.hero__copy{display:flex;flex-direction:column;align-items:center;text-align:center;gap:22px;position:relative;z-index:2}
-.motion .hero .line__in,.motion .hero .fade{opacity:0}
-.hero__lede{max-width:46ch}
-@media (min-width:900px){.hero__lede{max-width:64ch}}
-.hero__ctas{display:flex;flex-wrap:wrap;justify-content:center;gap:12px}
-.hero__meta{margin:0;font-family:var(--f-mono);font-size:.72rem;letter-spacing:.1em;color:var(--ink-3);text-transform:uppercase}
-.hero__stage{position:relative;width:min(90vw,480px)}
-.motion .hero__stage{opacity:0}
-.hero__tilt{position:relative;transform-style:preserve-3d}
-.hero__glow{position:absolute;left:50%;top:50%;width:175%;aspect-ratio:1;translate:-50% -50%;z-index:-1;border-radius:50%;pointer-events:none;background:radial-gradient(closest-side,rgba(47,123,255,.38),rgba(47,123,255,.1) 55%,transparent);opacity:.8}
-.hero__glow::after{content:"";position:absolute;inset:0;border-radius:50%;background:radial-gradient(closest-side,color-mix(in srgb,var(--t1) 55%,transparent),color-mix(in srgb,var(--t1) 14%,transparent) 55%,transparent);opacity:0;transition:opacity 1.4s var(--ease)}
-.hero__stage.is-goal .hero__glow::after{opacity:1;transition-duration:.25s}
-@media (min-width:900px) and (min-height:600px){
-  .motion .hero{height:220vh;height:220svh}
-  .motion .hero__pin{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;padding-bottom:0}
-  .motion .hero__stage{position:absolute;left:50%;top:52%;translate:-50% -50%;width:min(620px,46vw,calc(82svh / var(--dr)))}
-  .motion .hero .display{font-size:clamp(4rem,min(8.6vw,13.5svh),10rem)}
-  .motion .hero__pin{padding-top:calc(env(safe-area-inset-top,0px) + 104px);gap:0}
-  .motion .hero__copy{gap:18px}
+.hero{padding-top:calc(var(--nav-h) + env(safe-area-inset-top,0px) + var(--s8));padding-bottom:var(--s10);border-bottom:1px solid var(--rule)}
+@media (min-width:960px){.hero{padding-top:calc(var(--nav-h) + env(safe-area-inset-top,0px) + var(--s12));padding-bottom:var(--s12)}}
+.hero__grid{row-gap:var(--s8);align-items:center}
+.hero__copy{grid-column:1 / -1;display:grid;gap:var(--s3);justify-items:start;min-width:0}
+.hero__stage{grid-column:1 / -1;justify-self:center;width:min(100%,440px)}
+@media (min-width:960px){.hero__copy{grid-column:1 / span 7}.hero__stage{grid-column:8 / span 5;width:100%}}
+.hero__kicker{display:flex;align-items:center;gap:var(--s1);margin:0;font-family:var(--f-mono);font-size:13px;line-height:16px;color:var(--ink-2)}
+.dot-live{width:8px;height:8px;border-radius:50%;background:var(--live)}
+.hero__ctas{display:flex;flex-wrap:wrap;gap:var(--s2)}
+.hero__spec{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s4);margin:var(--s1) 0 0;padding-top:var(--s2);border-top:1px solid var(--rule);align-self:stretch}
+.hero__spec div{display:grid;gap:4px}
+.hero__spec dt{font-family:var(--f-mono);font-size:12px;line-height:16px;color:var(--ink-3)}
+.hero__spec dd{margin:0;font-family:var(--f-mono);font-size:14px;line-height:20px}
+.motion .hero .line__in,.motion .hero .fade,.motion .hero__stage{opacity:0}
+
+/* ---------- league ticker ---------- */
+.lgbar{display:grid;gap:var(--s2);padding-block:var(--s3);background:var(--surface);border-bottom:1px solid var(--rule)}
+.mq{overflow:hidden}
+.mq.is-on{-webkit-mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent)}
+.mq__track{display:flex;flex-wrap:wrap;justify-content:center;margin:0;padding:0 var(--s2);list-style:none}
+.mq.is-on .mq__track{flex-wrap:nowrap;justify-content:flex-start;width:max-content;padding:0;animation:mq var(--dur,100s) linear infinite}
+.mq--rev.is-on .mq__track{animation-direction:reverse}
+.mq:hover .mq__track{animation-play-state:paused}
+@keyframes mq{to{transform:translateX(-50%)}}
+.tk{display:inline-flex;align-items:center;gap:10px;height:40px;padding:0 var(--s3);border-right:1px solid var(--rule-2);font-family:var(--f-display);font-weight:700;font-size:18px;color:var(--ink-2);white-space:nowrap}
+.tk__mark{display:grid;place-items:center;width:24px;height:24px;color:var(--c,var(--ink-3))}
+.tk__mark svg{width:20px;height:20px}
+.tk__mark .logo{width:24px;height:24px}
+.tl{display:grid;place-items:center;width:88px;height:56px}
+.tl .logo{width:40px;height:40px}
+
+/* ---------- how it works (pinned device) ---------- */
+.story__grid{position:relative}
+.story__steps{list-style:none;margin:0;padding:0}
+.step{display:grid;align-content:center;gap:var(--s2);min-height:70vh;min-height:70svh;padding-block:var(--s3);max-width:520px}
+.motion .step{opacity:.3;transition:opacity .4s var(--ease)}
+.motion .step.is-active{opacity:1}
+.step__tag{margin:0;font-family:var(--f-mono);font-size:13px;line-height:16px;color:var(--ink-3)}
+.step p{margin:0;color:var(--ink-2)}
+.story__stage{position:sticky;top:calc(var(--nav-h) + env(safe-area-inset-top,0px));z-index:3;display:grid;justify-items:center;padding-block:var(--s2) var(--s3);margin-left:calc(var(--pad-l) * -1);margin-right:calc(var(--pad-r) * -1);background:var(--bg);border-bottom:1px solid var(--rule)}
+.story__sticky{position:relative;width:min(60vw,280px,calc(34svh / var(--dr)))}
+.rail{display:flex;justify-content:center;gap:var(--s1);margin-top:var(--s2)}
+.rail i{width:16px;height:4px;border-radius:2px;background:var(--rule-2);transition:width .3s var(--ease),background .3s}
+.rail i.on{width:32px;background:var(--accent)}
+.chip{position:absolute;right:calc(100% + var(--s3));display:none;align-items:center;gap:var(--s1);font-family:var(--f-mono);font-size:12px;line-height:16px;color:var(--ink-2);white-space:nowrap;transition:color .3s}
+.chip::after{content:"";width:var(--s4);height:1px;background:var(--rule-2)}
+.chip i{width:6px;height:6px;border-radius:50%;background:var(--c,var(--accent))}
+.chip--top{top:20%}
+.chip--led{top:58%;--c:#e8323f}
+.chip--bot{top:76%}
+.story__sticky[data-scene="3"] .chip--led{color:var(--ink)}
+@media (min-width:960px){
+  .story__grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:var(--s3)}
+  .story__steps{grid-column:1 / span 5;grid-row:1;padding-block:8vh}
+  .story__stage{grid-column:7 / span 6;grid-row:1;position:relative;top:auto;display:block;margin:0;padding:0;background:none;border:0}
+  .story__sticky{--sdw:min(460px,34vw,calc(72vh / var(--dr)));position:sticky;top:calc(50vh - var(--sdw) * var(--dr) / 2 + var(--s2));width:var(--sdw);margin-left:auto}
+  .step{min-height:88vh;min-height:88svh}
+}
+@media (min-width:1200px){.chip{display:inline-flex}}
+
+/* ---------- features: one row per feature, rules between ---------- */
+.feat{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s4);padding-block:var(--s6);border-top:1px solid var(--rule)}
+.feat:last-child{border-bottom:1px solid var(--rule)}
+.feat__txt{display:grid;gap:var(--s2);align-content:start}
+.feat__txt p{margin:0;color:var(--ink-2);max-width:56ch}
+.feat__txt .spec{color:var(--ink-3)}
+.feat__demo{min-width:0}
+@media (min-width:960px){.feat{grid-template-columns:repeat(12,minmax(0,1fr));column-gap:var(--s3)}.feat__txt{grid-column:1 / span 4}.feat__demo{grid-column:6 / span 7}}
+/* leagues */
+.lgtop{display:flex;flex-wrap:wrap;gap:var(--s1) var(--s3);margin:0 0 var(--s3);padding:0;list-style:none}
+.lgtop li{display:inline-flex;align-items:center;gap:var(--s1);font-family:var(--f-display);font-weight:700}
+.lgtop .logo{width:20px;height:20px}
+.lgtop svg{width:18px;height:18px;color:var(--c,var(--ink-3))}
+.folders{list-style:none;margin:0;padding:0}
+.folder{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s1);padding-block:var(--s2);border-top:1px solid var(--rule)}
+@media (min-width:600px){.folder{grid-template-columns:208px minmax(0,1fr);column-gap:var(--s3)}}
+.folder__head{display:flex;align-items:center;gap:12px;align-self:start;font-family:var(--f-mono);font-weight:700;font-size:14px;line-height:24px;cursor:pointer}
+.folder__state{font-weight:500;font-size:12px;color:var(--ink-3)}
+.folder__state::before{content:"Shown"}
+.folder__list{margin:0;color:var(--ink-2);transition:color .2s}
+.folder:has(.sw:not(:checked)) .folder__list{color:var(--ink-3);text-decoration:line-through}
+.folder:has(.sw:not(:checked)) .folder__state::before{content:"Hidden"}
+.sw{appearance:none;-webkit-appearance:none;position:relative;width:36px;height:20px;margin:0;flex:none;border-radius:10px;background:var(--rule-2);cursor:pointer;transition:background .2s}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .2s var(--ease)}
+.sw:checked{background:var(--accent)}
+.sw:checked::after{transform:translateX(16px)}
+/* tables (my teams, controller map, language) */
+.tbl{width:100%;border-collapse:collapse;font-size:15px;line-height:24px}
+.tbl th{padding:0 var(--s2) var(--s1) 0;text-align:left;font-family:var(--f-mono);font-weight:500;font-size:12px;color:var(--ink-3);border-bottom:1px solid var(--rule-2)}
+.tbl td{padding:12px var(--s2) 12px 0;border-bottom:1px solid var(--rule);vertical-align:middle;color:var(--ink-2)}
+.tbl th:last-child,.tbl td:last-child{padding-right:0}
+.tbl .num{text-align:right;font-variant-numeric:tabular-nums}
+.tbl .score{font-family:var(--f-display);font-weight:800;font-size:18px;color:var(--amber);white-space:nowrap}
+.tbl .st{font-family:var(--f-mono);font-size:13px;color:var(--ink-3);white-space:nowrap;text-align:right}
+.tbl .st.live{color:var(--live)}
+.tbl .lg{font-family:var(--f-mono);font-size:12px;color:var(--ink-3)}
+@media (max-width:599px){.tbl .lg{display:none}}
+.tm{display:inline-flex;align-items:center;gap:6px;font-family:var(--f-display);font-weight:700;color:var(--ink);white-space:nowrap}
+.tm .logo{width:22px;height:22px}
+.vs{margin-inline:6px;font-size:13px;color:var(--ink-3)}
+/* goal + stick lights */
+.sticks{display:flex;gap:var(--s6);padding:var(--s3) 0 var(--s4) var(--s1);--led-l:#e8323f;--led-r:#3a5bd9}
+.sticks .stick{width:80px}
+.sticks .led{inset:-6px;border-width:5px;box-shadow:0 0 18px 1px var(--lc),inset 0 0 8px var(--lc)}
+.sticks .cap{inset:14px}
+.sticks .stick:last-child .led{--lc:var(--led-r)}
+.sticks[data-mode="goal"] .stick:first-child .led{animation:swapL .42s steps(1,end) infinite}
+.sticks[data-mode="goal"] .stick:last-child .led{animation:swapR .42s steps(1,end) infinite}
+.sticks[data-mode="win"] .led{--lc:#ffc21a!important}
+.sticks[data-mode="tight"] .led{animation:breathe 2.4s ease-in-out infinite}
+.seg-group{display:inline-flex;flex-wrap:wrap;border:1px solid var(--rule-2);border-radius:var(--r2);overflow:hidden}
+.seg{height:40px;padding:0 var(--s2);border:0;border-right:1px solid var(--rule-2);background:transparent;color:var(--ink-2);font-family:var(--f-mono);font-weight:700;font-size:13px;cursor:pointer;transition:background .2s,color .2s}
+.seg:last-child{border-right:0}
+.seg:hover{color:var(--ink)}
+.seg[aria-pressed="true"]{background:var(--accent);color:#fff}
+.sticks__cap{margin:var(--s2) 0 0;min-height:24px;font-family:var(--f-mono);font-size:13px;color:var(--ink-3)}
+/* odds graph */
+.oc{margin:0}
+.oc svg{width:100%;height:auto;overflow:visible}
+.oc .g{stroke:var(--rule);stroke-width:1}
+.oc .g--mid{stroke:var(--rule-2);stroke-dasharray:4 4}
+.oc .per{stroke:var(--rule);stroke-dasharray:2 4}
+.oc text{fill:var(--ink-3);font-family:var(--f-mono);font-size:9px}
+.oc .area{fill:rgba(232,50,63,.14)}
+.oc .ln{fill:none;stroke:#ff5a68;stroke-width:2;stroke-linejoin:round;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:0}
+.motion .feat:not(.is-in) .oc .ln{stroke-dashoffset:1}
+.feat.is-in .oc .ln{transition:stroke-dashoffset 2s var(--ease)}
+.oc .end{fill:#fff}
+.oc .big{fill:var(--ink);font-family:var(--f-display);font-weight:800;font-size:15px}
+.oc figcaption{margin-top:var(--s1);font-family:var(--f-mono);font-size:12px;color:var(--ink-3)}
+/* board details */
+.figs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s3)}
+@media (min-width:720px){.figs{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.figs figure{display:grid;gap:var(--s1);margin:0;min-width:0}
+.figs svg{width:100%;height:72px}
+.figs figcaption{font-family:var(--f-mono);font-size:12px;line-height:16px;color:var(--ink-3)}
+.esp{display:grid;align-content:center;gap:4px;height:72px}
+.esp span{display:flex;justify-content:space-between;gap:var(--s1);padding-bottom:4px;border-bottom:1px solid var(--rule);font-family:var(--f-display);font-weight:700;font-size:15px;line-height:20px}
+.esp b{color:var(--amber);font-variant-numeric:tabular-nums}
+/* controller */
+.padviz{display:grid;gap:var(--s4);align-items:center}
+@media (min-width:720px){.padviz{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr)}}
+.pad{width:100%;max-width:360px}
+.pad .body{fill:var(--surface);stroke:var(--rule-2);stroke-width:1.5}
+.pad .part{fill:#1e2532;stroke:#323c4e;stroke-width:1;transition:fill .25s,stroke .25s}
+.pad .ring{fill:none;stroke:#323c4e;stroke-width:2.5;transition:stroke .25s}
+.pad .lbl{fill:var(--ink-3);font-family:var(--f-mono);font-size:7.5px;text-anchor:middle;transition:fill .25s}
+.pad[data-hl="dpad"] .p-dpad,.pad[data-hl="ab"] .p-ab,.pad[data-hl="xy"] .p-xy,.pad[data-hl="l1r1"] .p-l1r1,.pad[data-hl="l2r2"] .p-l2r2,.pad[data-hl="rs"] .p-rs,.pad[data-hl="r3"] .p-rs{fill:var(--accent);stroke:var(--link)}
+.pad[data-hl="rs"] .r-rs,.pad[data-hl="r3"] .r-rs{stroke:var(--link)}
+.pad[data-hl="l1r1"] .t-l1r1,.pad[data-hl="l2r2"] .t-l2r2{fill:var(--ink)}
+kbd{display:inline-grid;place-items:center;min-width:72px;height:28px;padding:0 var(--s1);border:1px solid var(--rule-2);border-radius:var(--r1);font-family:var(--f-mono);font-weight:700;font-size:12px;color:var(--ink);transition:background .25s,border-color .25s}
+.map tr.on td{color:var(--ink)}
+.map tr.on kbd{background:var(--accent);border-color:var(--accent);color:#fff}
+/* spoiler delay */
+.delay{display:grid;gap:12px}
+.lane{display:grid;grid-template-columns:88px minmax(0,1fr);align-items:center;gap:var(--s2);font-family:var(--f-mono);font-size:12px;color:var(--ink-2)}
+.lane__track{position:relative;height:32px;border:1px solid var(--rule);border-radius:var(--r1);background:repeating-linear-gradient(90deg,var(--rule) 0 1px,transparent 1px 10%)}
+.lane__goal{position:absolute;top:50%;left:var(--at);translate:-50% -50%;padding:2px 6px;border-radius:var(--r1);background:var(--live);color:#fff;font-family:var(--f-mono);font-weight:700;font-size:11px;line-height:16px;transition:left .4s var(--ease),background .3s}
+.lane--app .lane__goal{background:var(--accent)}
+.spoil[data-sync="yes"] .lane--app .lane__goal{background:#1fae5b}
+.delay__val{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s1);margin-top:var(--s1)}
+.delay__val output{min-width:72px;text-align:center;font-family:var(--f-mono);font-weight:700;font-size:18px;color:var(--amber);font-variant-numeric:tabular-nums}
+.delay__val .btn--sm{min-width:40px;padding:0 12px}
+.delay__val .sync{margin-left:auto}
+.delay__msg{margin:0;min-height:48px;color:var(--ink-2)}
+.spoil[data-sync="yes"] .delay__msg{color:#5ee59a}
+.tapnow{display:none;width:100%;height:48px;border:0;border-radius:var(--r2);background:var(--amber);color:#0a0d12;font-family:var(--f-display);font-weight:800;font-size:16px;cursor:pointer}
+.spoil[data-phase="wait"] .tapnow,.spoil[data-phase="tap"] .tapnow{display:block}
+.spoil[data-phase="wait"] .tapnow{background:var(--surface);color:var(--ink-3);cursor:default}
+/* screens */
+.cv{display:flex;align-items:center;height:176px;margin-bottom:var(--s3)}
+.cv__frame{position:relative;height:100%;aspect-ratio:1240/1080;max-width:100%;padding:var(--s1);border:1px dashed var(--rule-2);border-radius:var(--r2);transition:aspect-ratio .5s var(--ease)}
+.screens[data-dev="duo"] .cv__frame{aspect-ratio:1280/960}
+.cv__ui{display:grid;grid-template-rows:auto 1fr 1fr 1fr;gap:6px;height:100%;padding:var(--s1);border-radius:var(--r1);background:var(--surface)}
+.cv__ui i{border-radius:2px;background:var(--rule)}
+.cv__ui i:first-child{width:55%;height:10px;background:var(--accent)}
+.cv__dim{position:absolute;right:var(--s1);bottom:var(--s1);font-family:var(--f-mono);font-size:12px;color:var(--amber)}
+
+/* ---------- goal moment ---------- */
+.goal{border-top:1px solid var(--rule)}
+.goal__grid{row-gap:var(--s8);align-items:center}
+.goal__copy{grid-column:1 / -1;display:grid;gap:var(--s3);justify-items:start;min-width:0}
+.goal__stage{grid-column:1 / -1;justify-self:center;width:min(100%,460px)}
+@media (min-width:960px){.goal__copy{grid-column:1 / span 6}.goal__stage{grid-column:8 / span 5;width:100%}}
+.picker{margin:0;padding:0;border:0;min-width:0}
+.picker legend{padding:0;margin-bottom:var(--s1);font-family:var(--f-mono);font-size:12px;color:var(--ink-3)}
+.picker__opts{display:flex;flex-wrap:wrap;gap:var(--s1)}
+.pick{position:relative;display:inline-flex}
+.pick input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+.pick span{display:inline-flex;align-items:center;gap:var(--s1);height:40px;padding:0 12px 0 8px;border:1px solid var(--rule-2);border-radius:var(--r2);font-weight:600;font-size:15px;transition:border-color .2s,background .2s}
+.pick .logo{width:24px;height:24px}
+.pick:hover span{border-color:var(--ink-3)}
+.pick input:checked+span{border-color:var(--c);background:color-mix(in srgb,var(--c) 14%,transparent);box-shadow:inset 3px 0 0 var(--c)}
+.pick input:focus-visible+span{outline:2px solid var(--accent);outline-offset:3px}
+.goal__act{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s4);margin-top:var(--s1)}
+.goal-btn{--c:var(--t1);display:grid;place-items:center;align-content:center;gap:4px;width:176px;height:176px;border:0;border-radius:50%;cursor:pointer;color:#fff;background:var(--c);box-shadow:inset 0 0 0 6px rgba(255,255,255,.18),0 8px 0 color-mix(in srgb,var(--c) 45%,#000);transform:translateY(-4px);transition:transform .08s,box-shadow .08s,background .3s}
+.goal-btn:active,.goal-btn.is-hit{transform:translateY(4px);box-shadow:inset 0 0 0 6px rgba(255,255,255,.18),0 0 0 color-mix(in srgb,var(--c) 45%,#000)}
+.goal-btn.is-hit{animation:unpress .3s .1s both}
+@keyframes unpress{to{transform:translateY(-4px);box-shadow:inset 0 0 0 6px rgba(255,255,255,.18),0 8px 0 color-mix(in srgb,var(--c) 45%,#000)}}
+.goal-btn__label{font-family:var(--f-display);font-weight:900;font-style:italic;font-stretch:110%;font-size:40px;line-height:1;letter-spacing:-.03em}
+.goal-btn__sub{font-family:var(--f-mono);font-size:11px;line-height:16px;opacity:.9}
+.goal__opts{display:grid;gap:var(--s1);max-width:36ch}
+.toggle{display:inline-flex;align-items:center;gap:12px;font-weight:600;cursor:pointer}
+.hint{margin:0;font-size:14px;line-height:20px;color:var(--ink-3)}
+.goal.is-shake{animation:shake .55s cubic-bezier(.36,.07,.19,.97)}
+@keyframes shake{10%,90%{transform:translate3d(-2px,1px,0)}20%,80%{transform:translate3d(4px,-2px,0)}30%,50%,70%{transform:translate3d(-7px,2px,0)}40%,60%{transform:translate3d(7px,-1px,0)}}
+.takeover{position:fixed;inset:0;z-index:90;display:grid;place-items:center;pointer-events:none;visibility:hidden;overflow:hidden}
+.takeover.is-on,.takeover.is-static{visibility:visible}
+.takeover__flash{position:absolute;inset:0;opacity:0;background:radial-gradient(circle at 50% 55%,rgba(255,255,255,.92),color-mix(in srgb,var(--t1) 80%,transparent) 30%,color-mix(in srgb,var(--t1) 25%,transparent) 65%,transparent 100%)}
+.takeover__beams{position:absolute;width:200vmax;height:200vmax;opacity:0;background:repeating-conic-gradient(color-mix(in srgb,var(--t1) 38%,transparent) 0deg 5deg,transparent 5deg 15deg);-webkit-mask-image:radial-gradient(circle,#000,transparent 55%);mask-image:radial-gradient(circle,#000,transparent 55%)}
+.takeover__word{position:relative;margin:0;padding-inline:16px;font-family:var(--f-display);font-weight:900;font-style:italic;font-stretch:115%;font-size:clamp(80px,24vw,352px);line-height:.85;letter-spacing:-.045em;color:#fff;opacity:0;text-shadow:0 .04em 0 color-mix(in srgb,var(--t1) 55%,#000)}
+.takeover.is-on .takeover__flash{animation:tflash 1.3s ease-out forwards}
+.takeover.is-on .takeover__beams{animation:tbeams 1.9s ease-out forwards}
+.takeover.is-on .takeover__word{animation:tword 1.9s cubic-bezier(.2,1.2,.3,1) forwards}
+.takeover.is-static .takeover__flash{opacity:.3}
+.takeover.is-static .takeover__word{opacity:1}
+@keyframes tflash{0%{opacity:0}7%{opacity:.95}100%{opacity:0}}
+@keyframes tbeams{0%{opacity:0;transform:rotate(0) scale(.6)}15%{opacity:1}100%{opacity:0;transform:rotate(28deg) scale(1.1)}}
+@keyframes tword{0%{opacity:0;transform:scale(2.4) skewX(-8deg)}14%{opacity:1;transform:scale(.95) skewX(-8deg)}24%{transform:scale(1.02) skewX(-8deg)}32%{transform:scale(1) skewX(-8deg)}78%{opacity:1;transform:scale(1.05) skewX(-8deg)}100%{opacity:0;transform:scale(1.35) skewX(-8deg)}}
+.confetti{position:fixed;inset:0;z-index:95;width:100%;height:100%;pointer-events:none}
+
+/* ---------- install: a numbered list, not cards ---------- */
+.steps{list-style:none;margin:0;padding:0;display:grid;border-top:1px solid var(--rule)}
+.steps li{display:grid;gap:12px;align-content:start;padding-block:var(--s4);border-bottom:1px solid var(--rule);min-width:0}
+@media (min-width:960px){
+  .steps{grid-template-columns:repeat(3,minmax(0,1fr));border-bottom:1px solid var(--rule)}
+  .steps li{padding:var(--s4) var(--s4) var(--s4) 0;border-bottom:0}
+  .steps li+li{padding-left:var(--s4);border-left:1px solid var(--rule)}
+}
+.steps__n{margin:0;font-family:var(--f-mono);font-weight:700;font-size:13px;line-height:16px;color:var(--ink-3)}
+.steps p{margin:0;color:var(--ink-2)}
+.steps p b{color:var(--ink);font-weight:600}
+.steps .btn{justify-self:start;margin-top:var(--s1)}
+.install__note{margin:var(--s4) 0 0;max-width:70ch;font-size:15px;color:var(--ink-3)}
+
+/* ---------- faq ---------- */
+.faq{max-width:840px;border-top:1px solid var(--rule)}
+.faq details{border-bottom:1px solid var(--rule)}
+.faq summary{display:flex;align-items:center;justify-content:space-between;gap:var(--s2);padding-block:var(--s3);list-style:none;cursor:pointer;font-family:var(--f-display);font-weight:700;font-size:18px;line-height:24px}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"+";flex:none;font-family:var(--f-mono);font-weight:500;font-size:20px;color:var(--ink-3)}
+.faq details[open] summary::after{content:"\2212"}
+.faq details p{margin:0;padding-bottom:var(--s3);max-width:68ch;color:var(--ink-2)}
+
+/* ---------- footer ---------- */
+.foot{padding-top:var(--s12);padding-bottom:calc(env(safe-area-inset-bottom,0px) + var(--s6));border-top:1px solid var(--rule)}
+.foot__cta{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:var(--s3);padding-bottom:var(--s8);border-bottom:1px solid var(--rule)}
+.foot__cta .spec{margin-top:var(--s1)}
+.foot__row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--s2) var(--s4);padding-top:var(--s4)}
+.foot__made{display:flex;align-items:center;gap:12px;margin:0;font-family:var(--f-display);font-weight:800;font-size:18px}
+.foot__links{display:flex;flex-wrap:wrap;gap:var(--s1) var(--s3);margin:0;padding:0;list-style:none}
+.foot__links a{font-size:15px;color:var(--ink-2);text-decoration:none}
+.foot__links a:hover{color:var(--ink);text-decoration:underline}
+.foot__legal{margin:var(--s3) 0 0;max-width:90ch;font-size:13px;line-height:20px;color:var(--ink-3)}
+
+/* ---------- reduced motion ---------- */
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;animation-delay:0s!important;transition-duration:.001ms!important}
+  .pl,.puck,.beams,.cf{animation:none!important}
+  .cf{display:none}
 }
 
 /* ---------- device (drawn AYN Thor) ---------- */
@@ -323,332 +573,6 @@ main{display:block;overflow-x:clip}
 .stats i{position:relative;height:1.4cqw;border-radius:2cqw;background:color-mix(in srgb,#e31837 70%,#000);overflow:hidden}
 .stats i::before{content:"";position:absolute;inset:0 auto 0 0;width:var(--p);background:#3b6dff}
 .stats em{font-style:normal;grid-column:1 / -1;font-size:1.9cqw;color:#6c7896;letter-spacing:.1em;text-transform:uppercase;margin-top:.4cqw}
-
-/* ---------- marquee ---------- */
-.marquee{position:relative;display:grid;gap:14px;padding-block:clamp(28px,5vw,52px);border-block:1px solid var(--line);background:linear-gradient(180deg,transparent,rgba(10,16,34,.55),transparent)}
-.mq{overflow:hidden}
-.mq.is-on{-webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
-.mq__track{display:flex;flex-wrap:wrap;justify-content:center;gap:14px;margin:0;padding:6px 16px;list-style:none}
-.mq.is-on .mq__track{flex-wrap:nowrap;justify-content:flex-start;width:max-content;padding:6px 14px 6px 0;animation:mq var(--dur,100s) linear infinite}
-.mq--rev.is-on .mq__track{animation-direction:reverse}
-.mq:hover .mq__track{animation-play-state:paused}
-@keyframes mq{to{transform:translateX(-50%)}}
-.lp{display:inline-flex;align-items:center;gap:12px;height:62px;padding:0 24px 0 9px;border-radius:999px;background:var(--glass);border:1px solid var(--line);font-family:var(--f-display);font-weight:800;font-stretch:92%;font-size:clamp(1.1rem,1rem + .6vw,1.4rem);letter-spacing:-.015em;white-space:nowrap}
-.lp__mark{display:grid;place-items:center;width:44px;height:44px;flex:none;border-radius:50%;color:var(--c,#2f7bff);background:color-mix(in srgb,var(--c,#2f7bff) 16%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c,#2f7bff) 40%,transparent),0 0 22px -6px var(--c,#2f7bff)}
-.lp__mark svg{width:22px;height:22px}
-.lp__mark .logo{width:30px;height:30px}
-.lp__folder{font-family:var(--f-mono);font-weight:500;font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
-.tt{display:grid;place-items:center;width:84px;height:84px;flex:none;border-radius:24px;background:radial-gradient(circle at 50% 40%,color-mix(in srgb,var(--c) 26%,transparent),rgba(255,255,255,.02) 72%);border:1px solid var(--line);box-shadow:0 0 34px -12px var(--c);transition:transform .4s var(--ease),box-shadow .4s}
-.tt .logo{width:54px;height:54px;filter:drop-shadow(0 4px 10px rgba(0,0,0,.45))}
-.tt:hover{transform:translateY(-4px) scale(1.05);box-shadow:0 0 44px -8px var(--c)}
-
-/* ---------- manifesto + stats ---------- */
-.numbers{padding-block:clamp(72px,10vw,140px) 0}
-.stats__list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:20px}
-.stats__list li{display:grid;gap:8px;align-content:start;padding:26px 0 30px;border-top:1px solid var(--line)}
-.stat__n{font-family:var(--f-display);font-weight:900;font-stretch:88%;font-size:clamp(3.4rem,8.4vw,6.6rem);line-height:.9;letter-spacing:-.045em;font-variant-numeric:tabular-nums}
-.stat__l{font-family:var(--f-mono);font-size:.76rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2)}
-@media (min-width:900px){.stats__list{grid-template-columns:repeat(4,minmax(0,1fr));column-gap:0}.stats__list li+li{padding-left:28px;border-left:1px solid var(--line)}}
-
-/* ---------- story ---------- */
-.story__grid{position:relative}
-.story__steps{list-style:none;margin:0;padding:0}
-.step{display:flex;flex-direction:column;justify-content:center;gap:16px;min-height:70vh;min-height:70svh;max-width:32rem;padding-block:24px}
-.motion .step{opacity:.25;transition:opacity .5s var(--ease)}
-.motion .step.is-active{opacity:1}
-.step__tag{display:inline-flex;align-items:center;gap:10px;margin:0;font-family:var(--f-mono);font-size:.76rem;letter-spacing:.14em;text-transform:uppercase;color:var(--volt-hi)}
-.step__tag::before{content:"";width:22px;height:2px;border-radius:2px;background:currentColor}
-.step p{margin:0;color:var(--ink-2);max-width:46ch}
-.story__stage{position:sticky;top:calc(env(safe-area-inset-top,0px) + 8px);z-index:3;display:grid;justify-items:center;padding-block:8px 20px;margin-left:calc(var(--gut-l) * -1);margin-right:calc(var(--gut-r) * -1);background:linear-gradient(180deg,var(--bg) 82%,rgba(4,6,12,0))}
-.story__sticky{position:relative;width:min(62vw,300px,calc(36svh / var(--dr)))}
-.rail{display:flex;justify-content:center;gap:6px;margin-top:18px}
-.rail i{width:16px;height:4px;border-radius:4px;background:var(--line-2);transition:width .4s var(--ease),background .4s}
-.rail i.on{width:38px;background:var(--volt)}
-.chip{position:absolute;z-index:4;display:none;align-items:center;gap:8px;padding:9px 14px;border-radius:999px;background:rgba(10,15,30,.75);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border:1px solid var(--line-2);font-family:var(--f-mono);font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;box-shadow:0 10px 30px -10px rgba(0,0,0,.7);transition:border-color .4s,box-shadow .4s}
-.chip i{width:8px;height:8px;border-radius:50%;background:var(--c,var(--volt));box-shadow:0 0 10px var(--c,var(--volt))}
-.chip{right:calc(100% + 18px)}
-.chip--top{top:20%}
-.chip--led{top:58%;--c:#e8323f}
-.chip--bot{top:76%}
-.story__sticky[data-scene="3"] .chip--led{border-color:#e8323f;box-shadow:0 0 30px -6px #e8323f}
-@media (min-width:900px){
-  .story__grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(40px,6vw,110px)}
-  .story__stage{grid-column:2;grid-row:1;position:relative;top:auto;display:block;margin:0;padding:0;background:none}
-  .story__sticky{--sdw:min(480px,36vw,calc(74vh / var(--dr)));position:sticky;top:calc(50vh - var(--sdw) * var(--dr) / 2 - 20px);width:var(--sdw);margin-inline:auto}
-  .story__steps{grid-column:1;grid-row:1;padding-block:8vh}
-  .step{min-height:88vh;min-height:88svh}
-}
-@media (min-width:1200px){.chip{display:inline-flex}}
-
-/* ---------- bento ---------- */
-.bento{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
-.card{--glow:var(--volt);position:relative;display:flex;flex-direction:column;gap:12px;min-width:0;padding:clamp(22px,2.4vw,30px);border-radius:28px;background:linear-gradient(180deg,rgba(150,175,255,.075),rgba(150,175,255,.02));border:1px solid var(--line);overflow:hidden;isolation:isolate;transition:transform .5s var(--ease),border-color .4s}
-.card::before{content:"";position:absolute;inset:0;z-index:-1;opacity:0;transition:opacity .4s;background:radial-gradient(480px circle at var(--mx,50%) var(--my,0%),color-mix(in srgb,var(--glow) 18%,transparent),transparent 60%)}
-.card::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;opacity:0;transition:opacity .4s;background:radial-gradient(320px circle at var(--mx,50%) var(--my,0%),color-mix(in srgb,var(--glow) 85%,transparent),transparent 65%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
-.card:hover::before,.card:hover::after,.card:focus-within::before{opacity:1}
-.card:hover{transform:translateY(-4px)}
-.card__tag{margin:0;font-family:var(--f-mono);font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:color-mix(in srgb,var(--glow) 55%,#fff)}
-.card__txt{margin:0;color:var(--ink-2);max-width:50ch}
-.card__viz{margin-top:auto;padding-top:14px}
-.card a.more{display:inline-flex;align-items:center;gap:6px;font-weight:600;color:var(--volt-hi);text-decoration:none}
-.card a.more:hover{text-decoration:underline}
-@media (min-width:1080px) and (hover:hover){.card{-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}}
-@media (min-width:720px){
-  .bento{grid-template-columns:repeat(6,minmax(0,1fr))}
-  .card{grid-column:span 3}
-  .c-leagues,.c-odds,.c-pad{grid-column:span 6}
-}
-@media (min-width:1080px){
-  .bento{grid-template-columns:repeat(12,minmax(0,1fr))}
-  .c-leagues{grid-column:span 7;grid-row:span 2}
-  .c-teams,.c-goal{grid-column:span 5}
-  .c-sticks,.c-fast,.c-odds,.c-spoil,.c-details,.c-canvas,.c-lang{grid-column:span 4}
-  .c-pad{grid-column:span 8}
-}
-.btnrow{display:flex;flex-wrap:wrap;gap:8px}
-.seg{min-height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--line-2);background:rgba(255,255,255,.04);color:var(--ink-2);font-family:var(--f-mono);font-weight:700;font-size:.74rem;letter-spacing:.06em;cursor:pointer;transition:background .25s,color .25s,border-color .25s}
-.seg:hover{color:var(--ink);border-color:rgba(164,188,255,.4)}
-.seg[aria-pressed="true"]{background:var(--volt);border-color:var(--volt);color:#fff}
-/* leagues */
-.toplg{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px;padding:0;list-style:none}
-.toplg li{display:inline-flex;align-items:center;gap:8px;padding:6px 12px 6px 8px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid var(--line);font-family:var(--f-display);font-weight:800;font-size:.95rem}
-.toplg .logo{width:20px;height:20px}
-.toplg .dot{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;color:var(--c);background:color-mix(in srgb,var(--c) 18%,transparent)}
-.toplg .dot svg{width:12px;height:12px}
-.folders{list-style:none;margin:0;padding:0;display:grid;gap:10px}
-@media (min-width:560px){.folders{grid-template-columns:repeat(2,minmax(0,1fr))}.folder:last-child:nth-child(odd){grid-column:1 / -1}}
-@media (min-width:1080px){.c-leagues .folders{grid-template-columns:minmax(0,1fr)}}
-.folder{--c:var(--volt);display:grid;gap:10px;align-content:start;padding:12px 14px;border-radius:18px;background:rgba(255,255,255,.03);border:1px solid var(--line);transition:border-color .3s}
-.folder__head{display:flex;align-items:center;gap:10px;font-family:var(--f-display);font-weight:800;letter-spacing:.02em;cursor:pointer}
-.folder__head .lp__mark{width:32px;height:32px}
-.folder__head .lp__mark svg{width:17px;height:17px}
-.folder__state{margin-left:auto;font-family:var(--f-mono);font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
-.folder__state::before{content:"Shown"}
-.chips{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
-.chips li{padding:4px 10px;border-radius:999px;font-size:.84rem;font-weight:600;background:color-mix(in srgb,var(--c) 12%,transparent);border:1px solid color-mix(in srgb,var(--c) 30%,transparent);transition:opacity .3s}
-.folder:has(.sw:not(:checked)){border-style:dashed}
-.folder:has(.sw:not(:checked)) .chips li{opacity:.3;text-decoration:line-through}
-.folder:has(.sw:not(:checked)) .folder__state::before{content:"Hidden"}
-.sw{appearance:none;-webkit-appearance:none;position:relative;width:38px;height:22px;margin:0;flex:none;border-radius:999px;background:rgba(255,255,255,.14);cursor:pointer;transition:background .25s}
-.sw::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .25s var(--ease)}
-.sw:checked{background:var(--c,var(--volt))}
-.sw:checked::after{transform:translateX(16px)}
-/* my teams */
-.mt{list-style:none;margin:0;padding:0;display:grid;gap:8px}
-.mt li{display:flex;align-items:center;gap:10px;min-height:50px;padding:0 14px;border-radius:14px;background:linear-gradient(90deg,color-mix(in srgb,var(--l) 26%,transparent),rgba(255,255,255,.02) 45%,rgba(255,255,255,.02) 55%,color-mix(in srgb,var(--r) 26%,transparent));border:1px solid var(--line);font-family:var(--f-display);font-weight:800}
-.mt .logo{width:26px;height:26px}
-.mt__sc{min-width:3.8em;text-align:center;font-variant-numeric:tabular-nums;font-size:1.08rem}
-.mt__lg{font-family:var(--f-mono);font-weight:500;font-size:.66rem;letter-spacing:.08em;color:var(--ink-3);width:3.6em}
-.mt__st{margin-left:auto;font-family:var(--f-mono);font-style:normal;font-weight:500;font-size:.72rem;color:var(--ink-3)}
-.mt__st.is-live{color:#ff6b78}
-/* goal card */
-.gviz{position:relative;display:grid;place-items:center;height:170px}
-.gviz__rings i{position:absolute;left:50%;top:50%;width:120px;height:120px;margin:-60px;border-radius:50%;border:2px solid color-mix(in srgb,var(--glow) 70%,transparent);animation:rings 2.6s var(--ease) infinite}
-.gviz__rings i:nth-child(2){animation-delay:.85s}.gviz__rings i:nth-child(3){animation-delay:1.7s}
-@keyframes rings{from{transform:scale(.6);opacity:1}to{transform:scale(2.1);opacity:0}}
-.gviz__word{position:relative;font-family:var(--f-display);font-weight:900;font-style:italic;font-stretch:112%;font-size:clamp(2.2rem,4vw,3rem);letter-spacing:-.04em;text-shadow:0 0 30px color-mix(in srgb,var(--glow) 80%,transparent)}
-.styles{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
-.styles li{padding:4px 10px;border-radius:8px;background:rgba(255,255,255,.04);border:1px solid var(--line);font-family:var(--f-mono);font-size:.7rem;letter-spacing:.06em;color:var(--ink-2)}
-/* sticks card */
-.sticks{position:relative;display:flex;justify-content:center;gap:clamp(36px,7vw,64px);padding-block:22px 18px;--led-l:#e8323f;--led-r:#3a5bd9}
-.sticks .stick{width:84px}
-.sticks .led{inset:-7px;border-width:5px;box-shadow:0 0 24px 2px var(--lc),inset 0 0 10px var(--lc)}
-.sticks .cap{inset:15px}
-.sticks .stick:last-child .led{--lc:var(--led-r)}
-.sticks[data-mode="goal"] .stick:first-child .led{animation:swapL .42s steps(1,end) infinite}
-.sticks[data-mode="goal"] .stick:last-child .led{animation:swapR .42s steps(1,end) infinite}
-.sticks[data-mode="win"] .led{--lc:#ffc21a!important}
-.sticks[data-mode="tight"] .led{animation:breathe 2.4s ease-in-out infinite}
-.c-sticks .btnrow{justify-content:center;margin-top:6px}
-.sticks__cap{margin:10px 0 0;min-height:1.6em;font-family:var(--f-mono);font-size:.74rem;color:var(--ink-3);text-align:center}
-/* fast scores race */
-.race{display:grid;gap:12px}
-.race__row{display:grid;grid-template-columns:6.4em minmax(0,1fr) 3.4em;align-items:center;gap:12px;font-family:var(--f-mono);font-size:.76rem;color:var(--ink-2)}
-.race__row.is-us{color:var(--ink)}
-.race__bar{height:10px;border-radius:10px;background:rgba(255,255,255,.07);overflow:hidden}
-.race__bar i{display:block;height:100%;width:0;border-radius:inherit;background:var(--ink-3)}
-.race__row.is-us .race__bar i{background:var(--volt);box-shadow:0 0 14px var(--volt)}
-.race__sc{position:relative;font-family:var(--f-display);font-weight:800;font-size:1.05rem;color:var(--ink);text-align:right}
-.race__sc b{font-weight:800}
-.race__sc b+b{position:absolute;right:0;top:0;opacity:0;color:var(--volt-hi)}
-.card.is-in .race__bar i{animation:race1 5s var(--ease) infinite}
-.card.is-in .race__row:not(.is-us) .race__bar i{animation-name:race2}
-.card.is-in .race__row.is-us .race__sc b:first-child{animation:old1 5s infinite}
-.card.is-in .race__row.is-us .race__sc b+b{animation:new1 5s infinite}
-.card.is-in .race__row:not(.is-us) .race__sc b:first-child{animation:old2 5s infinite}
-.card.is-in .race__row:not(.is-us) .race__sc b+b{animation:new2 5s infinite}
-@keyframes race1{0%{width:0}22%,100%{width:100%}}
-@keyframes race2{0%{width:0}22%{width:46%}62%,100%{width:100%}}
-@keyframes old1{0%,21%{opacity:1}22%,100%{opacity:0}}
-@keyframes new1{0%,21%{opacity:0}22%,100%{opacity:1}}
-@keyframes old2{0%,61%{opacity:1}62%,100%{opacity:0}}
-@keyframes new2{0%,61%{opacity:0}62%,100%{opacity:1;color:var(--ink)}}
-.race__note{margin:4px 0 0;font-size:.86rem;color:var(--ink-3)}
-/* odds card */
-.oc{margin:0}
-.oc svg{width:100%;height:auto;overflow:visible}
-.oc .g{stroke:var(--line);stroke-width:1}
-.oc .g--mid{stroke:var(--line-2);stroke-dasharray:4 4}
-.oc .per{stroke:var(--line);stroke-dasharray:2 4}
-.oc text{fill:var(--ink-3);font-family:var(--f-mono);font-size:9px}
-.oc .area{fill:rgba(232,50,63,.16)}
-.oc .ln{fill:none;stroke:#ff5a68;stroke-width:2.4;stroke-linejoin:round;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:0}
-.motion .card:not(.is-in) .oc .ln{stroke-dashoffset:1}
-.card.is-in .oc .ln{transition:stroke-dashoffset 2.2s var(--ease)}
-.oc .end{fill:#fff}
-.oc .pulse{fill:none;stroke:#ff5a68;stroke-width:1.5;transform-box:fill-box;transform-origin:center;animation:pulse 1.8s ease-out infinite}
-@keyframes pulse{from{transform:scale(.6);opacity:1}to{transform:scale(2.4);opacity:0}}
-.oc .big{fill:var(--ink);font-family:var(--f-display);font-weight:800;font-size:15px}
-.oc .gl{fill:#ffd23f;font-weight:700}
-.oc figcaption{margin-top:8px;font-family:var(--f-mono);font-size:.72rem;letter-spacing:.06em;color:var(--ink-3)}
-/* controller card */
-.padviz{display:grid;gap:20px;align-items:center}
-@media (min-width:560px){.padviz{grid-template-columns:minmax(0,1fr) minmax(0,1.1fr)}}
-.pad{width:100%;max-width:380px;margin-inline:auto}
-.pad .body{fill:#151a26;stroke:var(--line-2);stroke-width:1.5}
-.pad .part{fill:#232a3b;stroke:#39425a;stroke-width:1;transition:fill .3s,stroke .3s}
-.pad .ring{fill:none;stroke:#39425a;stroke-width:2.5;transition:stroke .3s}
-.pad .lbl{fill:var(--ink-3);font-family:var(--f-mono);font-size:7.5px;text-anchor:middle;transition:fill .3s}
-.pad[data-hl="dpad"] .p-dpad,.pad[data-hl="ab"] .p-ab,.pad[data-hl="xy"] .p-xy,.pad[data-hl="l1r1"] .p-l1r1,.pad[data-hl="l2r2"] .p-l2r2,.pad[data-hl="rs"] .p-rs,.pad[data-hl="r3"] .p-rs{fill:var(--volt);stroke:var(--volt-hi)}
-.pad[data-hl="rs"] .r-rs,.pad[data-hl="r3"] .r-rs{stroke:var(--volt-hi)}
-.pad[data-hl="l1r1"] .t-l1r1,.pad[data-hl="l2r2"] .t-l2r2{fill:var(--ink)}
-.map{list-style:none;margin:0;padding:0;display:grid;gap:6px}
-.map li{display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:12px;border:1px solid transparent;transition:background .3s,border-color .3s}
-.map li.on{background:rgba(47,123,255,.12);border-color:rgba(47,123,255,.4)}
-.map kbd{display:inline-grid;place-items:center;min-width:64px;height:30px;padding:0 8px;border-radius:9px;background:#151b2b;border:1px solid var(--line-2);box-shadow:0 2px 0 rgba(0,0,0,.5);font-family:var(--f-mono);font-size:.72rem;font-weight:700;color:var(--ink)}
-.map span{font-size:.95rem;color:var(--ink-2)}
-.map li.on span{color:var(--ink)}
-/* spoiler card */
-.delay{display:grid;gap:12px}
-.lane{display:grid;grid-template-columns:6em minmax(0,1fr);align-items:center;gap:12px;font-family:var(--f-mono);font-size:.72rem;color:var(--ink-2)}
-.lane__track{position:relative;height:30px;border-radius:10px;background:repeating-linear-gradient(90deg,rgba(255,255,255,.06) 0 1px,transparent 1px 10%),rgba(255,255,255,.03);border:1px solid var(--line)}
-.lane__goal{position:absolute;top:50%;left:var(--at);translate:-50% -50%;padding:3px 7px;border-radius:7px;background:#e8323f;color:#fff;font-family:var(--f-display);font-weight:800;font-size:.68rem;letter-spacing:.04em;transition:left .4s var(--ease),background .3s}
-.lane--app .lane__goal{background:var(--volt)}
-.c-spoil[data-sync="yes"] .lane--app .lane__goal{background:#19a95f}
-.delay__val{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
-.delay__val output{min-width:4.2em;text-align:center;font-family:var(--f-display);font-weight:800;font-size:1.3rem;font-variant-numeric:tabular-nums}
-.delay__val .seg{min-width:40px;font-size:1rem}
-.delay__val .sync{margin-left:auto;white-space:nowrap}
-.delay__msg{margin:0;min-height:3em;font-size:.92rem;color:var(--ink-2)}
-.c-spoil[data-sync="yes"] .delay__msg{color:#5ee59a}
-.tapnow{display:none;width:100%;min-height:52px;border:0;border-radius:14px;background:#ffd23f;color:#0a1020;font-family:var(--f-display);font-weight:900;font-size:1rem;letter-spacing:.02em;cursor:pointer}
-.c-spoil[data-phase="wait"] .tapnow,.c-spoil[data-phase="tap"] .tapnow{display:block}
-.c-spoil[data-phase="wait"] .tapnow{background:rgba(255,255,255,.08);color:var(--ink-2);cursor:default}
-/* details */
-.tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-.tile{display:grid;gap:8px;align-content:start;padding:12px;border-radius:16px;background:rgba(255,255,255,.035);border:1px solid var(--line);min-width:0}
-.tile svg{width:100%;height:58px}
-.tile b{font-family:var(--f-mono);font-weight:500;font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
-.esp{display:grid;gap:5px;min-height:58px;align-content:center;font-family:var(--f-display);font-weight:800}
-.esp span{display:flex;justify-content:space-between;gap:8px;font-size:.92rem}
-.esp small{font-family:var(--f-mono);font-weight:500;font-size:.64rem;color:var(--ink-3)}
-/* canvas card */
-.cv{position:relative;height:180px;display:grid;place-items:center}
-.cv__frame{position:relative;height:100%;aspect-ratio:1240/1080;max-width:100%;border-radius:12px;border:1.5px dashed rgba(140,185,255,.45);padding:8px;transition:aspect-ratio .6s var(--ease)}
-.c-canvas[data-dev="duo"] .cv__frame{aspect-ratio:1280/960}
-.cv__frame::before,.cv__frame::after{content:"";position:absolute;width:12px;height:12px;border:2px solid var(--volt-hi)}
-.cv__frame::before{left:-3px;top:-3px;border-right:0;border-bottom:0}.cv__frame::after{right:-3px;bottom:-3px;border-left:0;border-top:0}
-.cv__ui{display:grid;grid-template-rows:auto 1fr 1fr 1fr;gap:6px;height:100%;padding:8px;border-radius:8px;background:linear-gradient(180deg,#0a1122,#060912);border:1px solid var(--line)}
-.cv__ui i{border-radius:6px;background:#0d1428}
-.cv__ui i:first-child{height:10px;width:55%;background:var(--volt)}
-.cv__ui i:nth-child(2){background:linear-gradient(90deg,#7a1b24,#0d1428 50%,#1b2f6e)}
-.cv__dim{position:absolute;right:10px;bottom:10px;padding:3px 8px;border-radius:6px;background:rgba(5,10,25,.85);font-family:var(--f-mono);font-size:.66rem;color:var(--volt-hi)}
-/* language card */
-.strings{list-style:none;margin:14px 0 0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.strings li{padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid var(--line);font-family:var(--f-display);font-weight:800;font-size:1.02rem;min-width:0;overflow-wrap:anywhere}
-.strings li small{display:block;font-family:var(--f-mono);font-weight:500;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
-
-/* ---------- goal moment ---------- */
-.goal{overflow:clip}
-.goal::before{content:"";position:absolute;inset:10% -10% 0;z-index:-1;pointer-events:none;background:radial-gradient(50% 45% at 70% 50%,color-mix(in srgb,var(--t1) 16%,transparent),transparent 70%)}
-.goal__grid{display:grid;gap:clamp(48px,6vw,80px);align-items:center}
-@media (min-width:960px){.goal__grid{grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr)}}
-.goal__copy{display:grid;gap:24px;justify-items:start;min-width:0}
-.picker{margin:0;padding:0;border:0;min-width:0}
-.picker legend{padding:0;margin-bottom:12px;font-family:var(--f-mono);font-size:.74rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2)}
-.picker__opts{display:flex;flex-wrap:wrap;gap:10px}
-.pick{position:relative;display:inline-flex}
-.pick input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
-.pick span{display:inline-flex;align-items:center;gap:9px;min-height:46px;padding:6px 16px 6px 8px;border-radius:999px;border:1px solid var(--line-2);background:var(--glass);font-weight:600;transition:border-color .25s,background .25s,box-shadow .25s}
-.pick .logo{width:30px;height:30px}
-.pick input:checked+span{border-color:var(--c);background:color-mix(in srgb,var(--c) 18%,transparent);box-shadow:0 0 26px -6px var(--c)}
-.pick input:focus-visible+span{outline:2px solid var(--volt-hi);outline-offset:3px}
-.pick:hover span{border-color:rgba(164,188,255,.4)}
-.goal__act{display:flex;flex-wrap:wrap;align-items:center;gap:20px 36px}
-.gb-wrap{display:inline-block;padding:26px}
-.goal-btn{--c:var(--t1);position:relative;display:grid;place-items:center;align-content:center;gap:6px;width:clamp(190px,46vw,232px);aspect-ratio:1;border:0;border-radius:50%;cursor:pointer;color:#fff;background:radial-gradient(circle at 50% 32%,color-mix(in srgb,var(--c) 55%,#fff) 0%,var(--c) 46%,color-mix(in srgb,var(--c) 55%,#000) 100%);box-shadow:0 0 0 10px rgba(255,255,255,.035),0 0 0 11px var(--line-2),0 14px 0 color-mix(in srgb,var(--c) 40%,#000),0 34px 70px -12px color-mix(in srgb,var(--c) 75%,transparent),inset 0 -12px 26px rgba(0,0,0,.35),inset 0 8px 16px rgba(255,255,255,.35);transform:translateY(-6px);transition:transform .1s,box-shadow .1s,background .4s}
-.goal-btn:active,.goal-btn.is-hit{transform:translateY(6px);box-shadow:0 0 0 10px rgba(255,255,255,.035),0 0 0 11px var(--line-2),0 2px 0 color-mix(in srgb,var(--c) 40%,#000),0 20px 50px -12px color-mix(in srgb,var(--c) 90%,transparent),inset 0 -8px 20px rgba(0,0,0,.35),inset 0 8px 16px rgba(255,255,255,.35)}
-.goal-btn.is-hit{animation:unpress .35s .12s both}
-@keyframes unpress{to{transform:translateY(-6px)}}
-.goal-btn::before{content:"";position:absolute;inset:-26px;border-radius:50%;border:2px solid color-mix(in srgb,var(--c) 65%,transparent);animation:ring 2.4s var(--ease) infinite;pointer-events:none}
-@keyframes ring{0%{transform:scale(.88);opacity:.9}100%{transform:scale(1.22);opacity:0}}
-.goal-btn__label{font-family:var(--f-display);font-weight:900;font-style:italic;font-stretch:112%;font-size:clamp(2.6rem,7vw,3.4rem);line-height:.9;letter-spacing:-.035em;text-shadow:0 3px 0 rgba(0,0,0,.25)}
-.goal-btn__sub{font-family:var(--f-mono);font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;opacity:.9}
-.goal__opts{display:grid;gap:12px;max-width:32ch}
-.toggle{display:inline-flex;align-items:center;gap:12px;font-weight:600;cursor:pointer}
-.hint{margin:0;font-size:.92rem;color:var(--ink-3)}
-.goal__stage{display:grid;justify-items:center;gap:26px;min-width:0}
-.goal__dev{width:min(100%,480px)}
-.goal.is-shake{animation:shake .55s cubic-bezier(.36,.07,.19,.97)}
-@keyframes shake{10%,90%{transform:translate3d(-2px,1px,0)}20%,80%{transform:translate3d(4px,-2px,0)}30%,50%,70%{transform:translate3d(-7px,2px,0)}40%,60%{transform:translate3d(7px,-1px,0)}}
-.takeover{position:fixed;inset:0;z-index:90;display:grid;place-items:center;pointer-events:none;visibility:hidden;overflow:hidden}
-.takeover.is-on,.takeover.is-static{visibility:visible}
-.takeover__flash{position:absolute;inset:0;opacity:0;background:radial-gradient(circle at 50% 55%,rgba(255,255,255,.92),color-mix(in srgb,var(--t1) 80%,transparent) 30%,color-mix(in srgb,var(--t1) 25%,transparent) 65%,transparent 100%)}
-.takeover__beams{position:absolute;width:200vmax;height:200vmax;opacity:0;background:repeating-conic-gradient(color-mix(in srgb,var(--t1) 38%,transparent) 0deg 5deg,transparent 5deg 15deg);-webkit-mask-image:radial-gradient(circle,#000,transparent 55%);mask-image:radial-gradient(circle,#000,transparent 55%)}
-.takeover__word{position:relative;margin:0;padding-inline:16px;font-family:var(--f-display);font-weight:900;font-style:italic;font-stretch:115%;font-size:clamp(5rem,24vw,22rem);line-height:.85;letter-spacing:-.045em;color:#fff;opacity:0;text-shadow:0 .04em 0 color-mix(in srgb,var(--t1) 55%,#000),0 0 .35em color-mix(in srgb,var(--t1) 85%,transparent)}
-.takeover.is-on .takeover__flash{animation:tflash 1.3s ease-out forwards}
-.takeover.is-on .takeover__beams{animation:tbeams 1.9s ease-out forwards}
-.takeover.is-on .takeover__word{animation:tword 1.9s cubic-bezier(.2,1.2,.3,1) forwards}
-.takeover.is-static .takeover__flash{opacity:.3}
-.takeover.is-static .takeover__word{opacity:1}
-@keyframes tflash{0%{opacity:0}7%{opacity:.95}100%{opacity:0}}
-@keyframes tbeams{0%{opacity:0;transform:rotate(0) scale(.6)}15%{opacity:1}100%{opacity:0;transform:rotate(28deg) scale(1.1)}}
-@keyframes tword{0%{opacity:0;transform:scale(2.4) skewX(-8deg)}14%{opacity:1;transform:scale(.95) skewX(-8deg)}24%{transform:scale(1.02) skewX(-8deg)}32%{transform:scale(1) skewX(-8deg)}78%{opacity:1;transform:scale(1.05) skewX(-8deg)}100%{opacity:0;transform:scale(1.35) skewX(-8deg)}}
-.confetti{position:fixed;inset:0;z-index:95;width:100%;height:100%;pointer-events:none}
-
-/* ---------- install ---------- */
-.isteps{list-style:none;margin:0;padding:0;display:grid;gap:16px}
-@media (min-width:900px){.isteps{grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}}
-.istep{display:flex;flex-direction:column;gap:14px;padding:clamp(22px,2.4vw,30px);border-radius:26px;background:linear-gradient(180deg,var(--glass-2),var(--glass));border:1px solid var(--line);min-width:0}
-.istep__n{display:grid;place-items:center;width:52px;height:52px;border-radius:16px;background:var(--volt);box-shadow:0 10px 30px -8px rgba(47,123,255,.8);font-family:var(--f-display);font-weight:900;font-size:1.5rem;color:#fff}
-.istep p{margin:0;color:var(--ink-2)}
-.istep p b{color:var(--ink);font-weight:600}
-.istep .btn{align-self:flex-start;margin-top:auto}
-.install__note{margin:28px 0 0;color:var(--ink-3);font-size:.95rem;max-width:70ch}
-.install__note a{color:var(--volt-hi)}
-
-/* ---------- faq ---------- */
-.faq{display:grid;gap:12px;max-width:920px}
-.faq details{border:1px solid var(--line);border-radius:20px;background:linear-gradient(180deg,var(--glass-2),var(--glass));transition:border-color .3s}
-.faq details[open]{border-color:var(--line-2)}
-.faq summary{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 24px;cursor:pointer;list-style:none;font-family:var(--f-display);font-weight:800;font-size:clamp(1.05rem,1rem + .4vw,1.25rem);border-radius:20px}
-.faq summary::-webkit-details-marker{display:none}
-.faq summary::after{content:"";flex:none;width:11px;height:11px;margin-top:-5px;border-right:2px solid var(--volt-hi);border-bottom:2px solid var(--volt-hi);transform:rotate(45deg);transition:transform .3s var(--ease),margin .3s}
-.faq details[open] summary::after{transform:rotate(225deg);margin-top:5px}
-.faq details p{margin:0;padding:0 24px 22px;color:var(--ink-2);max-width:70ch}
-
-/* ---------- footer ---------- */
-.foot{position:relative;padding-top:clamp(80px,12vw,160px);padding-bottom:calc(env(safe-area-inset-bottom,0px) + 40px);overflow:clip}
-.foot__cta{display:grid;gap:26px;justify-items:center;text-align:center}
-.foot__word{margin:clamp(56px,8vw,100px) 0 0;padding-bottom:.14em;font-family:var(--f-display);font-weight:900;font-stretch:105%;font-size:clamp(3.2rem,15vw,15rem);line-height:.82;letter-spacing:-.05em;text-align:center;white-space:nowrap;color:transparent;-webkit-text-stroke:1px rgba(164,188,255,.3);user-select:none}
-.foot__row{display:flex;flex-wrap:wrap;gap:18px 32px;align-items:center;justify-content:space-between;margin-top:12px;padding-top:28px;border-top:1px solid var(--line)}
-.foot__made{display:flex;align-items:center;gap:10px;margin:0;font-family:var(--f-display);font-weight:800;font-size:1.25rem}
-
-.foot__links{display:flex;flex-wrap:wrap;gap:8px 22px;margin:0;padding:0;list-style:none}
-.foot__links a{color:var(--ink-2);text-decoration:none}
-.foot__links a:hover{color:var(--ink);text-decoration:underline}
-.foot__legal{margin:24px 0 0;font-size:.82rem;color:var(--ink-3);max-width:90ch}
-
-/* ---------- reduced motion ---------- */
-@media (prefers-reduced-motion:reduce){
-  html{scroll-behavior:auto}
-  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;animation-delay:0s!important;transition-duration:.001ms!important}
-  .pl,.puck,.beams,.cf,.gviz__rings i{animation:none!important}
-  .cf{display:none}
-  .race__bar i{width:100%!important}
-  .race__sc b:first-child{opacity:0}.race__sc b+b{opacity:1}
-  .card:hover{transform:none}
-}
 
 
 </style>
@@ -830,12 +754,9 @@ main{display:block;overflow-x:clip}
 </template>
 
 <a class="skip" href="#main">Skip to content</a>
-<div class="atmo" aria-hidden="true"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div>
-<div class="grain" aria-hidden="true"></div>
-<div class="progress" aria-hidden="true"></div>
 
 <header class="nav" id="nav">
-  <nav class="nav__bar" aria-label="Main">
+  <nav class="nav__bar wrap" aria-label="Main">
     <a class="brand" href="#top" aria-label="ThorSport, back to top"><img class="brand__icon" src="data:image/webp;base64,UklGRg4GAABXRUJQVlA4WAoAAAAQAAAATwAATwAAQUxQSPoAAAABgBvbturm3P9eKmXUhFQCtSOZisCOpMzUgTIzUw3/3XvMeGYcOiIUtm3bWHHHCVU/wDsykMfrB2cM/ijBs4P1cQYyPsEMzdUFf43FahNmHyYBK1cki8fPJ7yQvFoB0oftzsja+Wt4Tc66SB+0d/vu9KuH2967qdB/ZM1fp+ZjH9VrrfXIQgEKH1tWwRLmb88KxzmSZUxeqzITZGvcu6vE/b5hWHvddbY1pMNwnXgcpkEEhYgYbLMopXB7h64U584ZtS48oxyh13+3+HvfoXrveD3PoOdB9DyNnkfS81xyHk7QE+p5TDnPKueB5Ty1nEeX8/yi/xBy/yQAVlA4IO4EAADwGQCdASpQAFAAPjEWiUMiISESnAXkIAMEtQBjc+toWaIffeM0OX0uTj/MA/TPpAeYD9s98A/l39Y///YHegB5oH+5/cn4Jv2W/YD4B/2CeRN7F+N3416XfHOf4zRgORkjf/0v3AfKF/kfbN7sPnn/r+4Z/HP6B/tvzb41H9Y2lDkDWaI7w47hQXqG7VKeSOu2Ei+N2+Gl7vVoScbczfqwzFFzr16AMkHsKJ0RODHdphTOpZyDn7mwCSsCKF4aUDfnNfQc4lgUJnyfxVkvT2fBGpdu5Zn12AAA/v8gf0co6n4Rx3v8/IQDcm1avq4P1tDZUbW8tlGQ2yybHkXfDvdehUfTgseQRaH8SAT2jTlaAz6aQ/vjNzqw3dJQHmQNuX3RFUmBccT+IoLThmt9fZWlcNkDRiI224w5lkBnuPwC+YRfPbFgNSs/EZ4iIGyI/+M3Zr4l7nwYgWeSEhDpOeMkrs38dTTVpFOPvPckzl4HP+i1QSwrkBw/JPWa3ttSUl4JnNQfIPLO9fbiBoE4FA/bX/zvncmskHHA1HVqqqFAhC4eh4GJ5a9LYlC6/wDHdCRHgJ7+s8PX1+C06PdXdNTDwkFP/i9MN5xzbLCE19MgxxH5jqQTNgvM3Ip/PP/9lHkcCA5gXr2d5hm+bHJz1qCdE4k+0O/Ve/4vLGNCHBeMWZAiZGZyn09e62cM3A/80F4P6STQ/scIV/LAgil/ozpCZXnJHw/SSrE4GnvZHTp5NasP5O+B/5vGZVjVOk6d1VLgflnVFAUCAl3EgiV4b4gp+phT7Oq/xKyUv33agFt3HPpE4t4aKI/Dw/ToR0UlUOzPw00mBbmIcAXVZkr16XTp2ezm+6l0LalKGz9zvdNXxB2WSJrn16AP/qz/309I7N3r52BkAL/NkTw8Tu8sfkBM8A54wfOMPsj+zNXXPBUOcmCQNVOj5O95WOTMPDDbUVK+F/lP+remitTN8DFEDoasD/jVYJkwywMlyI6Y7f5iU/fXQHZnxVGJK6P0nmEPI8YqwvoOl1awKwdSppyb9jfvCNA0l3+SrhIJPPUS6W+q39zzZww+qkCOJPSQ/9vFs/qLpu/j9+x1rG6t73IfslIGImSB7f07S0K39jfP4CMu2aHmxo9DAZQSvzXuxUgL8WhIx6dixFjoEuO4tMvm7fiefcqpa0QLfY2uI5xA5mCoabtqgAR+SL/3/DU3Cfkc+zTP5cf1y7xwdnbpTAhdqTSKSQfCLThFYHckVBfD8AW9Syxtx3p32VKPxiN+4rgayP2VZzPkiWUD2gUUZ8Peq8yedPg0jQVr9/3ZRXjYobvLfoQtErl4HGLfwASH0kBONIGqSO7OJ+swTtL3TGoCsuXVMoZSuwHBsf/z2BCCO2vHp5U+qQE788fx9z9Xwc0ziNc5qXZc1Jr/2HPdA0e+92trfhTmsf3R9iGfMsw1YBlo8/ZLaiiFaFGF75QbXywBdF67G7DDB/hStQByOgW3eRpkvt2h1V/Rvy8//rhD5HeyF2vdP27vm/nvBNIhZ0Y72xsMD1t6MTuNuDiF8Dq7YYc26IMjummGio5Vv7180OC/k3hV7pYHc4SQHEJ7dQf6oJf5KoipcDk3aHHOieOGdp3NSbvyTle2DugAyfuza/7a+hX/FQ+7StZ7cI/LknZeIz8JFDB2f/MLLvypIX8gAA==" alt="" width="28" height="28">ThorSport</a>
     <ul class="nav__links">
       <li><a href="#story">How it works</a></li>
@@ -849,142 +770,130 @@ main{display:block;overflow-x:clip}
 
 <main id="main" tabindex="-1">
   <section class="hero" id="top" aria-labelledby="hero-h">
-    <div class="hero__grid" aria-hidden="true"></div>
-    <div class="hero__pin">
-      <div class="hero__copy wrap">
-        <p class="eyebrow fade"><span class="dot-live" aria-hidden="true"></span>Live scores for dual-screen Android</p>
+    <div class="wrap grid hero__grid">
+      <div class="hero__copy">
         <h1 class="display" id="hero-h"><span class="line"><span class="line__in">Every game.</span></span><span class="line"><span class="line__in">Both screens.</span></span></h1>
-        <p class="lede hero__lede fade">Live scores on the bottom screen of the AYN Thor and the Retroid Pocket Duo, so the top screen stays free for the game. Works on one screen too.</p>
+        <p class="lede fade">ThorSport shows live scores on the bottom screen of the AYN Thor and the Retroid Pocket Duo, so the top screen stays free for the game. It also works on one screen.</p>
         <div class="hero__ctas fade">
           <a class="btn btn--primary" href="https://github.com/CHINW3/ThorSport/releases/latest" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#i-download"/></svg>Download APK<span class="sr-only"> (opens GitHub in a new tab)</span></a>
-          <a class="btn" href="#story">See how it works</a>
+          <a class="btn" href="#story">How it works</a>
         </div>
-        <p class="hero__meta fade"><span data-release>Android APK · latest release on GitHub</span></p>
+        <dl class="hero__spec fade">
+          <div><dt>AYN Thor</dt><dd>1240 × 1080</dd></div>
+          <div><dt>Retroid Pocket Duo</dt><dd>1280 × 960</dd></div>
+          <div><dt>Release</dt><dd data-release>APK on GitHub</dd></div>
+        </dl>
       </div>
       <div class="hero__stage" data-scope>
-        <div class="hero__glow" aria-hidden="true"></div>
-        <div class="hero__tilt">
-          <div class="dev-wrap" data-device="hero" role="img" aria-label="An AYN Thor: the top screen plays a hockey game, the bottom screen shows the ThorSport Board with the score, clock and shot map. Every few seconds Montréal scores, the bottom screen flashes GOAL and the stick lights swap colors."></div>
-        </div>
+        <div class="dev-wrap" data-device="hero" role="img" aria-label="An AYN Thor: the top screen plays a hockey game, the bottom screen shows the ThorSport Board with the score, clock and shot map. Every few seconds Montréal scores, the bottom screen shows GOAL and the stick lights swap colors."></div>
       </div>
     </div>
   </section>
 
-  <section class="marquee" aria-label="Leagues and teams">
-    <div class="mq" style="--dur:110s"><ul class="mq__track" aria-label="Leagues">
-      <li class="lp"><span class="lp__mark" style="--c:#c8d2e0"><i class="logo lg-l-nhl"></i></span>NHL</li>
-      <li class="lp"><span class="lp__mark" style="--c:#2f7bff"><svg aria-hidden="true"><use href="#i-hockey"/></svg></span>AHL</li>
-      <li class="lp"><span class="lp__mark" style="--c:#2f7bff"><svg aria-hidden="true"><use href="#i-hockey"/></svg></span>PWHL</li>
-      <li class="lp"><span class="lp__mark" style="--c:#e03a3e"><i class="logo lg-l-nba"></i></span>NBA</li>
-      <li class="lp"><span class="lp__mark" style="--c:#ff8a3d"><svg aria-hidden="true"><use href="#i-basketball"/></svg></span>WNBA</li>
-      <li class="lp"><span class="lp__mark" style="--c:#2f6bff"><i class="logo lg-l-nfl"></i></span>NFL</li>
-      <li class="lp"><span class="lp__mark" style="--c:#2f6bff"><i class="logo lg-l-mlb"></i></span>MLB</li>
-      <li class="lp"><span class="lp__mark" style="--c:#e5e9f0"><svg aria-hidden="true"><use href="#i-flag"/></svg></span>F1</li>
-      <li class="lp"><span class="lp__mark" style="--c:#1fd17a"><svg aria-hidden="true"><use href="#i-soccer"/></svg></span>Premier League</li>
-      <li class="lp"><span class="lp__mark" style="--c:#e0303c"><i class="logo lg-l-mls"></i></span>MLS</li>
-      <li class="lp"><span class="lp__mark" style="--c:#1fd17a"><svg aria-hidden="true"><use href="#i-soccer"/></svg></span>Champions League</li>
-      <li class="lp"><span class="lp__mark" style="--c:#1fd17a"><svg aria-hidden="true"><use href="#i-soccer"/></svg></span>La Liga</li>
-      <li class="lp"><span class="lp__mark" style="--c:#1fd17a"><svg aria-hidden="true"><use href="#i-soccer"/></svg></span>Bundesliga</li>
-      <li class="lp"><span class="lp__mark" style="--c:#1fd17a"><svg aria-hidden="true"><use href="#i-soccer"/></svg></span>Serie A</li>
-      <li class="lp"><span class="lp__mark" style="--c:#1fd17a"><svg aria-hidden="true"><use href="#i-soccer"/></svg></span>Ligue 1</li>
-      <li class="lp"><span class="lp__mark" style="--c:#1fd17a"><svg aria-hidden="true"><use href="#i-soccer"/></svg></span>EFL Championship</li>
-      <li class="lp"><span class="lp__mark" style="--c:#fbbf24"><svg aria-hidden="true"><use href="#i-college"/></svg></span>College football</li>
-      <li class="lp"><span class="lp__mark" style="--c:#fbbf24"><svg aria-hidden="true"><use href="#i-college"/></svg></span>College basketball</li>
-      <li class="lp"><span class="lp__mark" style="--c:#fbbf24"><svg aria-hidden="true"><use href="#i-college"/></svg></span>College hockey</li>
-      <li class="lp"><span class="lp__mark" style="--c:#38bdf8"><svg aria-hidden="true"><use href="#i-globe"/></svg></span>World Cup</li>
-      <li class="lp"><span class="lp__mark" style="--c:#38bdf8"><svg aria-hidden="true"><use href="#i-globe"/></svg></span>Nations League</li>
-      <li class="lp"><span class="lp__mark" style="--c:#38bdf8"><svg aria-hidden="true"><use href="#i-globe"/></svg></span>Olympic hockey</li>
-      <li class="lp"><span class="lp__mark" style="--c:#2dd4bf"><svg aria-hidden="true"><use href="#i-cricket"/></svg></span>Test cricket</li>
-      <li class="lp"><span class="lp__mark" style="--c:#2dd4bf"><svg aria-hidden="true"><use href="#i-cricket"/></svg></span>One-day cricket</li>
-      <li class="lp"><span class="lp__mark" style="--c:#2dd4bf"><svg aria-hidden="true"><use href="#i-cricket"/></svg></span>T20</li>
-      <li class="lp"><span class="lp__mark" style="--c:#a78bfa"><svg aria-hidden="true"><use href="#i-pad"/></svg></span>League of Legends</li>
-      <li class="lp"><span class="lp__mark" style="--c:#a78bfa"><svg aria-hidden="true"><use href="#i-pad"/></svg></span>CS2</li>
-      <li class="lp"><span class="lp__mark" style="--c:#a78bfa"><svg aria-hidden="true"><use href="#i-pad"/></svg></span>Valorant</li>
-      <li class="lp"><span class="lp__mark" style="--c:#a78bfa"><svg aria-hidden="true"><use href="#i-pad"/></svg></span>Dota 2</li>
-      <li class="lp"><span class="lp__mark" style="--c:#a78bfa"><svg aria-hidden="true"><use href="#i-pad"/></svg></span>Rainbow Six Siege</li>
+  <section class="lgbar" aria-label="Leagues and teams">
+    <div class="mq" style="--dur:120s"><ul class="mq__track" aria-label="Leagues">
+      <li class="tk"><span class="tk__mark" style="--c:#c8d2e0"><i class="logo lg-l-nhl"></i></span>NHL</li>
+      <li class="tk"><span class="tk__mark" style="--c:#2f7bff"><svg aria-hidden="true"><use href="#i-hockey"/></svg></span>AHL</li>
+      <li class="tk"><span class="tk__mark" style="--c:#2f7bff"><svg aria-hidden="true"><use href="#i-hockey"/></svg></span>PWHL</li>
+      <li class="tk"><span class="tk__mark" style="--c:#e03a3e"><i class="logo lg-l-nba"></i></span>NBA</li>
+      <li class="tk"><span class="tk__mark" style="--c:#ff8a3d"><svg aria-hidden="true"><use href="#i-basketball"/></svg></span>WNBA</li>
+      <li class="tk"><span class="tk__mark" style="--c:#2f6bff"><i class="logo lg-l-nfl"></i></span>NFL</li>
+      <li class="tk"><span class="tk__mark" style="--c:#2f6bff"><i class="logo lg-l-mlb"></i></span>MLB</li>
+      <li class="tk"><span class="tk__mark" style="--c:#e5e9f0"><svg aria-hidden="true"><use href="#i-flag"/></svg></span>F1</li>
+      <li class="tk"><span class="tk__mark" style="--c:#1fd17a"><svg aria-hidden="true"><use href="#i-soccer"/></svg></span>Premier League</li>
+      <li class="tk"><span class="tk__mark" style="--c:#e0303c"><i class="logo lg-l-mls"></i></span>MLS</li>
+      <li class="tk"><span class="tk__mark" style="--c:#1fd17a"><svg aria-hidden="true"><use href="#i-soccer"/></svg></span>Champions League</li>
+      <li class="tk"><span class="tk__mark" style="--c:#1fd17a"><svg aria-hidden="true"><use href="#i-soccer"/></svg></span>La Liga</li>
+      <li class="tk"><span class="tk__mark" style="--c:#1fd17a"><svg aria-hidden="true"><use href="#i-soccer"/></svg></span>Bundesliga</li>
+      <li class="tk"><span class="tk__mark" style="--c:#1fd17a"><svg aria-hidden="true"><use href="#i-soccer"/></svg></span>Serie A</li>
+      <li class="tk"><span class="tk__mark" style="--c:#1fd17a"><svg aria-hidden="true"><use href="#i-soccer"/></svg></span>Ligue 1</li>
+      <li class="tk"><span class="tk__mark" style="--c:#1fd17a"><svg aria-hidden="true"><use href="#i-soccer"/></svg></span>EFL Championship</li>
+      <li class="tk"><span class="tk__mark" style="--c:#fbbf24"><svg aria-hidden="true"><use href="#i-college"/></svg></span>College football</li>
+      <li class="tk"><span class="tk__mark" style="--c:#fbbf24"><svg aria-hidden="true"><use href="#i-college"/></svg></span>College basketball</li>
+      <li class="tk"><span class="tk__mark" style="--c:#fbbf24"><svg aria-hidden="true"><use href="#i-college"/></svg></span>College hockey</li>
+      <li class="tk"><span class="tk__mark" style="--c:#38bdf8"><svg aria-hidden="true"><use href="#i-globe"/></svg></span>World Cup</li>
+      <li class="tk"><span class="tk__mark" style="--c:#38bdf8"><svg aria-hidden="true"><use href="#i-globe"/></svg></span>Nations League</li>
+      <li class="tk"><span class="tk__mark" style="--c:#38bdf8"><svg aria-hidden="true"><use href="#i-globe"/></svg></span>Olympic hockey</li>
+      <li class="tk"><span class="tk__mark" style="--c:#2dd4bf"><svg aria-hidden="true"><use href="#i-cricket"/></svg></span>Test cricket</li>
+      <li class="tk"><span class="tk__mark" style="--c:#2dd4bf"><svg aria-hidden="true"><use href="#i-cricket"/></svg></span>One-day cricket</li>
+      <li class="tk"><span class="tk__mark" style="--c:#2dd4bf"><svg aria-hidden="true"><use href="#i-cricket"/></svg></span>T20</li>
+      <li class="tk"><span class="tk__mark" style="--c:#a78bfa"><svg aria-hidden="true"><use href="#i-pad"/></svg></span>League of Legends</li>
+      <li class="tk"><span class="tk__mark" style="--c:#a78bfa"><svg aria-hidden="true"><use href="#i-pad"/></svg></span>CS2</li>
+      <li class="tk"><span class="tk__mark" style="--c:#a78bfa"><svg aria-hidden="true"><use href="#i-pad"/></svg></span>Valorant</li>
+      <li class="tk"><span class="tk__mark" style="--c:#a78bfa"><svg aria-hidden="true"><use href="#i-pad"/></svg></span>Dota 2</li>
+      <li class="tk"><span class="tk__mark" style="--c:#a78bfa"><svg aria-hidden="true"><use href="#i-pad"/></svg></span>Rainbow Six Siege</li>
     </ul></div>
-    <div class="mq mq--rev" style="--dur:80s"><ul class="mq__track" aria-label="Teams with logos in the app">
-      <li class="tt" style="--c:#e8323f"><i class="logo lg-mtl" role="img" aria-label="Montréal Canadiens"></i></li>
-      <li class="tt" style="--c:#f58426"><i class="logo lg-nyk" role="img" aria-label="New York Knicks"></i></li>
-      <li class="tt" style="--c:#2f6bff"><i class="logo lg-buf" role="img" aria-label="Buffalo Bills"></i></li>
-      <li class="tt" style="--c:#4a74d9"><i class="logo lg-nyy" role="img" aria-label="New York Yankees"></i></li>
-      <li class="tt" style="--c:#f7a8c8"><i class="logo lg-mia-fc" role="img" aria-label="Inter Miami CF"></i></li>
-      <li class="tt" style="--c:#2f6bff"><i class="logo lg-tor" role="img" aria-label="Toronto Maple Leafs"></i></li>
-      <li class="tt" style="--c:#fdb927"><i class="logo lg-lal" role="img" aria-label="Los Angeles Lakers"></i></li>
-      <li class="tt" style="--c:#e31837"><i class="logo lg-kc" role="img" aria-label="Kansas City Chiefs"></i></li>
-      <li class="tt" style="--c:#2f7bff"><i class="logo lg-tbj" role="img" aria-label="Toronto Blue Jays"></i></li>
-      <li class="tt" style="--c:#d6aa5c"><i class="logo lg-lafc" role="img" aria-label="LAFC"></i></li>
-      <li class="tt" style="--c:#ffb81c"><i class="logo lg-bos" role="img" aria-label="Boston Bruins"></i></li>
-      <li class="tt" style="--c:#1fae5b"><i class="logo lg-bosc" role="img" aria-label="Boston Celtics"></i></li>
-      <li class="tt" style="--c:#19a39a"><i class="logo lg-phi" role="img" aria-label="Philadelphia Eagles"></i></li>
-      <li class="tt" style="--c:#2f62e0"><i class="logo lg-chc" role="img" aria-label="Chicago Cubs"></i></li>
-      <li class="tt" style="--c:#e0243a"><i class="logo lg-tfc" role="img" aria-label="Toronto FC"></i></li>
-      <li class="tt" style="--c:#ff6a1f"><i class="logo lg-edm" role="img" aria-label="Edmonton Oilers"></i></li>
-      <li class="tt" style="--c:#ffc72c"><i class="logo lg-gsw" role="img" aria-label="Golden State Warriors"></i></li>
-      <li class="tt" style="--c:#d4213d"><i class="logo lg-sf" role="img" aria-label="San Francisco 49ers"></i></li>
-      <li class="tt" style="--c:#2a7de1"><i class="logo lg-lad" role="img" aria-label="Los Angeles Dodgers"></i></li>
-      <li class="tt" style="--c:#5fb84a"><i class="logo lg-sdr" role="img" aria-label="Seattle Sounders FC"></i></li>
-      <li class="tt" style="--c:#d9b25f"><i class="logo lg-vgk" role="img" aria-label="Vegas Golden Knights"></i></li>
-      <li class="tt" style="--c:#e0213a"><i class="logo lg-rap" role="img" aria-label="Toronto Raptors"></i></li>
-      <li class="tt" style="--c:#ffb612"><i class="logo lg-gb" role="img" aria-label="Green Bay Packers"></i></li>
-      <li class="tt" style="--c:#3b6dff"><i class="logo lg-nyr" role="img" aria-label="New York Rangers"></i></li>
-      <li class="tt" style="--c:#5fd6e0"><i class="logo lg-sea" role="img" aria-label="Seattle Kraken"></i></li>
-      <li class="tt" style="--c:#19c46e"><i class="logo lg-dal" role="img" aria-label="Dallas Stars"></i></li>
+    <div class="mq mq--rev" style="--dur:90s"><ul class="mq__track" aria-label="Teams with logos in the app">
+      <li class="tl"><i class="logo lg-mtl" role="img" aria-label="Montréal Canadiens"></i></li>
+      <li class="tl"><i class="logo lg-nyk" role="img" aria-label="New York Knicks"></i></li>
+      <li class="tl"><i class="logo lg-buf" role="img" aria-label="Buffalo Bills"></i></li>
+      <li class="tl"><i class="logo lg-nyy" role="img" aria-label="New York Yankees"></i></li>
+      <li class="tl"><i class="logo lg-mia-fc" role="img" aria-label="Inter Miami CF"></i></li>
+      <li class="tl"><i class="logo lg-tor" role="img" aria-label="Toronto Maple Leafs"></i></li>
+      <li class="tl"><i class="logo lg-lal" role="img" aria-label="Los Angeles Lakers"></i></li>
+      <li class="tl"><i class="logo lg-kc" role="img" aria-label="Kansas City Chiefs"></i></li>
+      <li class="tl"><i class="logo lg-tbj" role="img" aria-label="Toronto Blue Jays"></i></li>
+      <li class="tl"><i class="logo lg-lafc" role="img" aria-label="LAFC"></i></li>
+      <li class="tl"><i class="logo lg-bos" role="img" aria-label="Boston Bruins"></i></li>
+      <li class="tl"><i class="logo lg-bosc" role="img" aria-label="Boston Celtics"></i></li>
+      <li class="tl"><i class="logo lg-phi" role="img" aria-label="Philadelphia Eagles"></i></li>
+      <li class="tl"><i class="logo lg-chc" role="img" aria-label="Chicago Cubs"></i></li>
+      <li class="tl"><i class="logo lg-tfc" role="img" aria-label="Toronto FC"></i></li>
+      <li class="tl"><i class="logo lg-edm" role="img" aria-label="Edmonton Oilers"></i></li>
+      <li class="tl"><i class="logo lg-gsw" role="img" aria-label="Golden State Warriors"></i></li>
+      <li class="tl"><i class="logo lg-sf" role="img" aria-label="San Francisco 49ers"></i></li>
+      <li class="tl"><i class="logo lg-lad" role="img" aria-label="Los Angeles Dodgers"></i></li>
+      <li class="tl"><i class="logo lg-sdr" role="img" aria-label="Seattle Sounders FC"></i></li>
+      <li class="tl"><i class="logo lg-vgk" role="img" aria-label="Vegas Golden Knights"></i></li>
+      <li class="tl"><i class="logo lg-rap" role="img" aria-label="Toronto Raptors"></i></li>
+      <li class="tl"><i class="logo lg-gb" role="img" aria-label="Green Bay Packers"></i></li>
+      <li class="tl"><i class="logo lg-nyr" role="img" aria-label="New York Rangers"></i></li>
+      <li class="tl"><i class="logo lg-sea" role="img" aria-label="Seattle Kraken"></i></li>
+      <li class="tl"><i class="logo lg-dal" role="img" aria-label="Dallas Stars"></i></li>
     </ul></div>
-  </section>
-
-
-  <section class="numbers wrap" aria-label="ThorSport in numbers">
-    <ul class="stats__list">
-      <li class="reveal"><span class="stat__n" data-count="50" data-suffix="+">50+</span><span class="stat__l">Leagues and competitions</span></li>
-      <li class="reveal"><span class="stat__n" data-count="2">2</span><span class="stat__l">Screens, or just one</span></li>
-      <li class="reveal"><span class="stat__n" data-count="32">32</span><span class="stat__l">NHL goal horns</span></li>
-      <li class="reveal"><span class="stat__n" data-count="5" data-suffix=" s">5 s</span><span class="stat__l">Refresh while your game is live</span></li>
-    </ul>
   </section>
 
   <section class="sec" id="story" aria-labelledby="story-h">
     <div class="wrap">
       <div class="sec__head">
-        <p class="eyebrow reveal">How it works</p>
-        <h2 class="h2 reveal" id="story-h">Two screens, two jobs.</h2>
-        <p class="lede reveal">Your stream plays on top. ThorSport runs underneath, and takes over both screens when you want it to.</p>
+        <h2 class="h2" id="story-h">How ThorSport uses both screens</h2>
+        <p class="lede">Your stream plays on top. ThorSport runs on the bottom screen, and can take over the top one when you want a bigger scoreboard.</p>
       </div>
       <div class="story__grid">
         <div class="story__stage">
           <div class="story__sticky" data-scope data-scene="0">
             <div class="dev-wrap" data-device="story" role="img" aria-label="The same AYN Thor, changing to match the step you are reading."></div>
             <span class="chip chip--top" aria-hidden="true"><i></i>Top: your stream</span>
-            <span class="chip chip--bot" aria-hidden="true"><i style="--c:#2f7bff"></i>Bottom: ThorSport</span>
             <span class="chip chip--led" aria-hidden="true"><i></i>Stick lights</span>
+            <span class="chip chip--bot" aria-hidden="true"><i></i>Bottom: ThorSport</span>
             <div class="rail" aria-hidden="true"><i class="on"></i><i></i><i></i><i></i><i></i></div>
           </div>
         </div>
         <ol class="story__steps">
           <li class="step is-active" data-scene="0">
             <p class="step__tag">Leagues</p>
-            <h3 class="h3">50+ leagues, sorted into folders.</h3>
-            <p>NHL, AHL, PWHL, NBA, WNBA, NFL, MLB and F1 sit at the top of the menu. Club soccer, international games, college sports, cricket and esports each get a folder. Hide anything you don't follow.</p>
+            <h3 class="h3">50+ leagues, sorted into folders</h3>
+            <p>NHL, AHL, PWHL, NBA, WNBA, NFL, MLB and F1 sit at the top of the menu. Club soccer, international games, college sports, cricket and esports each have a folder. Hide anything you don't follow.</p>
           </li>
           <li class="step" data-scene="1">
             <p class="step__tag">My Teams</p>
-            <h3 class="h3">Your teams come first.</h3>
-            <p>Long-press any team in any league to add it. MY TEAMS shows all their games on one screen, and only their goals set off the alerts.</p>
+            <h3 class="h3">Your teams first</h3>
+            <p>Long-press any team in any league to add it. MY TEAMS lists all their games on one screen, and only their goals set off the alerts.</p>
           </li>
           <li class="step" data-scene="2">
-            <p class="step__tag">Goal celebrations</p>
-            <h3 class="h3">A goal takes over the screen.</h3>
-            <p>Your team's colors, confetti, the scorer's name and a horn. Every NHL team has its own horn, and a synthesized sound pack covers touchdowns, home runs and wins.</p>
+            <p class="step__tag">Goal alerts</p>
+            <h3 class="h3">A goal fills the screen</h3>
+            <p>Your team's colors, confetti, the scorer's name and a horn. Every NHL team has its own horn, and a sound pack covers touchdowns, home runs and wins.</p>
           </li>
           <li class="step" data-scene="3">
             <p class="step__tag">Stick lights</p>
-            <h3 class="h3">The sticks wear your colors.</h3>
-            <p>The Thor's stick LEDs show your team's two main colors, one on each stick. They swap on a goal, turn gold on a win and pulse slowly in a tight finish.</p>
+            <h3 class="h3">The sticks show your team's colors</h3>
+            <p>One team color on each stick LED. They swap on a goal, turn gold on a win and pulse slowly in a tight finish.</p>
           </li>
           <li class="step" data-scene="4">
             <p class="step__tag">Two-screen mode</p>
-            <h3 class="h3">The whole game on both screens.</h3>
-            <p>Press R3 and the top screen shows a giant Board: the NFL field, the baseball diamond or the NHL shot map. The bottom shows the game's stats and Polymarket win odds, graphed from the opening whistle.</p>
+            <h3 class="h3">A bigger Board on the top screen</h3>
+            <p>Press R3 and the top screen shows a large Board: the NFL field, the baseball diamond or the NHL shot map. The bottom screen shows the game's stats and Polymarket win odds, graphed from the start of the game.</p>
           </li>
         </ol>
       </div>
@@ -994,203 +903,201 @@ main{display:block;overflow-x:clip}
   <section class="sec" id="features" aria-labelledby="feat-h">
     <div class="wrap">
       <div class="sec__head">
-        <p class="eyebrow reveal">Features</p>
-        <h2 class="h2 reveal" id="feat-h">What's in the app.</h2>
-        <p class="lede reveal">Everything below ships in the current release. A few cards are interactive.</p>
+        <h2 class="h2" id="feat-h">What ThorSport does</h2>
+        <p class="lede">Everything here is in the current release. Some rows have a demo you can use.</p>
       </div>
-      <div class="bento">
-        <article class="card c-leagues reveal">
-          <p class="card__tag">50+ leagues</p>
-          <h3 class="h3">Pro leagues up front. Folders for the rest.</h3>
-          <p class="card__txt">The big leagues sit at the top of the menu. Everything else lives in five folders. Switch one off here to see what hiding a sport does.</p>
-          <div class="card__viz">
-            <ul class="toplg" aria-label="Leagues at the top of the menu">
-              <li><i class="logo lg-l-nhl"></i>NHL</li><li><span class="dot" style="--c:#2f7bff"><svg><use href="#i-hockey"/></svg></span>AHL</li><li><span class="dot" style="--c:#a78bfa"><svg><use href="#i-hockey"/></svg></span>PWHL</li><li><i class="logo lg-l-nba"></i>NBA</li><li><span class="dot" style="--c:#ff8a3d"><svg><use href="#i-basketball"/></svg></span>WNBA</li><li><i class="logo lg-l-nfl"></i>NFL</li><li><i class="logo lg-l-mlb"></i>MLB</li><li><span class="dot" style="--c:#e5e9f0"><svg><use href="#i-flag"/></svg></span>F1</li>
-            </ul>
-            <ul class="folders">
-              <li class="folder" style="--c:#1fd17a"><label class="folder__head"><span class="lp__mark" style="--c:#1fd17a"><svg aria-hidden="true"><use href="#i-soccer"/></svg></span>SOCCER<span class="folder__state" aria-hidden="true"></span><input class="sw" type="checkbox" role="switch" id="f-soccer" checked></label><ul class="chips"><li>Premier League</li><li>MLS</li><li>Champions League</li><li>La Liga</li><li>Bundesliga</li><li>Serie A</li><li>Ligue 1</li><li>EFL Championship</li><li>League One</li><li>League Two</li></ul></li>
-              <li class="folder" style="--c:#38bdf8"><label class="folder__head"><span class="lp__mark" style="--c:#38bdf8"><svg aria-hidden="true"><use href="#i-globe"/></svg></span>INTL<span class="folder__state" aria-hidden="true"></span><input class="sw" type="checkbox" role="switch" id="f-intl" checked></label><ul class="chips"><li>World Cup</li><li>UEFA Nations League</li><li>Concacaf Nations League</li><li>Friendlies</li><li>Olympic hockey</li></ul></li>
-              <li class="folder" style="--c:#fbbf24"><label class="folder__head"><span class="lp__mark" style="--c:#fbbf24"><svg aria-hidden="true"><use href="#i-college"/></svg></span>COLLEGE<span class="folder__state" aria-hidden="true"></span><input class="sw" type="checkbox" role="switch" id="f-college" checked></label><ul class="chips"><li>Football</li><li>Men's basketball</li><li>Women's basketball</li><li>Hockey</li></ul></li>
-              <li class="folder" style="--c:#2dd4bf"><label class="folder__head"><span class="lp__mark" style="--c:#2dd4bf"><svg aria-hidden="true"><use href="#i-cricket"/></svg></span>CRICKET<span class="folder__state" aria-hidden="true"></span><input class="sw" type="checkbox" role="switch" id="f-cricket" checked></label><ul class="chips"><li>Test</li><li>One-day</li><li>T20</li><li>Women's</li><li>Domestic</li></ul></li>
-              <li class="folder" style="--c:#a78bfa"><label class="folder__head"><span class="lp__mark" style="--c:#a78bfa"><svg aria-hidden="true"><use href="#i-pad"/></svg></span>ESPORTS<span class="folder__state" aria-hidden="true"></span><input class="sw" type="checkbox" role="switch" id="f-esports" checked></label><ul class="chips"><li>League of Legends</li><li>CS2</li><li>Valorant</li><li>Dota 2</li><li>Rainbow Six Siege</li></ul></li>
-            </ul>
-          </div>
-        </article>
 
-        <article class="card c-teams reveal" style="--glow:#ffd23f">
-          <p class="card__tag">My Teams</p>
-          <h3 class="h3">Every team you follow, in one list.</h3>
-          <p class="card__txt">Long-press a team in any league to add it, esports teams included. In a game with one of your teams, only your team's goals trigger the celebration.</p>
-          <div class="card__viz">
-            <ul class="mt" aria-label="Example: games of your teams today">
-              <li style="--l:#e8323f;--r:#2f6bff"><span class="mt__lg">NHL</span><i class="logo lg-mtl"></i>MTL<span class="mt__sc">3-2</span>TOR<i class="logo lg-tor"></i><em class="mt__st is-live">3RD 6:18</em></li>
-              <li style="--l:#f58426;--r:#e0244f"><span class="mt__lg">NBA</span><i class="logo lg-nyk"></i>NYK<span class="mt__sc">98-91</span>MIA<i class="logo lg-mia"></i><em class="mt__st is-live">Q4 2:10</em></li>
-              <li style="--l:#2f6bff;--r:#e31837"><span class="mt__lg">NFL</span><i class="logo lg-buf"></i>BUF<span class="mt__sc">17-10</span>KC<i class="logo lg-kc"></i><em class="mt__st">FINAL</em></li>
-              <li style="--l:#e0243a;--r:#5fb84a"><span class="mt__lg">MLS</span><i class="logo lg-tfc"></i>TOR<span class="mt__sc">1-1</span>SEA<i class="logo lg-sdr"></i><em class="mt__st is-live">67'</em></li>
-            </ul>
-          </div>
-        </article>
+      <article class="feat" id="f-leagues" aria-labelledby="f-leagues-h">
+        <div class="feat__txt">
+          <h3 class="h3" id="f-leagues-h">50+ leagues, sorted into folders</h3>
+          <p>The main leagues sit at the top of the league menu. Everything else lives in five folders. Switch a folder off below to see what hiding a sport does.</p>
+          <p class="spec"><b>50+</b> leagues · <b>5</b> folders</p>
+        </div>
+        <div class="feat__demo">
+          <ul class="lgtop" aria-label="Leagues at the top of the menu">
+            <li><i class="logo lg-l-nhl"></i>NHL</li>
+            <li><svg aria-hidden="true" style="--c:#2f7bff"><use href="#i-hockey"/></svg>AHL</li>
+            <li><svg aria-hidden="true" style="--c:#a78bfa"><use href="#i-hockey"/></svg>PWHL</li>
+            <li><i class="logo lg-l-nba"></i>NBA</li>
+            <li><svg aria-hidden="true" style="--c:#ff8a3d"><use href="#i-basketball"/></svg>WNBA</li>
+            <li><i class="logo lg-l-nfl"></i>NFL</li>
+            <li><i class="logo lg-l-mlb"></i>MLB</li>
+            <li><svg aria-hidden="true" style="--c:#e5e9f0"><use href="#i-flag"/></svg>F1</li>
+          </ul>
+          <ul class="folders">
+            <li class="folder"><label class="folder__head"><input class="sw" type="checkbox" role="switch" id="f-soccer" checked>SOCCER<span class="folder__state" aria-hidden="true"></span></label><p class="folder__list">Premier League, MLS, Champions League, La Liga, Bundesliga, Serie A, Ligue 1, EFL Championship, League One, League Two</p></li>
+            <li class="folder"><label class="folder__head"><input class="sw" type="checkbox" role="switch" id="f-intl" checked>INTL<span class="folder__state" aria-hidden="true"></span></label><p class="folder__list">World Cup, UEFA Nations League, Concacaf Nations League, friendlies, Olympic hockey</p></li>
+            <li class="folder"><label class="folder__head"><input class="sw" type="checkbox" role="switch" id="f-college" checked>COLLEGE<span class="folder__state" aria-hidden="true"></span></label><p class="folder__list">Football, men's basketball, women's basketball, hockey</p></li>
+            <li class="folder"><label class="folder__head"><input class="sw" type="checkbox" role="switch" id="f-cricket" checked>CRICKET<span class="folder__state" aria-hidden="true"></span></label><p class="folder__list">Test, One-day, T20, women's, domestic</p></li>
+            <li class="folder"><label class="folder__head"><input class="sw" type="checkbox" role="switch" id="f-esports" checked>ESPORTS<span class="folder__state" aria-hidden="true"></span></label><p class="folder__list">League of Legends, CS2, Valorant, Dota 2, Rainbow Six Siege</p></li>
+          </ul>
+        </div>
+      </article>
 
-        <article class="card c-goal reveal" style="--glow:#e8323f">
-          <p class="card__tag">Goal celebrations</p>
-          <h3 class="h3">Every score gets its own moment.</h3>
-          <p class="card__txt">Team colors, confetti, the scorer's name and a horn, with each NHL team's real horn. Pick a sound style or set a sound for each event.</p>
-          <div class="card__viz">
-            <div class="gviz" aria-hidden="true"><div class="gviz__rings"><i></i><i></i><i></i></div><b class="gviz__word" data-words="GOAL!|TOUCHDOWN!|HOME RUN!|VICTORY!">GOAL!</b></div>
-            <ul class="styles" aria-label="Sound styles"><li>Arena</li><li>Classic</li><li>Party</li><li>Mellow</li></ul>
-            <p class="card__txt" style="margin-top:12px"><a class="more" href="#goal">Try one below <svg width="16" height="16" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
-          </div>
-        </article>
+      <article class="feat" id="f-teams" aria-labelledby="f-teams-h">
+        <div class="feat__txt">
+          <h3 class="h3" id="f-teams-h">My Teams</h3>
+          <p>Long-press a team in any league to add it, esports teams included. In a game with one of your teams, only your team's goals trigger the celebration.</p>
+        </div>
+        <div class="feat__demo">
+          <table class="tbl">
+            <caption class="sr-only">Example: today's games for your teams</caption>
+            <thead><tr><th scope="col" class="lg">League</th><th scope="col">Game</th><th scope="col" class="num">Score</th><th scope="col" class="num">Status</th></tr></thead>
+            <tbody>
+              <tr><td class="lg">NHL</td><td><span class="tm"><i class="logo lg-mtl"></i>MTL</span><span class="vs">vs</span><span class="tm"><i class="logo lg-tor"></i>TOR</span></td><td class="num score">3–2</td><td class="st live">3rd 6:18</td></tr>
+              <tr><td class="lg">NBA</td><td><span class="tm"><i class="logo lg-nyk"></i>NYK</span><span class="vs">vs</span><span class="tm"><i class="logo lg-mia"></i>MIA</span></td><td class="num score">98–91</td><td class="st live">Q4 2:10</td></tr>
+              <tr><td class="lg">NFL</td><td><span class="tm"><i class="logo lg-buf"></i>BUF</span><span class="vs">vs</span><span class="tm"><i class="logo lg-kc"></i>KC</span></td><td class="num score">17–10</td><td class="st">Final</td></tr>
+              <tr><td class="lg">MLS</td><td><span class="tm"><i class="logo lg-tfc"></i>TOR</span><span class="vs">vs</span><span class="tm"><i class="logo lg-sdr"></i>SEA</span></td><td class="num score">1–1</td><td class="st live">67'</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
 
-        <article class="card c-sticks reveal" style="--glow:#e8323f">
-          <p class="card__tag">Stick lights</p>
-          <h3 class="h3">Your colors on the sticks.</h3>
-          <p class="card__txt">One team color on each stick. Here with Montréal's red and blue.</p>
-          <div class="card__viz">
-            <div class="sticks" data-mode="team" aria-hidden="true"><div class="stick"><i class="led"></i><i class="cap"></i></div><div class="stick"><i class="led"></i><i class="cap"></i></div></div>
-            <div class="btnrow" role="group" aria-label="Stick light state">
-              <button class="seg" type="button" data-mode="team" aria-pressed="true">Team</button>
-              <button class="seg" type="button" data-mode="goal" aria-pressed="false">Goal</button>
-              <button class="seg" type="button" data-mode="win" aria-pressed="false">Win</button>
-              <button class="seg" type="button" data-mode="tight" aria-pressed="false">Tight finish</button>
-            </div>
-            <p class="sticks__cap" aria-live="polite">Your team's two main colors, all the time.</p>
+      <article class="feat" id="f-goal" aria-labelledby="f-goal-h">
+        <div class="feat__txt">
+          <h3 class="h3" id="f-goal-h">Goal alerts and stick lights</h3>
+          <p>When your team scores, the screen fills with its colors, confetti and the scorer's name, and the horn plays. The Thor's stick LEDs show your team's two main colors, swap on a goal, turn gold on a win and pulse in a tight finish.</p>
+          <p class="spec"><b>32</b> NHL team horns · sound styles: Arena, Classic, Party, Mellow</p>
+          <p><a class="link" href="#goal">Try the goal screen</a></p>
+        </div>
+        <div class="feat__demo">
+          <div class="sticks" data-mode="team" aria-hidden="true"><div class="stick"><i class="led"></i><i class="cap"></i></div><div class="stick"><i class="led"></i><i class="cap"></i></div></div>
+          <div class="seg-group" role="group" aria-label="Stick light state">
+            <button class="seg" type="button" data-mode="team" aria-pressed="true">Team</button><button class="seg" type="button" data-mode="goal" aria-pressed="false">Goal</button><button class="seg" type="button" data-mode="win" aria-pressed="false">Win</button><button class="seg" type="button" data-mode="tight" aria-pressed="false">Tight finish</button>
           </div>
-        </article>
+          <p class="sticks__cap" aria-live="polite">Your team's two main colors, all the time. Shown with Montréal.</p>
+        </div>
+      </article>
 
-        <article class="card c-fast reveal" style="--glow:#5fd6e0">
-          <p class="card__tag">Fast live scores</p>
-          <h3 class="h3">NHL and MLB goals, seconds before ESPN.</h3>
-          <p class="card__txt">ThorSport reads the NHL's and MLB's own live feeds next to ESPN's, every 5 seconds while your game is live, and shows whichever is ahead.</p>
-          <div class="card__viz">
-            <div class="race" aria-hidden="true">
-              <div class="race__row is-us"><span>ThorSport</span><span class="race__bar"><i></i></span><span class="race__sc"><b>2-2</b><b>3-2</b></span></div>
-              <div class="race__row"><span>ESPN</span><span class="race__bar"><i></i></span><span class="race__sc"><b>2-2</b><b>3-2</b></span></div>
-            </div>
-          </div>
-        </article>
-
-        <article class="card c-odds reveal" style="--glow:#ff5a68">
-          <p class="card__tag">Polymarket win odds</p>
-          <h3 class="h3">Win chances, from puck drop to now.</h3>
-          <p class="card__txt">The graph covers the whole game even if you open the app halfway through, so every goal and comeback is on it.</p>
-          <div class="card__viz">
-            <figure class="oc">
-              <svg viewBox="0 0 320 140" role="img" aria-label="Example graph: Montréal's win chance over a game, ending at 78 percent late in the third period.">
-                <path class="g" d="M10 40H310M10 92H310"/><path class="g g--mid" d="M10 66H310"/><path class="per" d="M110 10V118M210 10V118"/>
-                <path class="area" d="M10 61.8 L22 60.8 L34 63.9 L46 58.7 L61 59.8 L70 60.8 L82 75.4 L94 73.3 L106 76.4 L118 70.2 L133 58.7 L148 60.8 L160 56.6 L175 57.7 L190 44.2 L202 47.3 L217 49.4 L229 63.9 L241 61.8 L253 66 L265 65 L277 67 L286 66 L289 36.9 L289 118 L10 118 Z"/>
-                <path class="ln" pathLength="1" d="M10 61.8 L22 60.8 L34 63.9 L46 58.7 L61 59.8 L70 60.8 L82 75.4 L94 73.3 L106 76.4 L118 70.2 L133 58.7 L148 60.8 L160 56.6 L175 57.7 L190 44.2 L202 47.3 L217 49.4 L229 63.9 L241 61.8 L253 66 L265 65 L277 67 L286 66 L289 36.9"/>
-                <circle class="pulse" cx="289" cy="36.9" r="5"/><circle class="end" cx="289" cy="36.9" r="3.2"/>
-                <text class="big" x="281" y="26" text-anchor="end">MTL 78%</text>
-                <text x="316" y="69" text-anchor="end">50%</text>
-                <text x="60" y="134" text-anchor="middle">1ST</text><text x="160" y="134" text-anchor="middle">2ND</text><text x="260" y="134" text-anchor="middle">3RD</text>
-              </svg>
-              <figcaption>POLYMARKET · WHOLE GAME · example</figcaption>
-            </figure>
-          </div>
-        </article>
-
-        <article class="card c-pad reveal">
-          <p class="card__tag">Controller</p>
-          <h3 class="h3">Every screen works from the buttons.</h3>
-          <p class="card__txt">The first press shows the blue selection. Touch the screen and it hides again.</p>
-          <div class="card__viz padviz">
-            <svg class="pad" viewBox="0 0 320 196" data-hl="dpad" aria-hidden="true">
-              <rect class="part p-l2r2" x="60" y="22" width="54" height="13" rx="6.5"/><rect class="part p-l2r2" x="206" y="22" width="54" height="13" rx="6.5"/>
-              <rect class="part p-l1r1" x="50" y="39" width="72" height="13" rx="6.5"/><rect class="part p-l1r1" x="198" y="39" width="72" height="13" rx="6.5"/>
-              <text class="lbl t-l2r2" x="87" y="15">L2</text><text class="lbl t-l2r2" x="233" y="15">R2</text>
-              <text class="lbl t-l1r1" x="36" y="48.5">L1</text><text class="lbl t-l1r1" x="284" y="48.5">R1</text>
-              <path class="body" d="M70 58H250C285 58 300 84 306 120C312 158 300 184 276 184C260 184 251 172 240 154C232 141 222 136 210 136H110C98 136 88 141 80 154C69 172 60 184 44 184C20 184 8 158 14 120C20 84 35 58 70 58Z"/>
-              <path class="part p-dpad" d="M78 86h12v12h12v12H90v12H78v-12H66V98h12z"/>
-              <circle class="ring" cx="128" cy="114" r="16"/><circle class="part p-ls" cx="128" cy="114" r="11"/>
-              <circle class="ring r-rs" cx="192" cy="114" r="16"/><circle class="part p-rs" cx="192" cy="114" r="11"/>
-              <circle class="part p-xy" cx="236" cy="88" r="7"/><circle class="part p-xy" cx="222" cy="102" r="7"/><circle class="part p-ab" cx="250" cy="102" r="7"/><circle class="part p-ab" cx="236" cy="116" r="7"/>
-              <text class="lbl" x="236" y="90.7">X</text><text class="lbl" x="222" y="104.7">Y</text><text class="lbl" x="250" y="104.7">A</text><text class="lbl" x="236" y="118.7">B</text>
-              <rect class="part" x="146" y="80" width="11" height="5" rx="2.5"/><rect class="part" x="163" y="80" width="11" height="5" rx="2.5"/>
+      <article class="feat" id="f-live" aria-labelledby="f-live-h">
+        <div class="feat__txt">
+          <h3 class="h3" id="f-live-h">Fast scores and win odds</h3>
+          <p>While your game is live, ThorSport reads the NHL's and MLB's own feeds next to ESPN's and shows whichever is ahead, so a goal often lands seconds before ESPN has it. Polymarket win odds come with a graph of the whole game, even if you open the app halfway through.</p>
+          <p class="spec">Refresh while live: <b>5 s</b> · odds: <b>Polymarket</b></p>
+        </div>
+        <div class="feat__demo">
+          <figure class="oc">
+            <svg viewBox="0 0 320 140" role="img" aria-label="Example graph: Montréal's win chance over a game, ending at 78 percent late in the third period.">
+              <path class="g" d="M10 40H310M10 92H310"/><path class="g g--mid" d="M10 66H310"/><path class="per" d="M110 10V118M210 10V118"/>
+              <path class="area" d="M10 61.8 L22 60.8 L34 63.9 L46 58.7 L61 59.8 L70 60.8 L82 75.4 L94 73.3 L106 76.4 L118 70.2 L133 58.7 L148 60.8 L160 56.6 L175 57.7 L190 44.2 L202 47.3 L217 49.4 L229 63.9 L241 61.8 L253 66 L265 65 L277 67 L286 66 L289 36.9 L289 118 L10 118 Z"/>
+              <path class="ln" pathLength="1" d="M10 61.8 L22 60.8 L34 63.9 L46 58.7 L61 59.8 L70 60.8 L82 75.4 L94 73.3 L106 76.4 L118 70.2 L133 58.7 L148 60.8 L160 56.6 L175 57.7 L190 44.2 L202 47.3 L217 49.4 L229 63.9 L241 61.8 L253 66 L265 65 L277 67 L286 66 L289 36.9"/>
+              <circle class="end" cx="289" cy="36.9" r="3.2"/>
+              <text class="big" x="281" y="26" text-anchor="end">MTL 78%</text>
+              <text x="316" y="69" text-anchor="end">50%</text>
+              <text x="60" y="134" text-anchor="middle">1ST</text><text x="160" y="134" text-anchor="middle">2ND</text><text x="260" y="134" text-anchor="middle">3RD</text>
             </svg>
-            <ul class="map">
-              <li data-part="dpad" class="on"><kbd>D-pad</kbd><span>Move card by card</span></li>
-              <li data-part="ab"><kbd>A / B</kbd><span>Open the game, go back</span></li>
-              <li data-part="xy"><kbd>X / Y</kbd><span>Star the left or right team</span></li>
-              <li data-part="l1r1"><kbd>L1 / R1</kbd><span>Switch tabs</span></li>
-              <li data-part="l2r2"><kbd>L2 / R2</kbd><span>Switch leagues</span></li>
-              <li data-part="rs"><kbd>R stick</kbd><span>Previous or next day</span></li>
-              <li data-part="r3"><kbd>R3</kbd><span>Two-screen mode on or off</span></li>
-            </ul>
-          </div>
-        </article>
+            <figcaption>POLYMARKET · WHOLE GAME (example)</figcaption>
+          </figure>
+        </div>
+      </article>
 
-        <article class="card c-spoil reveal" style="--glow:#ffd23f" data-phase="idle">
-          <p class="card__tag">Spoiler delay</p>
-          <h3 class="h3">Scores that wait for your stream.</h3>
-          <p class="card__txt">Set the delay with the buttons, or use Sync with TV: scores hide until the next goal, you tap when it shows on your stream, and that gap becomes the delay.</p>
-          <div class="card__viz delay">
-            <div class="lane" aria-hidden="true"><span>Your TV</span><span class="lane__track"><span class="lane__goal" data-lane="tv" style="--at:45%">GOAL</span></span></div>
-            <div class="lane lane--app" aria-hidden="true"><span>ThorSport</span><span class="lane__track"><span class="lane__goal" data-lane="app" style="--at:12%">GOAL</span></span></div>
-            <div class="delay__val">
-              <button class="seg" type="button" data-step="-5" aria-label="Shorter delay by 5 seconds">&minus;</button>
-              <output id="delayOut" aria-live="polite">0 s</output>
-              <button class="seg" type="button" data-step="5" aria-label="Longer delay by 5 seconds">+</button>
-              <button class="seg sync" type="button" id="syncBtn">Sync with TV</button>
-            </div>
-            <button class="tapnow" type="button" id="tapNow">Scores hidden. Waiting for the next goal…</button>
-            <p class="delay__msg" id="delayMsg" aria-live="polite">ThorSport shows the goal 20 s before your TV.</p>
-          </div>
-        </article>
+      <article class="feat" id="f-board" aria-labelledby="f-board-h">
+        <div class="feat__txt">
+          <h3 class="h3" id="f-board-h">The Board shows how it happened</h3>
+          <p>NHL shot maps with goal scorers, a baseball field with lit bases and the count, an NFL field with the line of scrimmage and the line to gain, and map scores for esports.</p>
+        </div>
+        <div class="feat__demo figs" aria-hidden="true">
+          <figure><svg viewBox="0 0 200 85"><rect x="1" y="1" width="198" height="83" rx="28" fill="#eef3fa"/><path d="M100 1V84" stroke="#e0404a" stroke-width="2"/><path d="M75 1V84M125 1V84" stroke="#2f5fe0" stroke-width="2.4"/><g fill="#7b8496"><circle cx="150" cy="30" r="3"/><circle cx="160" cy="55" r="3"/><circle cx="172" cy="62" r="3"/><circle cx="40" cy="22" r="3"/><circle cx="30" cy="60" r="3"/></g><g fill="#e8323f"><circle cx="178" cy="44" r="9" opacity=".3"/><circle cx="178" cy="44" r="4"/></g><g fill="#2f6bff"><circle cx="24" cy="40" r="9" opacity=".3"/><circle cx="24" cy="40" r="4"/></g></svg><figcaption>NHL shot map</figcaption></figure>
+          <figure><svg viewBox="0 0 100 58"><path d="M50 56L12 18A54 54 0 0 1 88 18Z" fill="#14532f"/><path d="M50 54L66 38L50 22L34 38Z" fill="#7a5532"/><path d="M50 50L62 38L50 26L38 38Z" fill="#1d6b45"/><g fill="#f4f7ff"><rect x="63.5" y="35.5" width="5" height="5" transform="rotate(45 66 38)"/><rect x="31.5" y="35.5" width="5" height="5" transform="rotate(45 34 38)" fill="#ffb524"/><rect x="47.5" y="19.5" width="5" height="5" transform="rotate(45 50 22)" fill="#ffb524"/></g><circle cx="80" cy="44" r="2.6" fill="#3ddc84"/><circle cx="87" cy="44" r="2.6" fill="#3ddc84"/><circle cx="80" cy="51" r="2.6" fill="#ff3b30"/><circle cx="87" cy="51" r="2.6" fill="#ffb524"/></svg><figcaption>Baseball field</figcaption></figure>
+          <figure><svg viewBox="0 0 120 40"><rect width="120" height="40" rx="4" fill="#2f8a3c"/><rect width="10" height="40" fill="#1f4fd0"/><rect x="110" width="10" height="40" fill="#c8102e"/><path d="M20 0V40M30 0V40M40 0V40M50 0V40M60 0V40M70 0V40M80 0V40M90 0V40M100 0V40" stroke="rgba(255,255,255,.6)" stroke-width=".6"/><path d="M58 0V40" stroke="#ffd23f" stroke-width="1.6"/><path d="M68 0V40" stroke="#3b82f6" stroke-width="1.6"/><ellipse cx="68" cy="20" rx="3" ry="1.9" fill="#8a4a1c" stroke="#fff" stroke-width=".5"/></svg><figcaption>NFL field</figcaption></figure>
+          <figure><div class="esp"><span>Cache <b>13–9</b></span><span>Mirage <b>8–13</b></span></div><figcaption>CS2 map scores</figcaption></figure>
+        </div>
+      </article>
 
-        <article class="card c-details reveal" style="--glow:#1fd17a">
-          <p class="card__tag">Live details</p>
-          <h3 class="h3">The Board shows how it happened.</h3>
-          <p class="card__txt">Shot maps with goal scorers, a baseball field with lit bases and the count, an NFL field with the line to gain, and map scores for esports.</p>
-          <div class="card__viz tiles" aria-hidden="true">
-            <div class="tile"><svg viewBox="0 0 200 85"><rect x="1" y="1" width="198" height="83" rx="28" fill="#eef3fa"/><path d="M100 1V84" stroke="#e0404a" stroke-width="2"/><path d="M75 1V84M125 1V84" stroke="#2f5fe0" stroke-width="2.4"/><g fill="#7b8496"><circle cx="150" cy="30" r="3"/><circle cx="160" cy="55" r="3"/><circle cx="172" cy="62" r="3"/><circle cx="40" cy="22" r="3"/><circle cx="30" cy="60" r="3"/></g><g fill="#e8323f"><circle cx="178" cy="44" r="9" opacity=".3"/><circle cx="178" cy="44" r="4"/></g><g fill="#2f6bff"><circle cx="24" cy="40" r="9" opacity=".3"/><circle cx="24" cy="40" r="4"/></g></svg><b>NHL shot map</b></div>
-            <div class="tile"><svg viewBox="0 0 100 58"><path d="M50 56L12 18A54 54 0 0 1 88 18Z" fill="#14532f"/><path d="M50 54L66 38L50 22L34 38Z" fill="#7a5532"/><path d="M50 50L62 38L50 26L38 38Z" fill="#1d6b45"/><g fill="#f4f7ff"><rect x="63.5" y="35.5" width="5" height="5" transform="rotate(45 66 38)"/><rect x="31.5" y="35.5" width="5" height="5" transform="rotate(45 34 38)" fill="#ffd23f"/><rect x="47.5" y="19.5" width="5" height="5" transform="rotate(45 50 22)" fill="#ffd23f"/></g><g><circle cx="80" cy="44" r="2.6" fill="#3ddc84"/><circle cx="87" cy="44" r="2.6" fill="#3ddc84"/><circle cx="80" cy="51" r="2.6" fill="#ff4d5e"/><circle cx="87" cy="51" r="2.6" fill="#ffd23f"/></g></svg><b>Baseball field</b></div>
-            <div class="tile"><svg viewBox="0 0 120 40"><rect width="120" height="40" rx="4" fill="#2f8a3c"/><rect width="10" height="40" fill="#1f4fd0"/><rect x="110" width="10" height="40" fill="#c8102e"/><path d="M20 0V40M30 0V40M40 0V40M50 0V40M60 0V40M70 0V40M80 0V40M90 0V40M100 0V40" stroke="rgba(255,255,255,.6)" stroke-width=".6"/><path d="M58 0V40" stroke="#ffd23f" stroke-width="1.6"/><path d="M68 0V40" stroke="#3b82f6" stroke-width="1.6"/><ellipse cx="68" cy="20" rx="3" ry="1.9" fill="#8a4a1c" stroke="#fff" stroke-width=".5"/></svg><b>NFL field</b></div>
-            <div class="tile"><div class="esp"><span>Cache <em style="font-style:normal">13-9</em></span><span>Mirage <em style="font-style:normal">8-13</em></span><small>CS2 · map scores</small></div><b>Esports</b></div>
-          </div>
-        </article>
+      <article class="feat" id="f-pad" aria-labelledby="f-pad-h">
+        <div class="feat__txt">
+          <h3 class="h3" id="f-pad-h">Every screen works from the buttons</h3>
+          <p>The first press shows the blue selection. Touch the screen and it hides again.</p>
+        </div>
+        <div class="feat__demo padviz">
+          <svg class="pad" viewBox="0 0 320 196" data-hl="dpad" aria-hidden="true">
+            <rect class="part p-l2r2" x="60" y="22" width="54" height="13" rx="6.5"/><rect class="part p-l2r2" x="206" y="22" width="54" height="13" rx="6.5"/>
+            <rect class="part p-l1r1" x="50" y="39" width="72" height="13" rx="6.5"/><rect class="part p-l1r1" x="198" y="39" width="72" height="13" rx="6.5"/>
+            <text class="lbl t-l2r2" x="87" y="15">L2</text><text class="lbl t-l2r2" x="233" y="15">R2</text>
+            <text class="lbl t-l1r1" x="36" y="48.5">L1</text><text class="lbl t-l1r1" x="284" y="48.5">R1</text>
+            <path class="body" d="M70 58H250C285 58 300 84 306 120C312 158 300 184 276 184C260 184 251 172 240 154C232 141 222 136 210 136H110C98 136 88 141 80 154C69 172 60 184 44 184C20 184 8 158 14 120C20 84 35 58 70 58Z"/>
+            <path class="part p-dpad" d="M78 86h12v12h12v12H90v12H78v-12H66V98h12z"/>
+            <circle class="ring" cx="128" cy="114" r="16"/><circle class="part p-ls" cx="128" cy="114" r="11"/>
+            <circle class="ring r-rs" cx="192" cy="114" r="16"/><circle class="part p-rs" cx="192" cy="114" r="11"/>
+            <circle class="part p-xy" cx="236" cy="88" r="7"/><circle class="part p-xy" cx="222" cy="102" r="7"/><circle class="part p-ab" cx="250" cy="102" r="7"/><circle class="part p-ab" cx="236" cy="116" r="7"/>
+            <text class="lbl" x="236" y="90.7">X</text><text class="lbl" x="222" y="104.7">Y</text><text class="lbl" x="250" y="104.7">A</text><text class="lbl" x="236" y="118.7">B</text>
+            <rect class="part" x="146" y="80" width="11" height="5" rx="2.5"/><rect class="part" x="163" y="80" width="11" height="5" rx="2.5"/>
+          </svg>
+          <table class="tbl map">
+            <caption class="sr-only">Controller buttons and what they do</caption>
+            <tbody>
+              <tr data-part="dpad" class="on"><td><kbd>D-pad</kbd></td><td>Move card by card</td></tr>
+              <tr data-part="ab"><td><kbd>A / B</kbd></td><td>Open the game, go back</td></tr>
+              <tr data-part="xy"><td><kbd>X / Y</kbd></td><td>Star the left or right team</td></tr>
+              <tr data-part="l1r1"><td><kbd>L1 / R1</kbd></td><td>Switch tabs</td></tr>
+              <tr data-part="l2r2"><td><kbd>L2 / R2</kbd></td><td>Switch leagues</td></tr>
+              <tr data-part="rs"><td><kbd>R stick</kbd></td><td>Previous or next day</td></tr>
+              <tr data-part="r3"><td><kbd>R3</kbd></td><td>Two-screen mode on or off</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
 
-        <article class="card c-canvas reveal" data-dev="thor">
-          <p class="card__tag">Drawn for the screen</p>
-          <h3 class="h3">Pixel-exact on both handhelds.</h3>
-          <p class="card__txt">Everything is drawn on a canvas at the screen's real size, so it's fast and fills it exactly. ThorSport pauses itself when hidden and slows down below 15% battery.</p>
-          <div class="card__viz">
-            <div class="cv" aria-hidden="true"><div class="cv__frame"><div class="cv__ui"><i></i><i></i><i></i><i></i></div><span class="cv__dim" data-dim>1240 × 1080</span></div></div>
-            <div class="btnrow" role="group" aria-label="Screen size" style="margin-top:14px">
-              <button class="seg" type="button" data-devsel="thor" aria-pressed="true">AYN Thor</button>
-              <button class="seg" type="button" data-devsel="duo" aria-pressed="false">Retroid Pocket Duo</button>
-            </div>
+      <article class="feat spoil" id="f-spoil" aria-labelledby="f-spoil-h" data-phase="idle">
+        <div class="feat__txt">
+          <h3 class="h3" id="f-spoil-h">Spoiler delay</h3>
+          <p>Streams run behind the live game. Set the delay with + and −, or use Sync with TV: scores stay hidden until the next goal, you tap when it shows on your stream, and the app uses that gap as the delay.</p>
+        </div>
+        <div class="feat__demo delay">
+          <div class="lane" aria-hidden="true"><span>Your TV</span><span class="lane__track"><span class="lane__goal" data-lane="tv" style="--at:45%">GOAL</span></span></div>
+          <div class="lane lane--app" aria-hidden="true"><span>ThorSport</span><span class="lane__track"><span class="lane__goal" data-lane="app" style="--at:12%">GOAL</span></span></div>
+          <div class="delay__val">
+            <button class="btn btn--sm" type="button" data-step="-5" aria-label="Shorten the delay by 5 seconds">&minus;</button>
+            <output id="delayOut" aria-live="polite">0 s</output>
+            <button class="btn btn--sm" type="button" data-step="5" aria-label="Lengthen the delay by 5 seconds">+</button>
+            <button class="btn btn--sm sync" type="button" id="syncBtn">Sync with TV</button>
           </div>
-        </article>
+          <button class="tapnow" type="button" id="tapNow">Scores hidden. Waiting for the next goal…</button>
+          <p class="delay__msg" id="delayMsg" aria-live="polite">ThorSport shows the goal 20 s before your TV.</p>
+        </div>
+      </article>
 
-        <article class="card c-lang reveal">
-          <p class="card__tag">English · Français</p>
-          <h3 class="h3">In English or in French.</h3>
-          <p class="card__txt">Switch the whole app in Settings, under Display.</p>
-          <div class="card__viz">
-            <div class="btnrow" role="group" aria-label="Language">
-              <button class="seg" type="button" data-lang="en" aria-pressed="true">EN</button>
-              <button class="seg" type="button" data-lang="fr" aria-pressed="false">FR</button>
-            </div>
-            <ul class="strings">
-              <li><small>Goal screen</small><span data-fr="BUT !">GOAL!</span></li>
-              <li><small>Tab</small><span data-fr="Classement">Standings</span></li>
-              <li><small>Filter</small><span data-fr="Mes équipes">My teams</span></li>
-              <li><small>Date</small><span data-fr="Aujourd'hui">Today</span></li>
-            </ul>
+      <article class="feat screens" id="f-screens" aria-labelledby="f-screens-h" data-dev="thor">
+        <div class="feat__txt">
+          <h3 class="h3" id="f-screens-h">Drawn for each screen</h3>
+          <p>Everything is drawn on a canvas at the screen's real resolution, so it's fast and fills the screen exactly. It also runs on single-screen Android, and pauses itself when it's hidden.</p>
+          <p class="spec">AYN Thor <b>1240×1080</b> · Retroid Pocket Duo <b>1280×960</b></p>
+        </div>
+        <div class="feat__demo">
+          <div class="cv" aria-hidden="true"><div class="cv__frame"><div class="cv__ui"><i></i><i></i><i></i><i></i></div><span class="cv__dim" data-dim>1240 × 1080</span></div></div>
+          <div class="seg-group" role="group" aria-label="Screen">
+            <button class="seg" type="button" data-devsel="thor" aria-pressed="true">AYN Thor</button><button class="seg" type="button" data-devsel="duo" aria-pressed="false">Retroid Pocket Duo</button>
           </div>
-        </article>
-      </div>
+        </div>
+      </article>
+
+      <article class="feat" id="f-lang" aria-labelledby="f-lang-h">
+        <div class="feat__txt">
+          <h3 class="h3" id="f-lang-h">English and French</h3>
+          <p>Switch the whole app in Settings, under Display.</p>
+        </div>
+        <div class="feat__demo">
+          <table class="tbl">
+            <caption class="sr-only">Some app text in English and French</caption>
+            <thead><tr><th scope="col">Where</th><th scope="col">English</th><th scope="col">Français</th></tr></thead>
+            <tbody>
+              <tr><td>Goal screen</td><td lang="en">GOAL!</td><td lang="fr">BUT !</td></tr>
+              <tr><td>Tab</td><td lang="en">Standings</td><td lang="fr">Classement</td></tr>
+              <tr><td>Filter</td><td lang="en">My teams</td><td lang="fr">Mes équipes</td></tr>
+              <tr><td>Date</td><td lang="en">Today</td><td lang="fr">Aujourd'hui</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
     </div>
   </section>
 
   <section class="sec goal" id="goal" aria-labelledby="goal-h" data-scope>
-    <div class="wrap goal__grid">
+    <div class="wrap grid goal__grid">
       <div class="goal__copy">
-        <p class="eyebrow reveal">Try it</p>
-        <h2 class="h2 reveal" id="goal-h">Hit the goal button.</h2>
-        <p class="lede reveal">Pick a team and press the button, or press A on a connected controller. On a Thor, this is what the bottom screen and the sticks do when your team scores.</p>
-        <fieldset class="picker reveal">
+        <h2 class="h2" id="goal-h">Try the goal screen</h2>
+        <p class="lede">Pick a team and press the button, or press A on a connected controller. On a Thor, this is what the bottom screen and the sticks do when your team scores.</p>
+        <fieldset class="picker">
           <legend>Your team</legend>
           <div class="picker__opts">
             <label class="pick" style="--c:#e8323f"><input type="radio" name="team" value="mtl" id="t-mtl" checked><span><i class="logo lg-mtl"></i>Montréal</span></label>
@@ -1201,8 +1108,8 @@ main{display:block;overflow-x:clip}
             <label class="pick" style="--c:#5fd6e0"><input type="radio" name="team" value="sea" id="t-sea"><span><i class="logo lg-sea"></i>Seattle</span></label>
           </div>
         </fieldset>
-        <div class="goal__act reveal">
-          <div class="gb-wrap"><button class="goal-btn" id="goalBtn" type="button"><span class="goal-btn__label">GOAL!</span><span class="goal-btn__sub">Press to score</span></button></div>
+        <div class="goal__act">
+          <button class="goal-btn" id="goalBtn" type="button"><span class="goal-btn__label">GOAL!</span><span class="goal-btn__sub">Press to score</span></button>
           <div class="goal__opts">
             <label class="toggle"><input class="sw" type="checkbox" role="switch" id="snd" checked>Goal horn</label>
             <p class="hint">Each team plays its own goal horn, the same recording the app uses.</p>
@@ -1211,7 +1118,7 @@ main{display:block;overflow-x:clip}
         </div>
       </div>
       <div class="goal__stage">
-        <div class="goal__dev"><div class="dev-wrap" data-device="goal" role="img" aria-label="An AYN Thor with the ThorSport Board on the bottom screen. It shows the goal screen and flashes the stick lights when you press the goal button."></div></div>
+        <div class="dev-wrap" data-device="goal" role="img" aria-label="An AYN Thor with the ThorSport Board on the bottom screen. It shows the goal screen and swaps the stick light colors when you press the goal button."></div>
       </div>
     </div>
     <p class="sr-only" id="announce" aria-live="assertive"></p>
@@ -1220,63 +1127,62 @@ main{display:block;overflow-x:clip}
   <section class="sec" id="install" aria-labelledby="install-h">
     <div class="wrap">
       <div class="sec__head">
-        <p class="eyebrow reveal">Install</p>
-        <h2 class="h2 reveal" id="install-h">Install it in three steps.</h2>
-        <p class="lede reveal">ThorSport is an APK on GitHub. Open this page on your handheld, or download it on a computer and copy the file over.</p>
+        <h2 class="h2" id="install-h">Install ThorSport</h2>
+        <p class="lede">ThorSport is an APK on GitHub. Open this page on your handheld, or download it on a computer and copy the file over.</p>
       </div>
-      <ol class="isteps">
-        <li class="istep reveal">
-          <span class="istep__n" aria-hidden="true">1</span>
+      <ol class="steps">
+        <li>
+          <p class="steps__n">Step 1</p>
           <h3 class="h3">Download</h3>
           <p>Tap <b>Download APK</b>. GitHub serves <b>ThorSport.apk</b> from the latest release.</p>
           <a class="btn btn--primary btn--sm" href="https://github.com/CHINW3/ThorSport/releases/latest" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#i-download"/></svg>Download APK<span class="sr-only"> (opens GitHub in a new tab)</span></a>
         </li>
-        <li class="istep reveal">
-          <span class="istep__n" aria-hidden="true">2</span>
+        <li>
+          <p class="steps__n">Step 2</p>
           <h3 class="h3">Allow installs from your browser</h3>
           <p>Open the file. When Android asks, tap <b>Settings</b>, turn on <b>Allow from this source</b> for your browser, then go back.</p>
         </li>
-        <li class="istep reveal">
-          <span class="istep__n" aria-hidden="true">3</span>
+        <li>
+          <p class="steps__n">Step 3</p>
           <h3 class="h3">Open ThorSport</h3>
           <p>Tap <b>Install</b>, then <b>Open</b>. On a Thor, if it opens on the top screen, long-press the icon and choose <b>Screen Launch → Bottom Screen</b>.</p>
         </li>
       </ol>
-      <p class="install__note reveal">Updates come through the app: ThorSport shows a banner when a new version is out, and <b>Settings → App update</b> installs it. Release notes are on <a href="https://github.com/CHINW3/ThorSport/releases" target="_blank" rel="noopener">GitHub</a>.</p>
+      <p class="install__note">Updates come through the app: ThorSport shows a banner when a new version is out, and <b>Settings → App update</b> installs it. Release notes are on <a class="link" href="https://github.com/CHINW3/ThorSport/releases" target="_blank" rel="noopener">GitHub</a>.</p>
     </div>
   </section>
+
   <section class="sec" id="faq" aria-labelledby="faq-h">
     <div class="wrap">
       <div class="sec__head">
-        <p class="eyebrow reveal">FAQ</p>
-        <h2 class="h2 reveal" id="faq-h">Questions.</h2>
+        <h2 class="h2" id="faq-h">Questions</h2>
       </div>
       <div class="faq">
-        <details class="reveal">
+        <details>
           <summary>What is ThorSport?</summary>
           <p>An Android app for live sports. On a dual-screen handheld it runs on the bottom screen with scores, standings, the Board and goal alerts, so the top screen stays free for the game you're watching.</p>
         </details>
-        <details class="reveal">
+        <details>
           <summary>Which devices does it work on?</summary>
           <p>It's built for the AYN Thor (bottom screen 1240×1080) and the Retroid Pocket Duo (1280×960), and draws to fit those screens exactly. It also works on a single-screen Android device.</p>
         </details>
-        <details class="reveal">
+        <details>
           <summary>Which leagues and sports are covered?</summary>
           <p>NHL, AHL, PWHL, NBA, WNBA, NFL, MLB, F1, the Premier League, MLS, the Champions League, La Liga, the Bundesliga, Serie A, Ligue 1 and the EFL, college football, basketball and hockey, international soccer and hockey, cricket (Test, One-day, T20, women's and domestic) and esports (League of Legends, CS2, Valorant, Dota 2 and Rainbow Six Siege).</p>
         </details>
-        <details class="reveal">
+        <details>
           <summary>Where do the scores come from?</summary>
           <p>ESPN's public feeds for scores, standings and odds, the NHL's and MLB's own live feeds for faster goals and runs, HockeyTech for the PWHL, Jolpica for F1, lolesports.com for League of Legends and Polymarket for win chances.</p>
         </details>
-        <details class="reveal">
+        <details>
           <summary>How do I update ThorSport?</summary>
           <p>The app checks GitHub for new versions and shows a banner when one is out. Settings → App update downloads and installs it.</p>
         </details>
-        <details class="reveal">
+        <details>
           <summary>Is ThorSport available in French?</summary>
           <p>Yes. Switch the whole app between English and French in Settings → Display.</p>
         </details>
-        <details class="reveal">
+        <details>
           <summary>Does it drain the battery?</summary>
           <p>It pauses itself when it's fully hidden, refreshes faster only while a game is live, and slows down at night and below 15% battery.</p>
         </details>
@@ -1287,11 +1193,13 @@ main{display:block;overflow-x:clip}
 
 <footer class="foot">
   <div class="wrap">
-    <div class="foot__cta reveal">
-      <h2 class="h2">Put it on your Thor.</h2>
+    <div class="foot__cta">
+      <div>
+        <h2 class="h2">Download ThorSport</h2>
+        <p class="spec">Android APK · AYN Thor · Retroid Pocket Duo · single-screen Android</p>
+      </div>
       <a class="btn btn--primary" href="https://github.com/CHINW3/ThorSport/releases/latest" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#i-download"/></svg>Download APK<span class="sr-only"> (opens GitHub in a new tab)</span></a>
     </div>
-    <p class="foot__word" aria-hidden="true">ThorSport</p>
     <div class="foot__row">
       <p class="foot__made"><img class="brand__icon" src="data:image/webp;base64,UklGRg4GAABXRUJQVlA4WAoAAAAQAAAATwAATwAAQUxQSPoAAAABgBvbturm3P9eKmXUhFQCtSOZisCOpMzUgTIzUw3/3XvMeGYcOiIUtm3bWHHHCVU/wDsykMfrB2cM/ijBs4P1cQYyPsEMzdUFf43FahNmHyYBK1cki8fPJ7yQvFoB0oftzsja+Wt4Tc66SB+0d/vu9KuH2967qdB/ZM1fp+ZjH9VrrfXIQgEKH1tWwRLmb88KxzmSZUxeqzITZGvcu6vE/b5hWHvddbY1pMNwnXgcpkEEhYgYbLMopXB7h64U584ZtS48oxyh13+3+HvfoXrveD3PoOdB9DyNnkfS81xyHk7QE+p5TDnPKueB5Ty1nEeX8/yi/xBy/yQAVlA4IO4EAADwGQCdASpQAFAAPjEWiUMiISESnAXkIAMEtQBjc+toWaIffeM0OX0uTj/MA/TPpAeYD9s98A/l39Y///YHegB5oH+5/cn4Jv2W/YD4B/2CeRN7F+N3416XfHOf4zRgORkjf/0v3AfKF/kfbN7sPnn/r+4Z/HP6B/tvzb41H9Y2lDkDWaI7w47hQXqG7VKeSOu2Ei+N2+Gl7vVoScbczfqwzFFzr16AMkHsKJ0RODHdphTOpZyDn7mwCSsCKF4aUDfnNfQc4lgUJnyfxVkvT2fBGpdu5Zn12AAA/v8gf0co6n4Rx3v8/IQDcm1avq4P1tDZUbW8tlGQ2yybHkXfDvdehUfTgseQRaH8SAT2jTlaAz6aQ/vjNzqw3dJQHmQNuX3RFUmBccT+IoLThmt9fZWlcNkDRiI224w5lkBnuPwC+YRfPbFgNSs/EZ4iIGyI/+M3Zr4l7nwYgWeSEhDpOeMkrs38dTTVpFOPvPckzl4HP+i1QSwrkBw/JPWa3ttSUl4JnNQfIPLO9fbiBoE4FA/bX/zvncmskHHA1HVqqqFAhC4eh4GJ5a9LYlC6/wDHdCRHgJ7+s8PX1+C06PdXdNTDwkFP/i9MN5xzbLCE19MgxxH5jqQTNgvM3Ip/PP/9lHkcCA5gXr2d5hm+bHJz1qCdE4k+0O/Ve/4vLGNCHBeMWZAiZGZyn09e62cM3A/80F4P6STQ/scIV/LAgil/ozpCZXnJHw/SSrE4GnvZHTp5NasP5O+B/5vGZVjVOk6d1VLgflnVFAUCAl3EgiV4b4gp+phT7Oq/xKyUv33agFt3HPpE4t4aKI/Dw/ToR0UlUOzPw00mBbmIcAXVZkr16XTp2ezm+6l0LalKGz9zvdNXxB2WSJrn16AP/qz/309I7N3r52BkAL/NkTw8Tu8sfkBM8A54wfOMPsj+zNXXPBUOcmCQNVOj5O95WOTMPDDbUVK+F/lP+remitTN8DFEDoasD/jVYJkwywMlyI6Y7f5iU/fXQHZnxVGJK6P0nmEPI8YqwvoOl1awKwdSppyb9jfvCNA0l3+SrhIJPPUS6W+q39zzZww+qkCOJPSQ/9vFs/qLpu/j9+x1rG6t73IfslIGImSB7f07S0K39jfP4CMu2aHmxo9DAZQSvzXuxUgL8WhIx6dixFjoEuO4tMvm7fiefcqpa0QLfY2uI5xA5mCoabtqgAR+SL/3/DU3Cfkc+zTP5cf1y7xwdnbpTAhdqTSKSQfCLThFYHckVBfD8AW9Syxtx3p32VKPxiN+4rgayP2VZzPkiWUD2gUUZ8Peq8yedPg0jQVr9/3ZRXjYobvLfoQtErl4HGLfwASH0kBONIGqSO7OJ+swTtL3TGoCsuXVMoZSuwHBsf/z2BCCO2vHp5U+qQE788fx9z9Xwc0ziNc5qXZc1Jr/2HPdA0e+92trfhTmsf3R9iGfMsw1YBlo8/ZLaiiFaFGF75QbXywBdF67G7DDB/hStQByOgW3eRpkvt2h1V/Rvy8//rhD5HeyF2vdP27vm/nvBNIhZ0Y72xsMD1t6MTuNuDiF8Dq7YYc26IMjummGio5Vv7180OC/k3hV7pYHc4SQHEJ7dQf6oJf5KoipcDk3aHHOieOGdp3NSbvyTle2DugAyfuza/7a+hX/FQ+7StZ7cI/LknZeIz8JFDB2f/MLLvypIX8gAA==" alt="" width="28" height="28">Made for the Thor.</p>
       <ul class="foot__links">
@@ -1354,7 +1262,6 @@ main{display:block;overflow-x:clip}
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
   const html = document.documentElement;
   const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const FINE = matchMedia('(hover: hover) and (pointer: fine)').matches;
   const G = window.gsap, ST = window.ScrollTrigger;
   const MOTION = !REDUCE && !!(G && ST);
   if (!MOTION) html.classList.remove('motion');
@@ -1688,36 +1595,20 @@ main{display:block;overflow-x:clip}
     if (!gpRaf) gpRaf = requestAnimationFrame(poll);
   });
 
-  /* ---------- feature cards ---------- */
-  if (FINE) $$('.card').forEach(card => card.addEventListener('pointermove', e => {
-    const r = card.getBoundingClientRect();
-    card.style.setProperty('--mx', (e.clientX - r.left) + 'px');
-    card.style.setProperty('--my', (e.clientY - r.top) + 'px');
-  }));
-  $$('.card').forEach(card => onView(card, v => { if (v) card.classList.add('is-in'); }, { threshold: .35 }));
-
-  // goal card: cycle the celebration words
-  const gw = $('.gviz__word');
-  if (gw && !REDUCE) {
-    const words = gw.dataset.words.split('|');
-    let wi = 0, wt = 0;
-    onView(gw, v => {
-      clearInterval(wt);
-      if (v) wt = setInterval(() => { wi = (wi + 1) % words.length; gw.textContent = words[wi]; }, 1500);
-    });
-  }
+  /* ---------- feature rows ---------- */
+  $$('.feat').forEach(row => onView(row, v => { if (v) row.classList.add('is-in'); }, { threshold: .35 }));
 
   // stick lights card
-  const sticks = $('.c-sticks .sticks'), scap = $('.sticks__cap');
+  const sticks = $('#f-goal .sticks'), scap = $('.sticks__cap');
   const SCAP = { team: "Your team's two main colors, all the time.", goal: 'On a goal, the sticks swap the two colors.', win: 'On a win, both sticks turn gold.', tight: 'In a tight finish, they pulse slowly.' };
-  $$('.c-sticks .seg').forEach(b => b.addEventListener('click', () => {
+  $$('#f-goal .seg').forEach(b => b.addEventListener('click', () => {
     sticks.dataset.mode = b.dataset.mode;
     scap.textContent = SCAP[b.dataset.mode];
-    $$('.c-sticks .seg').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    $$('#f-goal .seg').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
   }));
 
   // controller card: highlight the part for each mapping
-  const pad = $('.pad'), maps = $$('.map li');
+  const pad = $('.pad'), maps = $$('.map [data-part]');
   if (pad && maps.length) {
     let pi = 0, pt = 0, hover = false;
     const hl = p => { pad.dataset.hl = p; maps.forEach(m => m.classList.toggle('on', m.dataset.part === p)); };
@@ -1732,7 +1623,7 @@ main{display:block;overflow-x:clip}
   }
 
   // spoiler delay card
-  const sp = $('.c-spoil');
+  const sp = $('.spoil');
   if (sp) {
     const out = $('#delayOut'), msg = $('#delayMsg'), tap = $('#tapNow'), syncBtn = $('#syncBtn');
     const laneTv = $('[data-lane="tv"]', sp), laneApp = $('[data-lane="app"]', sp);
@@ -1785,7 +1676,7 @@ main{display:block;overflow-x:clip}
   }
 
   // canvas card: the two screen sizes
-  const cvc = $('.c-canvas');
+  const cvc = $('.screens');
   if (cvc) {
     const dim = $('[data-dim]', cvc), btns = $$('[data-devsel]', cvc), DIMS = { thor: '1240 × 1080', duo: '1280 × 960' };
     let ct = 0, user = false;
@@ -1796,30 +1687,6 @@ main{display:block;overflow-x:clip}
       if (v && !user) ct = setInterval(() => setDev(cvc.dataset.dev === 'thor' ? 'duo' : 'thor'), 2600);
     });
   }
-
-  // language card
-  const strs = $$('.c-lang [data-fr]');
-  strs.forEach(s => { s.dataset.en = s.textContent; });
-  $$('.c-lang [data-lang]').forEach(b => b.addEventListener('click', () => {
-    const fr = b.dataset.lang === 'fr';
-    $$('.c-lang [data-lang]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
-    strs.forEach(s => { s.textContent = fr ? s.dataset.fr : s.dataset.en; s.lang = fr ? 'fr' : 'en'; });
-  }));
-
-  // counters
-  $$('[data-count]').forEach(el => {
-    if (REDUCE) return;
-    const end = +el.dataset.count, suf = el.dataset.suffix || '';
-    let done = false;
-    el.textContent = '0' + suf;
-    onView(el, v => {
-      if (!v || done) return;
-      done = true;
-      const t0 = performance.now(), dur = 1500;
-      const f = now => { const p = Math.min(1, (now - t0) / dur); el.textContent = Math.round(end * (1 - Math.pow(1 - p, 4))) + suf; if (p < 1) requestAnimationFrame(f); };
-      requestAnimationFrame(f);
-    }, { threshold: .6 });
-  });
 
   // marquee: duplicate the rows so they loop
   const marquees = $$('.mq');
@@ -1837,20 +1704,10 @@ main{display:block;overflow-x:clip}
       .then(j => {
         if (!j || !j.tag_name) return;
         const when = j.published_at ? new Date(j.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-        rel.textContent = `Version ${j.tag_name.replace(/^v/, '')}${when ? ' · ' + when : ''} · Android APK`;
+        rel.textContent = `v${j.tag_name.replace(/^v/, '')}${when ? ' · ' + when : ''}`;
       })
       .catch(() => {});
   }
-
-  // nav hides on the way down, returns on the way up
-  const nav = $('#nav');
-  let lastY = scrollY;
-  addEventListener('scroll', () => {
-    const y = scrollY;
-    if (y > 160 && y > lastY + 4 && !nav.contains(document.activeElement)) nav.classList.add('is-hidden');
-    else if (y < lastY - 4 || y < 160) nav.classList.remove('is-hidden');
-    lastY = y;
-  }, { passive: true });
 
   /* ---------- scroll animation (GSAP + ScrollTrigger + Lenis) ---------- */
   let lenis = null;
@@ -1871,81 +1728,7 @@ main{display:block;overflow-x:clip}
       G.timeline({ defaults: { ease: 'expo.out' }, delay: .05 })
         .to(lines, { yPercent: 0, duration: 1.4, stagger: .12 })
         .to(fades, { opacity: 1, y: 0, duration: 1.1, stagger: .08 }, .35)
-        .fromTo('.hero__stage', { opacity: 0, y: 140 }, { opacity: 1, y: 0, duration: 1.8 }, .3);
-
-      // hero scroll: the handheld rises and flattens while the headline lifts away
-      const mm = G.matchMedia();
-      mm.add('(min-width: 900px) and (min-height: 600px)', () => {
-        const pin = $('.hero__pin'), copy = $('.hero__copy'), heroStage = $('.hero__stage');
-        const y0 = () => {
-          const H = pin.clientHeight;
-          const top = heroStage.offsetTop - heroStage.offsetHeight / 2;
-          return Math.max(H * .12, copy.offsetTop + copy.offsetHeight + H * .02 - top);
-        };
-        G.timeline({ scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom bottom', scrub: .9, invalidateOnRefresh: true } })
-          .fromTo('.hero__tilt', { y: y0, rotationX: 26, scale: .86, transformPerspective: 1600, transformOrigin: '50% 50%' },
-            { y: 0, rotationX: 0, scale: 1, ease: 'power1.inOut', duration: 1 }, 0)
-          .to(copy, { y: -150, autoAlpha: 0, ease: 'power1.in', duration: .3 }, 0);
-      });
-      mm.add('(max-width: 899px), (max-height: 599px)', () => {
-        G.fromTo('.hero__tilt', { rotationX: 16, transformPerspective: 1200, transformOrigin: '50% 100%' },
-          { rotationX: 0, ease: 'none', scrollTrigger: { trigger: '.hero__stage', start: 'top 95%', end: 'center 55%', scrub: .6 } });
-      });
-
-      // pointer tilt on the hero handheld
-      if (FINE) {
-        const dw = $('.hero .dev-wrap');
-        G.set(dw, { transformPerspective: 1400 });
-        const ry = G.quickTo(dw, 'rotationY', { duration: 1, ease: 'power3' }), rx = G.quickTo(dw, 'rotationX', { duration: 1, ease: 'power3' });
-        addEventListener('pointermove', e => { ry((e.clientX / innerWidth - .5) * 10); rx((e.clientY / innerHeight - .5) * -6); }, { passive: true });
-
-        // the goal button leans toward the pointer
-        const gbw = $('.gb-wrap');
-        if (gbw) {
-          const mx = G.quickTo(gbw, 'x', { duration: .6, ease: 'power3' }), my = G.quickTo(gbw, 'y', { duration: .6, ease: 'power3' });
-          gbw.addEventListener('pointermove', e => { const r = gbw.getBoundingClientRect(); mx((e.clientX - r.left - r.width / 2) * .22); my((e.clientY - r.top - r.height / 2) * .22); });
-          gbw.addEventListener('pointerleave', () => { mx(0); my(0); });
-        }
-      }
-
-      // sections reveal as they enter
-      G.set('.reveal', { y: 40 });
-      ST.batch('.reveal', {
-        start: 'top 90%', once: true,
-        onEnter: b => {
-          // anything already scrolled past (reload mid-page, jump links) shows at once; the rest staggers briefly
-          const vh = innerHeight, past = b.filter(el => el.getBoundingClientRect().bottom < vh * .15), rest = b.filter(el => !past.includes(el));
-          if (past.length) G.set(past, { opacity: 1, clearProps: 'transform' });
-          if (rest.length) G.to(rest, { opacity: 1, y: 0, duration: 1.1, ease: 'power3.out', stagger: Math.min(.08, .5 / rest.length), overwrite: true, onComplete: () => G.set(rest, { clearProps: 'transform' }) });
-        }
-      });
-
-      // the manifesto lights up word by word
-      const scrub = $('[data-scrub]');
-      if (scrub) {
-        const words = [];
-        const walk = node => Array.from(node.childNodes).forEach(c => {
-          if (c.nodeType === 3) {
-            const frag = document.createDocumentFragment();
-            c.textContent.split(/(\s+)/).forEach(part => {
-              if (!part) return;
-              if (/^\s+$/.test(part)) frag.appendChild(document.createTextNode(part));
-              else { const s = document.createElement('span'); s.textContent = part; frag.appendChild(s); words.push(s); }
-            });
-            c.replaceWith(frag);
-          } else if (c.nodeType === 1) walk(c);
-        });
-        walk(scrub);
-        G.fromTo(words, { opacity: .14 }, { opacity: 1, ease: 'none', stagger: .06, scrollTrigger: { trigger: scrub, start: 'top 82%', end: 'bottom 50%', scrub: .4 } });
-      }
-
-      // parallax: background light, story chips, footer wordmark
-      const whole = { start: 0, end: 'max', scrub: true };
-      G.to('.atmo .a1', { yPercent: 40, ease: 'none', scrollTrigger: whole });
-      G.to('.atmo .a2', { yPercent: -35, ease: 'none', scrollTrigger: { ...whole } });
-      G.fromTo('.chip', { y: 40 }, { y: -40, ease: 'none', scrollTrigger: { trigger: '#story', start: 'top bottom', end: 'bottom top', scrub: true } });
-      G.fromTo('.foot__word', { yPercent: 45, opacity: .2 }, { yPercent: 0, opacity: 1, ease: 'none', scrollTrigger: { trigger: '.foot', start: 'top bottom', end: 'bottom bottom', scrub: true } });
-      G.to('.progress', { scaleX: 1, ease: 'none', scrollTrigger: { start: 0, end: 'max', scrub: .3 } });
+        .fromTo('.hero__stage', { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 1.2 }, .3);
 
       // the marquee speeds up with scroll velocity
       let boost = 0, anims = null;
@@ -1961,7 +1744,7 @@ main{display:block;overflow-x:clip}
       addEventListener('load', () => ST.refresh());
     } catch (err) {
       html.classList.remove('motion');
-      $$('.reveal, .hero .line__in, .hero .fade, .hero__stage').forEach(n => { n.style.opacity = 1; n.style.transform = 'none'; });
+      $$('.hero .line__in, .hero .fade, .hero__stage').forEach(n => { n.style.opacity = 1; n.style.transform = 'none'; });
       console.error(err);
     }
   }
