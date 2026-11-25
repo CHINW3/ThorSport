@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.59
+- **Better Blainville-Boisbriand Armada logo** (QMJHL): the league feed's own picture was low quality.
+
 ## 3.58
 - **Smoother color gradients:** dithering is on, so the dark backgrounds and team-color glows no longer show visible bands.
 
