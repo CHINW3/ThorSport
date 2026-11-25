@@ -38,15 +38,7 @@ final class Esports {
     }
 
     static Model.Scoreboard scores(Espn.League lg, String date, boolean fromCache) throws Exception {
-        String base = API + discipline(lg.path);
-        JSONArray a = new JSONObject(get(base + "&filter%5Bmatches.status%5D%5Bin%5D=current,upcoming&sort=start_date", fromCache)).optJSONArray("results");
-        JSONArray b = new JSONObject(get(base + "&filter%5Bmatches.status%5D%5Bin%5D=finished&sort=-start_date", fromCache)).optJSONArray("results");
-        List<Model.Game> all = new ArrayList<>();
-        for (JSONArray arr : new JSONArray[]{a, b})
-            for (int i = 0; arr != null && i < arr.length(); i++) {
-                Model.Game g = game(lg, arr.optJSONObject(i));
-                if (g != null) all.add(g);
-            }
+        List<Model.Game> all = allGames(lg, fromCache);
         SimpleDateFormat day = new SimpleDateFormat("yyyyMMdd", Locale.US);
         String want = date != null ? date : day.format(new Date());
         long now = System.currentTimeMillis();
@@ -124,6 +116,37 @@ final class Esports {
             return ThorView.tr("Kills ", "Éliminations ") + ak + "-" + hk + "  ·  " + who + " +" + String.format(Locale.US, "%.1fk", Math.abs(aLead) / 1000.0) + " gold  ·  " + mins + " min";
         }
         return "";
+    }
+
+    private static List<Model.Game> allGames(Espn.League lg, boolean fromCache) throws Exception {
+        String base = API + discipline(lg.path);
+        JSONArray a = new JSONObject(get(base + "&filter%5Bmatches.status%5D%5Bin%5D=current,upcoming&sort=start_date", fromCache)).optJSONArray("results");
+        JSONArray b = new JSONObject(get(base + "&filter%5Bmatches.status%5D%5Bin%5D=finished&sort=-start_date", fromCache)).optJSONArray("results");
+        List<Model.Game> all = new ArrayList<>();
+        for (JSONArray arr : new JSONArray[]{a, b})
+            for (int i = 0; arr != null && i < arr.length(); i++) {
+                Model.Game g = game(lg, arr.optJSONObject(i));
+                if (g != null) all.add(g);
+            }
+        return all;
+    }
+
+    /** The teams to pick in My teams: every team of the recent and coming matches. */
+    static List<Model.Team> teams(Espn.League lg) {
+        java.util.Map<String, Model.Team> seen = new java.util.LinkedHashMap<>();
+        for (boolean cache : new boolean[]{true, false}) {
+            try {
+                for (Model.Game g : allGames(lg, cache))
+                    for (Model.Side s : new Model.Side[]{g.away, g.home}) {
+                        if (s.abbr == null || s.abbr.isEmpty() || seen.containsKey(s.abbr)) continue;
+                        Model.Team t = new Model.Team();
+                        t.abbr = s.abbr; t.name = s.name; t.logo = s.logo;
+                        seen.put(s.abbr, t);
+                    }
+            } catch (Exception ignored) { }
+            if (!seen.isEmpty()) break;
+        }
+        return new ArrayList<>(seen.values());
     }
 
     private static Model.Game game(Espn.League lg, JSONObject m) {

@@ -2344,10 +2344,10 @@ public class ThorView extends View {
             if (back) {
                 name = fr ? "‹ RETOUR" : "‹ BACK";
             } else if (folder) {
-                String img = id == -1 ? "asset:league/soccer.png" : id == -2 ? "asset:league/ncaa.png" : null;
+                String img = id == -1 ? "asset:league/soccer.png" : id == -2 ? "asset:league/ncaa.png" : id == -5 ? "asset:league/esports.png" : null;
                 if (id == -3) globe(c, r.left + r.height() * 0.5f, r.centerY(), r.height() * 0.3f);
                 else if (img != null && logos != null && logos.get(img) != null) logo(c, img, "", 0, r.left + r.height() * 0.5f, r.centerY(), r.height() * 0.6f);
-                name = (id == -1 ? "SOCCER" : id == -2 ? (fr ? "UNIVERSITAIRE" : "COLLEGE") : "INTL") + "  ›";
+                name = (id == -1 ? "SOCCER" : id == -2 ? (fr ? "UNIVERSITAIRE" : "COLLEGE") : id == -5 ? "ESPORTS" : "INTL") + "  ›";
             } else {
                 String url = li < leagueLogos.length ? leagueLogos[li] : null;
                 if (url != null && logos != null && logos.get(url) != null) logo(c, url, "", 0, r.left + r.height() * 0.5f, r.centerY(), r.height() * 0.6f);

@@ -33,7 +33,10 @@ public final class LoL {
     }
 
     /** Matches for that day (yyyyMMdd, null = today); today with nothing on shows the next ones. */
-    static Model.Scoreboard scores(String date, boolean fromCache) throws Exception {
+    static Model.Scoreboard scores(String date, boolean fromCache) throws Exception { return scores(date, fromCache, false); }
+
+    /** everything = every match of the schedule, not only that day (for the team list). */
+    static Model.Scoreboard scores(String date, boolean fromCache, boolean everything) throws Exception {
         String hl = ThorView.fr ? "fr-FR" : "en-US";
         JSONObject root = new JSONObject(get("getSchedule?hl=" + hl, fromCache));
         JSONObject sched = root.optJSONObject("data") == null ? null : root.optJSONObject("data").optJSONObject("schedule");
@@ -77,6 +80,7 @@ public final class LoL {
             else g.detail = "BO" + bo;
             all.add(g);
         }
+        if (everything) { sb.games.addAll(all); return sb; }
         for (Model.Game g : all) if (g.startMs > 0 && want.equals(day.format(new Date(g.startMs))) || g.isLive()) sb.games.add(g);
         if (sb.games.isEmpty() && date == null) {   // nothing today: the next matches
             for (Model.Game g : all) if (g.startMs > now && sb.games.size() < 8) sb.games.add(g);
@@ -86,6 +90,24 @@ public final class LoL {
             return ra != rb ? ra - rb : Long.compare(a.startMs, b.startMs);
         });
         return sb;
+    }
+
+    /** The teams to pick in My teams: every team of the schedule. */
+    static java.util.List<Model.Team> teams() {
+        java.util.Map<String, Model.Team> seen = new java.util.LinkedHashMap<>();
+        for (boolean cache : new boolean[]{true, false}) {
+            try {
+                for (Model.Game g : scores(null, cache, true).games)
+                    for (Model.Side s : new Model.Side[]{g.away, g.home}) {
+                        if (s.abbr == null || s.abbr.isEmpty() || seen.containsKey(s.abbr)) continue;
+                        Model.Team t = new Model.Team();
+                        t.abbr = s.abbr; t.name = s.name; t.logo = s.logo;
+                        seen.put(s.abbr, t);
+                    }
+            } catch (Exception ignored) { }
+            if (!seen.isEmpty()) break;
+        }
+        return new java.util.ArrayList<>(seen.values());
     }
 
     private static void fill(Model.Side s, JSONObject t) {

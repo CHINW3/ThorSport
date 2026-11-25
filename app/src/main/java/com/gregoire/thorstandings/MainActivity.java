@@ -710,7 +710,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
         List<Integer> out = new ArrayList<>();
         for (int i : Espn.ORDER) {   // in the same sport order as the league menu
             Espn.League l = Espn.LEAGUES[i];
-            if (l.mine() || l.path.startsWith("racing") || l.path.startsWith("esports") || l.noTable()) continue;
+            if (l.mine() || l.path.startsWith("racing") || l.noTable()) continue;
             if (l.path.startsWith("cricket/") && !l.path.equals("cricket/all")) continue;   // the cricket sections show the same teams as CRICKET
             if (leagueHidden(i) && favAbbrsFor(l.path).isEmpty()) continue;   // a league you switched off (and have no team in)
             out.add(i);
@@ -723,7 +723,9 @@ public class MainActivity extends Activity implements ThorView.Listener {
         final Espn.League lg = Espn.LEAGUES[idx];
         new Thread(() -> {
             List<Model.Team> teams = new ArrayList<>();
-            if (Cricket.is(lg)) teams = Cricket.teams();   // no standings in cricket: the teams of the recent and coming matches
+            if (LoL.is(lg)) teams = LoL.teams();
+            else if (Esports.is(lg)) teams = Esports.teams(lg);
+            else if (Cricket.is(lg)) teams = Cricket.teams();   // no standings in cricket: the teams of the recent and coming matches
             else for (boolean cache : new boolean[]{true, false}) {
                 try {
                     Map<String, Model.Team> seen = new java.util.LinkedHashMap<>();
@@ -1822,7 +1824,7 @@ public class MainActivity extends Activity implements ThorView.Listener {
             Set<String> mine = favAbbrsFor(l.path);
             if (mine.isEmpty()) continue;
             try {
-                Model.Scoreboard one = Espn.scores(l, date, fromCache);
+                Model.Scoreboard one = LoL.is(l) ? LoL.scores(date, fromCache) : Espn.scores(l, date, fromCache);
                 any = true;
                 for (Model.Game g : one.games) if (g.involves(mine)) all.games.add(g);
             } catch (Exception ignored) { }
@@ -2037,12 +2039,12 @@ public class MainActivity extends Activity implements ThorView.Listener {
             if (cur.mine()) return;   // "My teams" page already watches all of them
             final List<Espn.League> todo = new ArrayList<>();
             for (Espn.League l : Espn.LEAGUES)
-                if (!l.mine() && !l.path.equals(cur.path) && !l.path.startsWith("esports") && !"racing/f1".equals(l.path) && !favAbbrsFor(l.path).isEmpty()) todo.add(l);
+                if (!l.mine() && !l.path.equals(cur.path) && !"racing/f1".equals(l.path) && !favAbbrsFor(l.path).isEmpty()) todo.add(l);
             if (todo.isEmpty()) return;
             io.execute(() -> {
                 for (Espn.League l : todo) {
                     try {
-                        final Model.Scoreboard sb = Espn.scores(l, null, false);
+                        final Model.Scoreboard sb = LoL.is(l) ? LoL.scores(null, false) : Espn.scores(l, null, false);
                         final Set<String> favs = favAbbrsFor(l.path);
                         main.post(() -> watchOther(sb.games, favs));
                     } catch (Exception ignored) { }
