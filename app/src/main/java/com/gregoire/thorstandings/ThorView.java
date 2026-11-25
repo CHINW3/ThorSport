@@ -1685,7 +1685,9 @@ public class ThorView extends View {
         // graph and the team stats)
         if (g.away.odds >= 0 && g.home.odds >= 0) {
             sectionLabel(c, tr("WIN CHANCE", "CHANCES DE VICTOIRE"), rx0, ry, H);
-            String src = g.oddsSource + (g.winHist.size() >= 3 && !"ESPN".equals(g.oddsSource) ? tr(" · CHART ESPN", " · GRAPHE ESPN") : "");
+            boolean polyChart = "POLYMARKET".equals(g.oddsSource) && g.polyHist.size() >= 3;   // the whole game from Polymarket's own price history
+            String src = g.oddsSource + (polyChart ? tr(" · WHOLE GAME", " · TOUT LE MATCH")
+                : g.winHist.size() >= 3 && !"ESPN".equals(g.oddsSource) ? tr(" · CHART ESPN", " · GRAPHE ESPN") : "");
             if (!src.isEmpty()) text(c, src, rx1, ry, H * 0.022f, tfMed, DIM, Paint.Align.RIGHT, (rx1 - rx0) * 0.6f);
             float big = H * 0.065f, cy = ry + H * 0.08f;
             int pa = Math.round(g.away.odds * 100), ph = 100 - pa;   // always adds up to 100 (rounding each side gave 51 + 50)
@@ -1695,8 +1697,8 @@ public class ThorView extends View {
             text(c, g.home.abbr, rx1, cy + big * 0.78f, H * 0.022f, tfCond, MUTED, Paint.Align.RIGHT, w);
             // the graph needs the whole game: ESPN keeps the full win-probability history, so use it for the
             // curve when it exists (Polymarket only gives the current price, so its curve starts flat)
-            List<Float> hist = g.winHist.size() >= 3 ? new ArrayList<>(g.winHist) : oddsHist.get(g.id);
-            if (g.winHist.size() >= 3 && !"ESPN".equals(g.oddsSource)) hist.add(g.away.odds);   // curve ends on the number shown
+            List<Float> hist = polyChart ? new ArrayList<>(g.polyHist) : g.winHist.size() >= 3 ? new ArrayList<>(g.winHist) : oddsHist.get(g.id);
+            if (polyChart || g.winHist.size() >= 3 && !"ESPN".equals(g.oddsSource)) hist.add(g.away.odds);   // curve ends on the number shown
             float gh = 0.24f;
             RectF gr = new RectF(rx0, cy + big * 1.05f, rx1, cy + big * 1.05f + H * gh);
             drawOddsGraph(c, g, gr, hist, ac, hc);

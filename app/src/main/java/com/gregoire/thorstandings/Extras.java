@@ -170,6 +170,10 @@ public final class Extras {
     private static final Map<String, Long> polyAt = new java.util.concurrent.ConcurrentHashMap<>();
     private static final Set<String> polyBusy = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private static final java.util.concurrent.ExecutorService polyPool = java.util.concurrent.Executors.newFixedThreadPool(3);
+    private static final Map<String, String> polyToken = new java.util.concurrent.ConcurrentHashMap<>();   // game id -> the away team's side of its market
+    private static final Map<String, List<Float>> polyHistCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Map<String, Long> polyHistAt = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Set<String> polyHistBusy = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private static final long POLY_TTL = 5 * 60_000;       // before the game
     private static final long POLY_TTL_LIVE = 6_000;       // during the game: prices move with every goal
 
@@ -194,8 +198,59 @@ public final class Extras {
                 g.home.odds = res[1];
                 g.drawOdds = -1;
                 g.oddsSource = "POLYMARKET";
+                if (g.isLive()) applyHistory(g);
             }
         }
+    }
+
+    /**
+     * The graph of the whole game, even if you open the app halfway through (or 20 minutes before the end): Polymarket keeps
+     * the price of every market minute by minute. The first time a live game is seen it is fetched right away; after that it
+     * is refreshed in the background about once a minute.
+     */
+    private static void applyHistory(Model.Game g) {
+        Long at = polyHistAt.get(g.id);
+        boolean stale = at == null || System.currentTimeMillis() - at >= 60_000;
+        if (stale && polyHistBusy.add(g.id)) {
+            if (at == null) {
+                try { storeHistory(g); } finally { polyHistBusy.remove(g.id); }
+            } else {
+                polyPool.execute(() -> { try { storeHistory(g); } catch (Exception ignored) { } finally { polyHistBusy.remove(g.id); } });
+            }
+        }
+        List<Float> h = polyHistCache.get(g.id);
+        g.polyHist.clear();
+        if (h != null) g.polyHist.addAll(h);
+    }
+
+    private static void storeHistory(Model.Game g) {
+        List<Float> h = null;
+        try { h = fetchHistory(g); } catch (Exception ignored) { }
+        if (h != null) polyHistCache.put(g.id, h);
+        polyHistAt.put(g.id, System.currentTimeMillis());   // (also after a failure: try again in a minute, not on every refresh)
+    }
+
+    /**
+     * The away team's win chance, one value a minute, from the START OF THE GAME until now (not from when the market opened:
+     * that is days earlier and is only betting before anyone has played). The first value is the last price before the
+     * start, so the curve begins where the game begins.
+     */
+    private static List<Float> fetchHistory(Model.Game g) throws Exception {
+        String tok = polyToken.get(g.id);
+        if (tok == null || tok.isEmpty()) return null;
+        long now = System.currentTimeMillis() / 1000, start = g.startMs > 0 ? g.startMs / 1000 : now - 3 * 3600;
+        // ask from a few hours before the start, only to find the last price before it
+        JSONArray pts = new JSONObject(Espn.get("https://clob.polymarket.com/prices-history?market=" + tok
+            + "&startTs=" + (start - 6 * 3600) + "&endTs=" + now + "&fidelity=1")).optJSONArray("history");
+        if (pts == null || pts.length() < 2) return null;
+        List<Float> out = new java.util.ArrayList<>();
+        int k = 0;
+        float last = (float) pts.getJSONObject(0).optDouble("p", 0.5);
+        for (long t = start; t <= now && out.size() < 500; t += 60) {   // one value per minute, the last price until the next one
+            while (k < pts.length() && pts.getJSONObject(k).optLong("t", 0) <= t) { last = (float) pts.getJSONObject(k).optDouble("p", last); k++; }
+            out.add(last);
+        }
+        return out.size() >= 3 ? out : null;
     }
 
     private static void store(String id, float[] res) {
@@ -243,6 +298,10 @@ public final class Extras {
                 float away = firstIsHome ? p1 : p0, home = firstIsHome ? p0 : p1;
                 float sum = away + home;
                 if (sum <= 0) continue;
+                try {   // the id of the away team's side, to ask for the price history later
+                    String tok = new JSONArray(m.optString("clobTokenIds", "[]")).optString(firstIsHome ? 1 : 0, "");
+                    if (!tok.isEmpty()) polyToken.put(g.id, tok);
+                } catch (Exception ignored) { }
                 return new float[]{away / sum, home / sum};
             } catch (Exception ignored) { }
         }

@@ -82,6 +82,7 @@ public final class Model {
         public final List<String[]> teamStats = new ArrayList<>();    // {label, away, home}
         public final List<String[]> leaderLines = new ArrayList<>();  // {team abbr, category, player, value}
         public final List<Float> winHist = new ArrayList<>();         // away win chance through the game (ESPN)
+        public final List<Float> polyHist = new ArrayList<>();        // away win chance, one point a minute since just before the start (Polymarket)
         public String driveText = "";                                 // football: "8 plays, 54 yards, 4:12"   // F1: driver nationality flag URL
         public String flag = "";                                     // F1: host country flag URL
         public long startMs;
