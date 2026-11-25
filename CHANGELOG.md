@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.30
+- **Sounds are much louder.** 3.29 turned them down by mistake, about 10 dB too quiet on the Thor's small speakers. All sounds and all 32 team horns are now levelled about 4 dB louder than 3.29 (as loud as the sounds before 3.29, without the harshness), and the default volume is now HIGH.
+- **New volume step: MAX.** Settings → Sound → Volume now goes LOW, MED, HIGH, MAX. MAX adds Android's loudness boost on top of full volume (about +9 dB). It is only on when you choose MAX: if a device ever stays silent with MAX, go back to HIGH.
+
 ## 3.29
 - **Sound settings, cleaned up.** Settings → Sound is now short: Sound on/off, Volume, **Style**, Team goal horns, Length, Vibrate, Menu sounds, Test the sound. The long list of one sound per event (Goal, Touchdown, Field goal…) is tucked behind "Customize each sound".
 - **Sound styles:** one tap sets every sound at once, and you hear it. **ARENA** (the new default: arena horn for goals, a stadium cannon for touchdowns, the organ "Charge!" for field goals, a fanfare for wins), **CLASSIC** (the sounds from before), **PARTY** (air horns and sirens) and **MELLOW** (bells). Change a single sound yourself and it shows CUSTOM. If you had picked your own sounds, they are kept.
