@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.33
+- **Fixed: no win-chance graph for Vegas, Calgary, Montréal and Utah games.** Polymarket names those teams differently from ESPN (Vegas is "las", Calgary "cal", Montréal "mon", Utah "utah"), so the app never found their odds. They are found now. I checked tonight's whole NHL slate: all 15 games get their win chances.
+- **Two-screen mode: the shot map is no longer shown twice.** The rink stays on the top screen, and the bottom screen keeps its space for the win-chance graph and the team stats.
+- Win chances always add up to 100 (they showed 51% + 50% before).
+
 ## 3.32
 - **The settings page is redone.** It opens on a home of 6 big cards (**Games, My teams, Goal, Sound, Display, App**), and each card shows what is set right now ("Refresh FAST · Spoiler delay OFF", "6 teams followed", "Sound ON · HIGH · Style ARENA"…). Tap a card to open a short page with only its settings; **‹** goes back. Controller: arrows move over the cards, A opens, B goes back, L1 / R1 jump to the next card.
 - **Fewer things on screen at once.** The 5 goal effects (flash, beams, confetti, fireworks, shake) are under Goal → Effects, the sound for each event is under Sound → Sounds by event, and the 3 field demos are under App → Field demos. No page has more than 10 rows, every row says what it does, and the text is never squeezed.
