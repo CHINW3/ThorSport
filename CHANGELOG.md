@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.44
+- **Cricket is a folder now, with sections.** CRICKET (everything), **TEST** (the 5-day internationals), **ONE-DAY**, **T20** (the short format and the big leagues), **WOMEN'S**, and **DOMESTIC** (the long first-class games, which were most of the volume). Every match lands in exactly one section. They are in the league menu under a CRICKET folder.
+- **My teams: the league column is readable again.** With all the new leagues, the list on the left had become tiny. It now shows the main leagues plus a row for each folder (SOCCER, COLLEGE, INTL), like the league menu, and opens a folder when you tap it or step into it with L1 / R1.
+- **My teams: you can pick cricket teams.** CRICKET was in the list but had no teams (cricket has no standings to read them from). It now lists the teams of the recent and coming matches: national teams, women's teams, league sides.
+- Removed the controller hint line from the Settings header.
+
 ## 3.43
 - New NCAA Hockey icon in the league menu (the official logo).
 

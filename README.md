@@ -1,4 +1,4 @@
-# ThorSport 3.43
+# ThorSport 3.44
 
 Live sports for the **AYN Thor bottom screen** (1240×1080) and the **Retroid Pocket Duo** (1280×960). Everything is drawn to fill the screen exactly.
 
@@ -19,7 +19,7 @@ Live sports for the **AYN Thor bottom screen** (1240×1080) and the **Retroid Po
 ## Leagues
 ★ MY TEAMS · NHL · AHL · PWHL · NBA · NFL · MLB · WNBA · F1 · League of Legends · Premier League · MLS · Champions League · La Liga · Bundesliga · Serie A · Ligue 1 · College football (NCAAF) · College basketball (NCAAM, NCAAW) · College hockey · EFL Championship, League One, League Two · Cricket · International: World Cup, UEFA Nations League, Concacaf Nations League, international friendlies, Olympic hockey (men and women)
 
-Club soccer leagues are grouped in a **SOCCER** folder in the league menu, national teams (soccer and hockey) in an **INTL** folder, and all the college sports (football, basketball, hockey) in a **COLLEGE** folder. The AHL comes from the league's own feed (like the PWHL): scores, standings by division, and the playoff picture (top 4 of each division).
+Club soccer leagues are grouped in a **SOCCER** folder in the league menu, national teams (soccer and hockey) in an **INTL** folder, all the college sports (football, basketball, hockey) in a **COLLEGE** folder, and cricket in a **CRICKET** folder (Test, One-day, T20, Women's, Domestic). The AHL comes from the league's own feed (like the PWHL): scores, standings by division, and the playoff picture (top 4 of each division).
 
 ## Two-screen mode
 Tap the **two-screen button** (the little ▭ icon next to the tabs) or Settings → Two-screen mode.
