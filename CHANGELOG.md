@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.38
+- **The win-chance graph shows the whole game, even if you open the app halfway through.** It used to start flat at the moment you opened the app. Now the app asks Polymarket for the price history of the game, one point a minute, from the **start of the game** (puck drop, kickoff, tip-off; not from when the market opened days before) up to now. You can see every swing: the goals, the comebacks. It is refreshed about once a minute in the background, and it ends on the number shown. The graph's caption says "POLYMARKET · WHOLE GAME".
+
 ## 3.37
 - Two-screen mode: removed the "TWO-SCREEN MODE · tap ▭ to go back to one screen" text from the top screen. The two-screen button is still there.
 
