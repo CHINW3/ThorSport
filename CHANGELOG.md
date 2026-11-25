@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.54
+- **Nothing behind Settings (or any menu) reacts any more:** a long press, a swipe, X / Y, L2 / R2, L3 or L1 / R1 used while a menu is open no longer changes the screen behind it.
+
 ## 3.53
 - **You can now pick favorite esports teams** (LoL, CS2, Valorant, Dota 2, R6 Siege) in My teams: their games show on MY TEAMS and you get the alerts.
 
