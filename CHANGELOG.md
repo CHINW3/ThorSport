@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.50
+- **More esports data:** CS2 and R6 show the score of each map ("Cache 13-9 · Mirage 8-13"), upcoming CS2 / Valorant / Dota 2 games show the bookmakers' win chance, and a live Dota 2 pro game shows kills, gold lead and game time.
+
 ## 3.49
 - **Own logos for CS2, Valorant, Dota 2 and R6 Siege** in the league menu.
 

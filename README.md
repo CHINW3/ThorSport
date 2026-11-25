@@ -1,4 +1,4 @@
-# ThorSport 3.49
+# ThorSport 3.50
 
 Live sports for the **AYN Thor bottom screen** (1240×1080) and the **Retroid Pocket Duo** (1280×960). Everything is drawn to fill the screen exactly.
 
