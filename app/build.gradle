@@ -7,8 +7,8 @@ android {
         applicationId 'com.gregoire.thorstandings'
         minSdk 30
         targetSdk 34
-        versionCode 67
-        versionName '3.55'
+        versionCode 68
+        versionName '3.56'
     }
     // One fixed key for every build (Android Studio or GitHub), so new versions
     // install over old ones instead of failing with "App not installed".

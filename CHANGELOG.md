@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.56
+- **QMJHL logo** in the league menu.
+
 ## 3.55
 - **QMJHL added** (the Quebec junior league): scores, standings by conference (top 8 of each make the playoffs), playoff picture, and all 18 teams in My teams. The Sherbrooke Phoenix have their logo packed in the app.
 
