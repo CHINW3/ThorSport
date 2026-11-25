@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.31
+- **Settings reorganized.** Everything was all over the place (two "Test a goal", two "Style", two "Length", your teams spread over three pages). Now there are 7 sections with one idea each: **Games**, **Teams & alerts** (everything about your teams in one place, including Mute alerts), **Goal screen**, **Sound**, **Stick lights**, **Display** and **App**.
+- **Every setting now says what it does** in a short grey line under its name. (On a very long list the lines hide so the rows stay readable.)
+- Clearer names: "Party length" (goal screen) and "Sound length" instead of two "Length"; "Test a goal" is only in Goal screen; "Mute alerts" is with your teams' alerts; the field demos moved to App.
+- **Sounds no longer sound harsh.** 3.30 made the sounds louder by squashing them, which added distortion. Now they're levelled with a clean limiter that turns peaks down smoothly instead of clipping them, the bass the Thor's speakers can't play is removed, and the team horns are re-levelled the same way. They are still louder than 3.29 (the main sounds are about 2 to 3 dB louder, and the default volume is HIGH). For more, pick **MAX** in Settings → Sound → Volume.
+
 ## 3.30
 - **Sounds are much louder.** 3.29 turned them down by mistake, about 10 dB too quiet on the Thor's small speakers. All sounds and all 32 team horns are now levelled about 4 dB louder than 3.29 (as loud as the sounds before 3.29, without the harshness), and the default volume is now HIGH.
 - **New volume step: MAX.** Settings → Sound → Volume now goes LOW, MED, HIGH, MAX. MAX adds Android's loudness boost on top of full volume (about +9 dB). It is only on when you choose MAX: if a device ever stays silent with MAX, go back to HIGH.

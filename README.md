@@ -1,4 +1,4 @@
-# ThorSport 3.30
+# ThorSport 3.31
 
 Live sports for the **AYN Thor bottom screen** (1240×1080) and the **Retroid Pocket Duo** (1280×960). Everything is drawn to fill the screen exactly.
 
@@ -69,10 +69,14 @@ scores are hidden, and when the next score happens live a big button asks you to
 your stream — the delay is set to exactly that.
 
 ## Settings (tap the clock)
-Two-screen mode · spoiler delay · goal sounds (4 styles in one tap: Arena, Classic, Party, Mellow; 10 sounds to customize per event; each NHL team's own horn), volume (low / med / high / max), Test the sound · mute alerts 1 h · vibrate on goals (off by default) · menu sounds & vibration ·
-goal screen + length · celebrate all games / my teams · game reminder · replay last goal · stick lights + brightness · test a goal ·
-screen brightness · keep screen on (always / live games / never) · live refresh speed · open on · rotate live games ·
-hide finished games · auto-open Board · accent color · 12/24 h clock · English / Français · help · clear MY TEAMS · reset settings
+Seven sections, one idea each, and every row has a short line under it saying what it does:
+- **Games**: open on · live refresh speed · spoiler delay · hide finished games · auto-open Board · rotate live games · standings size · NHL shot map
+- **Teams & alerts**: my teams · celebrate all games / my teams · your other games · game reminder · extra alerts · mute alerts for 1 hour
+- **Goal screen**: test a goal · replay last goal · goal screen on/off · style (full / clean / simple) · length · flash, beams, confetti, fireworks, shake
+- **Sound**: sound on/off · volume (low / med / high / max) · **style** (Arena, Classic, Party, Mellow: a whole set of sounds in one tap) · each NHL team's own horn · sound length · vibrate on goals · menu sounds · test the sound · customize each sound
+- **Stick lights**: on/off · brightness · flash on goals
+- **Display**: two-screen mode · English / Français · screen brightness · accent color · 12/24 h clock · keep screen on
+- **App**: app update · help · field demos · clear MY TEAMS · reset settings
 
 ## Controller
 Always drives the bottom screen (in two-screen mode the top screen follows the game you open).
