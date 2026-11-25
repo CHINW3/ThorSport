@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.62
+- **MORE HOCKEY folder removed** (OHL, WHL, USHL, ECHL): the QMJHL is back in the main menu next to the PWHL.
+
 ## 3.61
 - **Sherbrooke Phoenix logo:** the shield on top, over the navy Phoenix picture.
 
