@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.43
+- New NCAA Hockey icon in the league menu (the official logo).
+
 ## 3.42
 - **Right stick changes the day.** On the Scores tab, push the right stick left for the previous day and right for the next day (one push = one day: bring it back to the centre before the next push, so it never skips). It works up to a week either way, like the ‹ › buttons, and does nothing while a menu or Settings is open.
 
