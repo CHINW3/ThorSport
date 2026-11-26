@@ -1,0 +1,473 @@
+<!--
+  ThorSport landing page. Single file: inline CSS + JS, GSAP/ScrollTrigger/Lenis from CDNs.
+
+  SWAPPING IN REAL SCREENSHOTS
+  Every handheld on this page is drawn in CSS/SVG from <template id="tpl-device">.
+  To show a real screenshot instead, add attributes on a device mount, for example:
+    <div class="dev-wrap" data-device="hero" data-top-shot="img/top.webp" data-bot-shot="img/bottom.webp"></div>
+  Top screen is 16:9, bottom screen is 1240x1080 (AYN Thor). Images cover the drawn scene.
+-->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-hockey" viewBox="0 0 24 24"><path d="M6 3l6.5 13.5H19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><ellipse cx="17.5" cy="19.5" rx="3" ry="1.5" fill="currentColor"/></symbol>
+  <symbol id="i-basketball" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3v18M5.6 5.6c3.4 3.6 3.4 9.2 0 12.8M18.4 5.6c-3.4 3.6-3.4 9.2 0 12.8"/></g></symbol>
+  <symbol id="i-football" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><ellipse cx="12" cy="12" rx="9.5" ry="5.5" transform="rotate(-40 12 12)"/><path d="M9.5 14.5l5-5M10.6 11.4l2 2M12.6 9.4l2 2"/></g></symbol>
+  <symbol id="i-baseball" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M7 4.6c1.9 4 1.9 10.8 0 14.8M17 4.6c-1.9 4-1.9 10.8 0 14.8"/></g></symbol>
+  <symbol id="i-soccer" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.6l4 2.9-1.5 4.7h-5L8 10.5z"/></g></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4h13l-2.5 4L18 12H5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 4h3v4H8zM11 8h3v4h-3z" fill="currentColor"/></symbol>
+  <symbol id="i-cricket" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M14.5 3.5l3 3-8.5 8.5-3-3z"/><path d="M6 15l-2.5 2.5"/><circle cx="18" cy="17.5" r="2.5"/></g></symbol>
+  <symbol id="i-pad" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M7 8h10a4 4 0 014 4v1a3 3 0 01-5.3 1.9L14.2 13H9.8l-1.5 1.9A3 3 0 013 13v-1a4 4 0 014-4z"/><path d="M8 10.5v3M6.5 12h3"/></g><circle cx="16" cy="11" r="1" fill="currentColor"/><circle cx="17.8" cy="13" r="1" fill="currentColor"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3z"/></g></symbol>
+  <symbol id="i-college" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M2 9.5l10-5 10 5-10 5z"/><path d="M6 11.5v4.5c3.3 2.6 8.7 2.6 12 0v-4.5M22 9.5v5"/></g></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 2.8l2.8 5.8 6.4.9-4.6 4.5 1.1 6.4L12 17.4l-5.7 3 1.1-6.4L2.8 9.5l6.4-.9z" fill="currentColor"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19.5h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+
+<template id="tpl-device">
+  <div class="dev">
+    <i class="dev__bump dev__bump--l"></i><i class="dev__bump dev__bump--r"></i>
+    <div class="dev__lid">
+      <div class="screen screen--top">
+        <div class="pn pn--tv is-on" data-pn="tv">
+          <div class="ice">
+            <svg class="rink" viewBox="0 0 200 85" preserveAspectRatio="none">
+              <rect x="1" y="1" width="198" height="83" rx="28" fill="#eef3fa" stroke="#cfd7e4" stroke-width="2.5"/>
+              <path d="M11 6.3V78.7M189 6.3V78.7" stroke="#e0404a" stroke-width=".9"/>
+              <path d="M75 1V84M125 1V84" stroke="#2f5fe0" stroke-width="2.2"/>
+              <path d="M100 1V84" stroke="#e0404a" stroke-width="1.8"/>
+              <circle cx="100" cy="42.5" r="15" fill="none" stroke="#2f5fe0" stroke-width=".9"/>
+              <g fill="none" stroke="#e0404a" stroke-width=".9"><circle cx="31" cy="20.5" r="15"/><circle cx="31" cy="64.5" r="15"/><circle cx="169" cy="20.5" r="15"/><circle cx="169" cy="64.5" r="15"/></g>
+              <path d="M11 36.5a6 6 0 0 1 0 12M189 36.5a6 6 0 0 0 0 12" fill="#9cc3ff" fill-opacity=".55" stroke="#e0404a" stroke-width=".6"/>
+            </svg>
+            <i class="pl" style="--c:var(--t1);--x:7%;--y:50%;--dx:0cqw;--dy:1.4cqw;--t:3s"></i>
+            <i class="pl" style="--c:var(--t1);--x:30%;--y:30%;--dx:8cqw;--dy:3cqw;--t:4.6s"></i>
+            <i class="pl" style="--c:var(--t1);--x:42%;--y:64%;--dx:-6cqw;--dy:-4cqw;--t:5.2s"></i>
+            <i class="pl" style="--c:var(--t1);--x:57%;--y:42%;--dx:9cqw;--dy:5cqw;--t:3.8s"></i>
+            <i class="pl" style="--c:var(--t1);--x:68%;--y:26%;--dx:-7cqw;--dy:6cqw;--t:6s"></i>
+            <i class="pl" style="--c:var(--t1);--x:80%;--y:58%;--dx:5cqw;--dy:-6cqw;--t:4.4s"></i>
+            <i class="pl" style="--c:var(--opp,#2f6bff);--x:93%;--y:50%;--dx:0cqw;--dy:-1.4cqw;--t:3.4s"></i>
+            <i class="pl" style="--c:var(--opp,#2f6bff);--x:35%;--y:48%;--dx:7cqw;--dy:-5cqw;--t:5s"></i>
+            <i class="pl" style="--c:var(--opp,#2f6bff);--x:50%;--y:30%;--dx:-8cqw;--dy:4cqw;--t:4.2s"></i>
+            <i class="pl" style="--c:var(--opp,#2f6bff);--x:62%;--y:70%;--dx:6cqw;--dy:-3cqw;--t:5.6s"></i>
+            <i class="pl" style="--c:var(--opp,#2f6bff);--x:74%;--y:40%;--dx:-5cqw;--dy:7cqw;--t:4.8s"></i>
+            <i class="pl" style="--c:var(--opp,#2f6bff);--x:86%;--y:36%;--dx:-4cqw;--dy:5cqw;--t:3.9s"></i>
+            <i class="puck"></i>
+          </div>
+          <div class="bug">
+            <span class="bug__t--h"><i class="logo lg-mtl" data-hlogo></i><b data-ht>MTL</b></span><em data-h>2</em>
+            <span class="bug__clk">6:18<small>3RD</small></span>
+            <span class="bug__t--a"><i class="logo lg-tor" data-alogo></i><b data-at>TOR</b></span><em data-a>2</em>
+          </div>
+        </div>
+        <div class="pn pn--board" data-pn="board">
+          <div class="tb"><span class="tb__lg"><i class="logo lg-l-nfl"></i>NFL</span><span class="tb__note">TWO-SCREEN MODE</span><i class="tb__two"></i><span class="tb__time">5:49 PM</span></div>
+          <div class="band">
+            <div class="tbx"><i class="logo lg-buf"></i><span class="tbx__n">10<small>TO 3</small></span></div>
+            <div class="cl">2ND<b>1:51</b><span>1ST &amp; 10</span></div>
+            <div class="tbx tbx--r is-lead"><i class="logo lg-kc"></i><span class="tbx__n">17<small>TO 2</small></span></div>
+          </div>
+          <div class="field">
+            <svg viewBox="0 0 120 26">
+              <rect width="120" height="26" fill="#2f8a3c"/>
+              <g fill="#2a7d36"><rect x="10" width="5" height="26"/><rect x="20" width="5" height="26"/><rect x="30" width="5" height="26"/><rect x="40" width="5" height="26"/><rect x="50" width="5" height="26"/><rect x="60" width="5" height="26"/><rect x="70" width="5" height="26"/><rect x="80" width="5" height="26"/><rect x="90" width="5" height="26"/><rect x="100" width="5" height="26"/></g>
+              <rect width="10" height="26" fill="#1f4fd0"/><rect x="110" width="10" height="26" fill="#c8102e"/>
+              <path d="M10 0V26M15 0V26M20 0V26M25 0V26M30 0V26M35 0V26M40 0V26M45 0V26M50 0V26M55 0V26M60 0V26M65 0V26M70 0V26M75 0V26M80 0V26M85 0V26M90 0V26M95 0V26M100 0V26M105 0V26M110 0V26" stroke="rgba(255,255,255,.7)" stroke-width=".3"/>
+              <rect x="10" width="20" height="26" fill="#ff3b30" opacity=".16"/>
+              <g fill="rgba(255,255,255,.85)" font-size="3.2" font-family="Archivo,Arial,sans-serif" font-weight="800" text-anchor="middle"><text x="20" y="5">10</text><text x="30" y="5">20</text><text x="40" y="5">30</text><text x="50" y="5">40</text><text x="60" y="5">50</text><text x="70" y="5">40</text><text x="80" y="5">30</text><text x="90" y="5">20</text><text x="100" y="5">10</text></g>
+              <path d="M58 0V26" stroke="#ffd23f" stroke-width=".9"/>
+              <path d="M68 0V26" stroke="#3b82f6" stroke-width=".9"/>
+              <path d="M86 13H70.5" stroke="#fff" stroke-width=".7" stroke-dasharray="1.4 1"/>
+              <path d="M70.6 11.5L68.3 13l2.3 1.5z" fill="#fff"/>
+              <ellipse cx="68" cy="13" rx="1.7" ry="1.05" fill="#8a4a1c" stroke="#fff" stroke-width=".25"/>
+            </svg>
+          </div>
+          <div class="lastplay"><b>LAST PLAY</b><span>(Shotgun) Pass short right to the KC 42 for 8 yards</span><i></i></div>
+          <div class="ticker"><span>NYJ 13-20 MIA FINAL</span><span>PHI 24-21 GB FINAL</span><span>SF @ DAL 8:20 PM</span><span>CIN @ BAL 8:15 PM</span></div>
+        </div>
+        <i class="screen__glare"></i>
+      </div>
+    </div>
+    <div class="dev__hinge"></div>
+    <div class="dev__base">
+      <div class="ctl ctl--l"><div class="stick"><i class="led"></i><i class="cap"></i></div><div class="dpad"></div></div>
+      <div class="screen screen--bot">
+        <div class="pn pn--bd is-on" data-pn="board">
+          <div class="tb"><span class="tb__lg"><i class="logo lg-l-nhl"></i>NHL</span><span class="tb__tabs"><b>SCORES</b><b class="on">BOARD</b><b>STANDINGS</b></span><i class="tb__two"></i><span class="tb__time">9:22 PM<small>SUN 23</small></span></div>
+          <div class="band">
+            <div class="tbx" data-box="h"><i class="logo lg-mtl" data-hlogo></i><span class="tbx__n"><span data-h>2</span><small>SOG 29</small></span></div>
+            <div class="cl">3RD<b>6:18</b><span>5 ON 5</span></div>
+            <div class="tbx tbx--r" data-box="a"><i class="logo lg-tor" data-alogo></i><span class="tbx__n"><span data-a>2</span><small>SOG 22</small></span></div>
+          </div>
+          <div class="shotmap">
+            <svg viewBox="0 0 200 85">
+              <rect class="rink-ice" x="1" y="1" width="198" height="83" rx="28" stroke="#cfd7e4" stroke-width="2"/>
+              <path d="M11 6.3V78.7M189 6.3V78.7" stroke="#e0404a" stroke-width=".8"/>
+              <path d="M75 1V84M125 1V84" stroke="#2f5fe0" stroke-width="1.8"/>
+              <path d="M100 1V84" stroke="#e0404a" stroke-width="1.4"/>
+              <circle cx="100" cy="42.5" r="15" fill="none" stroke="#2f5fe0" stroke-width=".8"/>
+              <g fill="none" stroke="#e0404a" stroke-width=".8"><circle cx="31" cy="20.5" r="15"/><circle cx="31" cy="64.5" r="15"/><circle cx="169" cy="20.5" r="15"/><circle cx="169" cy="64.5" r="15"/></g>
+              <path d="M11 36.5a6 6 0 0 1 0 12M189 36.5a6 6 0 0 0 0 12" fill="#9cc3ff" fill-opacity=".5" stroke="#e0404a" stroke-width=".5"/>
+              <g class="shot-dot"><circle cx="22" cy="30" r="2"/><circle cx="28" cy="52" r="2"/><circle cx="35" cy="40" r="2"/><circle cx="40" cy="22" r="2"/><circle cx="44" cy="60" r="2"/><circle cx="30" cy="66" r="2"/><circle cx="52" cy="34" r="2"/><circle cx="48" cy="48" r="2"/><circle cx="18" cy="44" r="2"/><circle cx="58" cy="58" r="2"/><circle cx="150" cy="30" r="2"/><circle cx="158" cy="55" r="2"/><circle cx="166" cy="38" r="2"/><circle cx="172" cy="62" r="2"/><circle cx="162" cy="20" r="2"/><circle cx="176" cy="28" r="2"/><circle cx="185" cy="36" r="2"/><circle cx="155" cy="44" r="2"/><circle cx="168" cy="50" r="2"/><circle cx="147" cy="62" r="2"/><circle cx="182" cy="58" r="2"/><circle cx="160" cy="70" r="2"/></g>
+              <g style="fill:var(--opp,#2f6bff)"><circle class="goal-halo" cx="20" cy="40" r="6"/><circle cx="20" cy="40" r="2.8"/><circle class="goal-halo" cx="33" cy="47" r="6"/><circle cx="33" cy="47" r="2.8"/></g>
+              <g style="fill:var(--t1)"><circle class="goal-halo" cx="178" cy="46" r="6"/><circle cx="178" cy="46" r="2.8"/><circle class="goal-halo" cx="169" cy="31" r="6"/><circle cx="169" cy="31" r="2.8"/></g>
+              <g class="newgoal" style="fill:var(--t1)"><circle class="goal-halo" cx="184" cy="40" r="7"/><circle cx="184" cy="40" r="3"/></g>
+            </svg>
+          </div>
+          <div class="lastplay"><b data-lpk>SHOT</b><span data-lpt>TOR #34 · 3RD 6:41</span><i></i></div>
+        </div>
+        <div class="pn pn--goal" data-pn="goal">
+          <i class="beams"></i>
+          <div class="cf"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="gw"><i class="logo lg-mtl" data-hlogo></i><b class="gw__word">GOAL!</b><span class="gw__sub"><span data-ht>MTL</span> #14 · 3RD 6:18</span></div>
+        </div>
+        <div class="pn pn--sc" data-pn="scores">
+          <div class="tb"><span class="tb__lg"><svg width="0" height="0" class="logo" style="color:#ffd23f"><use href="#i-star"/></svg>MY TEAMS</span><span class="tb__tabs"><b class="on">SCORES</b><b>BOARD</b><b>STANDINGS</b></span><i class="tb__two"></i><span class="tb__time">9:22 PM<small>SUN 23</small></span></div>
+          <div class="subbar"><span>&lsaquo; TODAY &rsaquo;</span><span class="fav"><svg><use href="#i-star"/></svg>MY TEAMS</span></div>
+          <div class="cards">
+            <div class="gc is-sel" style="--l:#e8323f;--r:#2f6bff"><span class="gc__lg">NHL</span><i class="logo lg-mtl"></i><span class="gc__s"><span><span data-h>2</span>-<span data-a>2</span></span><small class="live">3RD 6:18</small></span><i class="logo lg-tor"></i></div>
+            <div class="gc" style="--l:#f58426;--r:#e0244f"><span class="gc__lg">NBA</span><i class="logo lg-nyk"></i><span class="gc__s">98-91<small class="live">Q4 2:10</small></span><i class="logo lg-mia"></i></div>
+            <div class="gc" style="--l:#2f6bff;--r:#e31837"><span class="gc__lg">NFL</span><i class="logo lg-buf"></i><span class="gc__s">17-10<small>FINAL</small></span><i class="logo lg-kc"></i></div>
+            <div class="gc" style="--l:#e0243a;--r:#5fb84a"><span class="gc__lg">MLS</span><i class="logo lg-tfc"></i><span class="gc__s">1-1<small class="live">67'</small></span><i class="logo lg-sdr"></i></div>
+            <div class="gc" style="--l:#2f7bff;--r:#4a74d9"><span class="gc__lg">MLB</span><i class="logo lg-tbj"></i><span class="gc__s">7:07<small>PM</small></span><i class="logo lg-nyy"></i></div>
+            <div class="gc" style="--l:#7c4dcc;--r:#ffc72c"><span class="gc__lg">NBA</span><i class="logo lg-lal"></i><span class="gc__s">10:30<small>PM</small></span><i class="logo lg-gsw"></i></div>
+          </div>
+        </div>
+        <div class="pn pn--lg" data-pn="leagues">
+          <div class="tb"><span class="tb__lg"><i class="logo lg-l-nhl"></i>NHL</span><span class="tb__tabs"><b class="on">SCORES</b><b>BOARD</b><b>STANDINGS</b></span><i class="tb__two"></i><span class="tb__time">9:22 PM<small>SUN 23</small></span></div>
+          <ul class="lgm">
+            <li class="is-fav"><span class="ic" style="--c:#ffd23f"><svg><use href="#i-star"/></svg></span>MY TEAMS</li>
+            <li class="is-sel"><i class="logo lg-l-nhl"></i>NHL</li>
+            <li><span class="ic" style="--c:#2f7bff"><svg><use href="#i-hockey"/></svg></span>AHL</li>
+            <li><span class="ic" style="--c:#a78bfa"><svg><use href="#i-hockey"/></svg></span>PWHL</li>
+            <li><i class="logo lg-l-nba"></i>NBA</li>
+            <li><span class="ic" style="--c:#ff8a3d"><svg><use href="#i-basketball"/></svg></span>WNBA</li>
+            <li><i class="logo lg-l-nfl"></i>NFL</li>
+            <li><i class="logo lg-l-mlb"></i>MLB</li>
+            <li><span class="ic" style="--c:#e5e9f0"><svg><use href="#i-flag"/></svg></span>F1</li>
+            <li class="fold"><span class="ic" style="--c:#1fd17a"><svg><use href="#i-soccer"/></svg></span>SOCCER<span class="n"></span></li>
+            <li class="fold"><span class="ic" style="--c:#38bdf8"><svg><use href="#i-globe"/></svg></span>INTL<span class="n"></span></li>
+            <li class="fold"><span class="ic" style="--c:#fbbf24"><svg><use href="#i-college"/></svg></span>COLLEGE<span class="n"></span></li>
+            <li class="fold"><span class="ic" style="--c:#2dd4bf"><svg><use href="#i-cricket"/></svg></span>CRICKET<span class="n"></span></li>
+            <li class="fold"><span class="ic" style="--c:#a78bfa"><svg><use href="#i-pad"/></svg></span>ESPORTS<span class="n"></span></li>
+          </ul>
+        </div>
+        <div class="pn pn--game" data-pn="game">
+          <div class="tb"><span class="tb__lg"><i class="logo lg-l-nfl"></i>NFL</span><span class="tb__tabs"><b>LIVE</b><b class="on">GAME</b><b>STANDINGS</b></span><i class="tb__two"></i><span class="tb__time">5:49 PM<small>SUN 23</small></span></div>
+          <div class="minis"><span><i class="logo lg-buf"></i>10</span><div class="cl">2ND<b>1:51</b></div><span>17<i class="logo lg-kc"></i></span></div>
+          <div class="wc">
+            <div class="wc__top"><span>26%<small> BUF</small></span><span class="a"><small>KC </small>74%</span></div>
+            <svg viewBox="0 0 100 62" preserveAspectRatio="none"><path class="mid" d="M0 32H100"/><path class="area" d="M0 32 L9.4 33.7 L18.8 29.2 L28.2 30.9 L37.6 26.4 L47 28.1 L56.4 23 L65.8 24.7 L75.2 20.8 L84.6 21.9 L94 18.6 L94 62 L0 62 Z"/><path class="ln" pathLength="1" d="M0 32 L9.4 33.7 L18.8 29.2 L28.2 30.9 L37.6 26.4 L47 28.1 L56.4 23 L65.8 24.7 L75.2 20.8 L84.6 21.9 L94 18.6"/></svg>
+            <div class="wc__top"><small>POLYMARKET · WHOLE GAME</small></div>
+          </div>
+          <div class="stats">
+            <div><span>212</span><i style="--p:44%"></i><span>268</span><em>Total yards</em></div>
+            <div><span>148</span><i style="--p:45%"></i><span>181</span><em>Passing</em></div>
+          </div>
+        </div>
+        <i class="screen__glare"></i>
+      </div>
+      <div class="ctl ctl--r"><div class="abxy"><i>X</i><i>Y</i><i>A</i><i>B</i></div><div class="stick"><i class="led"></i><i class="cap"></i></div></div>
+    </div>
+  </div>
+</template>
+
+<div class="progress" aria-hidden="true"></div>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav" id="nav">
+  <nav class="nav__bar wrap" aria-label="Main">
+    <a class="brand" href="#top" aria-label="ThorSport, back to top"><img class="brand__icon" src="<!--ICON-->" alt="" width="28" height="28">ThorSport</a>
+    <ul class="nav__links">
+      <li><a href="#story">How it works</a></li>
+      <li><a href="#features">Features</a></li>
+      <li><a href="#goal">Try a goal</a></li>
+      <li><a href="#install">Install</a></li>
+    </ul>
+    <a class="btn btn--primary btn--sm nav__cta" href="https://github.com/CHINW3/ThorSport/releases/latest" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#i-download"/></svg>Download APK<span class="sr-only"> (opens GitHub in a new tab)</span></a>
+  </nav>
+</header>
+
+<main id="main" tabindex="-1">
+  <section class="hero" id="top" aria-labelledby="hero-h">
+    <div class="wrap grid hero__grid">
+      <div class="hero__copy">
+        <h1 class="display" id="hero-h"><span class="line"><span class="line__in">Every game.</span></span><span class="line"><span class="line__in">Both screens.</span></span></h1>
+        <p class="lede fade">ThorSport shows live scores on the bottom screen of the AYN Thor and the Retroid Pocket Duo, so the top screen stays free for the game. It also works on one screen.</p>
+        <div class="hero__ctas fade">
+          <a class="btn btn--primary" href="https://github.com/CHINW3/ThorSport/releases/latest" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#i-download"/></svg>Download APK<span class="sr-only"> (opens GitHub in a new tab)</span></a>
+          <a class="btn" href="#story">How it works</a>
+        </div>
+      </div>
+      <div class="hero__stage" data-scope>
+        <div class="dev-wrap" data-device="hero" role="img" aria-label="An AYN Thor: the top screen plays a hockey game, the bottom screen shows the ThorSport Board with the score, clock and shot map. Every few seconds Montréal scores, the bottom screen shows GOAL and the stick lights swap colors."></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="lgbar" aria-label="Leagues and teams">
+    <div class="mq" style="--dur:120s"><ul class="mq__track" aria-label="Leagues">
+<!--MARQUEE_LEAGUES-->
+    </ul></div>
+    <div class="mq mq--rev" style="--dur:90s"><ul class="mq__track" aria-label="Teams with logos in the app">
+<!--MARQUEE_TEAMS-->
+    </ul></div>
+  </section>
+
+  <section class="sec" id="story" aria-labelledby="story-h">
+    <div class="wrap">
+      <div class="sec__head">
+        <h2 class="h2" id="story-h">How ThorSport uses both screens</h2>
+        
+      </div>
+      <div class="story__grid">
+        <div class="story__stage">
+          <div class="story__sticky" data-scope data-scene="0">
+            <div class="dev-wrap" data-device="story" role="img" aria-label="The same AYN Thor, changing to match the step you are reading."></div>
+            <div class="rail" aria-hidden="true"><i class="on"></i><i></i><i></i><i></i><i></i></div>
+          </div>
+        </div>
+        <ol class="story__steps">
+          <li class="step is-active" data-scene="0">
+            <p class="step__tag">Leagues</p>
+            <h3 class="h3">50+ leagues, sorted into folders</h3>
+            <p>Folders for everything else.</p>
+          </li>
+          <li class="step" data-scene="1">
+            <p class="step__tag">My Teams</p>
+            <h3 class="h3">Your teams first</h3>
+            <p>Long-press a team to add it.</p>
+          </li>
+          <li class="step" data-scene="2">
+            <p class="step__tag">Goal alerts</p>
+            <h3 class="h3">A goal fills the screen</h3>
+            <p>With every NHL team's real horn.</p>
+          </li>
+          <li class="step" data-scene="3">
+            <p class="step__tag">Stick lights</p>
+            <h3 class="h3">The sticks show your team's colors</h3>
+            <p>Your team's colors on the stick LEDs.</p>
+          </li>
+          <li class="step" data-scene="4">
+            <p class="step__tag">Two-screen mode</p>
+            <h3 class="h3">A bigger Board on the top screen</h3>
+            <p>Press R3 for a big Board on top.</p>
+          </li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="features" aria-labelledby="feat-h">
+    <div class="wrap">
+      <div class="sec__head">
+        <h2 class="h2" id="feat-h">What ThorSport does</h2>
+        
+      </div>
+
+      <article class="feat" id="f-leagues" aria-labelledby="f-leagues-h">
+        <div class="feat__txt">
+          <h3 class="h3" id="f-leagues-h">50+ leagues, sorted into folders</h3>
+          <p>Hide the sports you don't follow.</p>
+        </div>
+        <div class="feat__demo">
+          <ul class="lgtop" aria-label="Leagues at the top of the menu">
+            <li><i class="logo lg-l-nhl"></i>NHL</li>
+            <li><svg aria-hidden="true" style="--c:#2f7bff"><use href="#i-hockey"/></svg>AHL</li>
+            <li><svg aria-hidden="true" style="--c:#a78bfa"><use href="#i-hockey"/></svg>PWHL</li>
+            <li><i class="logo lg-l-nba"></i>NBA</li>
+            <li><svg aria-hidden="true" style="--c:#ff8a3d"><use href="#i-basketball"/></svg>WNBA</li>
+            <li><i class="logo lg-l-nfl"></i>NFL</li>
+            <li><i class="logo lg-l-mlb"></i>MLB</li>
+            <li><svg aria-hidden="true" style="--c:#e5e9f0"><use href="#i-flag"/></svg>F1</li>
+          </ul>
+          <ul class="folders">
+            <li class="folder"><label class="folder__head"><input class="sw" type="checkbox" role="switch" id="f-soccer" checked>SOCCER<span class="folder__state" aria-hidden="true"></span></label><p class="folder__list">Premier League, MLS, Champions League, La Liga, Bundesliga, Serie A, Ligue 1, EFL Championship, League One, League Two</p></li>
+            <li class="folder"><label class="folder__head"><input class="sw" type="checkbox" role="switch" id="f-intl" checked>INTL<span class="folder__state" aria-hidden="true"></span></label><p class="folder__list">World Cup, UEFA Nations League, Concacaf Nations League, friendlies, Olympic hockey</p></li>
+            <li class="folder"><label class="folder__head"><input class="sw" type="checkbox" role="switch" id="f-college" checked>COLLEGE<span class="folder__state" aria-hidden="true"></span></label><p class="folder__list">Football, men's basketball, women's basketball, hockey</p></li>
+            <li class="folder"><label class="folder__head"><input class="sw" type="checkbox" role="switch" id="f-cricket" checked>CRICKET<span class="folder__state" aria-hidden="true"></span></label><p class="folder__list">Test, One-day, T20, women's, domestic</p></li>
+            <li class="folder"><label class="folder__head"><input class="sw" type="checkbox" role="switch" id="f-esports" checked>ESPORTS<span class="folder__state" aria-hidden="true"></span></label><p class="folder__list">League of Legends, CS2, Valorant, Dota 2, Rainbow Six Siege</p></li>
+          </ul>
+        </div>
+      </article>
+
+
+      <article class="feat" id="f-goal" aria-labelledby="f-goal-h">
+        <div class="feat__txt">
+          <h3 class="h3" id="f-goal-h">Goal alerts and stick lights</h3>
+          <p>Your team's colors on screen and on the stick LEDs.</p>
+        </div>
+        <div class="feat__demo">
+          <div class="sticks" data-mode="team" aria-hidden="true"><div class="stick"><i class="led"></i><i class="cap"></i></div><div class="stick"><i class="led"></i><i class="cap"></i></div></div>
+          <div class="seg-group" role="group" aria-label="Stick light state">
+            <button class="seg" type="button" data-mode="team" aria-pressed="true">Team</button><button class="seg" type="button" data-mode="goal" aria-pressed="false">Goal</button><button class="seg" type="button" data-mode="win" aria-pressed="false">Win</button><button class="seg" type="button" data-mode="tight" aria-pressed="false">Tight finish</button>
+          </div>
+        </div>
+      </article>
+
+      <article class="feat" id="f-live" aria-labelledby="f-live-h">
+        <div class="feat__txt">
+          <h3 class="h3" id="f-live-h">Fast scores and win odds</h3>
+          <p>NHL and MLB goals seconds before ESPN, with Polymarket odds for the whole game.</p>
+        </div>
+        <div class="feat__demo">
+          <figure class="oc">
+            <svg viewBox="0 0 320 140" role="img" aria-label="Example graph: Montréal's win chance over a game, ending at 78 percent late in the third period.">
+              <path class="g" d="M10 40H310M10 92H310"/><path class="g g--mid" d="M10 66H310"/><path class="per" d="M110 10V118M210 10V118"/>
+              <path class="area" d="M10 61.8 L22 60.8 L34 63.9 L46 58.7 L61 59.8 L70 60.8 L82 75.4 L94 73.3 L106 76.4 L118 70.2 L133 58.7 L148 60.8 L160 56.6 L175 57.7 L190 44.2 L202 47.3 L217 49.4 L229 63.9 L241 61.8 L253 66 L265 65 L277 67 L286 66 L289 36.9 L289 118 L10 118 Z"/>
+              <path class="ln" pathLength="1" d="M10 61.8 L22 60.8 L34 63.9 L46 58.7 L61 59.8 L70 60.8 L82 75.4 L94 73.3 L106 76.4 L118 70.2 L133 58.7 L148 60.8 L160 56.6 L175 57.7 L190 44.2 L202 47.3 L217 49.4 L229 63.9 L241 61.8 L253 66 L265 65 L277 67 L286 66 L289 36.9"/>
+              <circle class="end" cx="289" cy="36.9" r="3.2"/>
+              <text class="big" x="281" y="26" text-anchor="end">MTL 78%</text>
+              <text x="316" y="69" text-anchor="end">50%</text>
+              <text x="60" y="134" text-anchor="middle">1ST</text><text x="160" y="134" text-anchor="middle">2ND</text><text x="260" y="134" text-anchor="middle">3RD</text>
+            </svg>
+            <figcaption>POLYMARKET · WHOLE GAME (example)</figcaption>
+          </figure>
+        </div>
+      </article>
+
+
+      <article class="feat" id="f-pad" aria-labelledby="f-pad-h">
+        <div class="feat__txt">
+          <h3 class="h3" id="f-pad-h">Every screen works from the buttons</h3>
+          <p>No touch needed.</p>
+        </div>
+        <div class="feat__demo padviz">
+          <svg class="pad" viewBox="0 0 320 196" data-hl="dpad" aria-hidden="true">
+            <rect class="part p-l2r2" x="60" y="22" width="54" height="13" rx="6.5"/><rect class="part p-l2r2" x="206" y="22" width="54" height="13" rx="6.5"/>
+            <rect class="part p-l1r1" x="50" y="39" width="72" height="13" rx="6.5"/><rect class="part p-l1r1" x="198" y="39" width="72" height="13" rx="6.5"/>
+            <text class="lbl t-l2r2" x="87" y="15">L2</text><text class="lbl t-l2r2" x="233" y="15">R2</text>
+            <text class="lbl t-l1r1" x="36" y="48.5">L1</text><text class="lbl t-l1r1" x="284" y="48.5">R1</text>
+            <path class="body" d="M70 58H250C285 58 300 84 306 120C312 158 300 184 276 184C260 184 251 172 240 154C232 141 222 136 210 136H110C98 136 88 141 80 154C69 172 60 184 44 184C20 184 8 158 14 120C20 84 35 58 70 58Z"/>
+            <path class="part p-dpad" d="M78 86h12v12h12v12H90v12H78v-12H66V98h12z"/>
+            <circle class="ring" cx="128" cy="114" r="16"/><circle class="part p-ls" cx="128" cy="114" r="11"/>
+            <circle class="ring r-rs" cx="192" cy="114" r="16"/><circle class="part p-rs" cx="192" cy="114" r="11"/>
+            <circle class="part p-xy" cx="236" cy="88" r="7"/><circle class="part p-xy" cx="222" cy="102" r="7"/><circle class="part p-ab" cx="250" cy="102" r="7"/><circle class="part p-ab" cx="236" cy="116" r="7"/>
+            <text class="lbl" x="236" y="90.7">X</text><text class="lbl" x="222" y="104.7">Y</text><text class="lbl" x="250" y="104.7">A</text><text class="lbl" x="236" y="118.7">B</text>
+            <rect class="part" x="146" y="80" width="11" height="5" rx="2.5"/><rect class="part" x="163" y="80" width="11" height="5" rx="2.5"/>
+          </svg>
+          <table class="tbl map">
+            <caption class="sr-only">Controller buttons and what they do</caption>
+            <tbody>
+              <tr data-part="dpad" class="on"><td><kbd>D-pad</kbd></td><td>Move card by card</td></tr>
+              <tr data-part="ab"><td><kbd>A / B</kbd></td><td>Open the game, go back</td></tr>
+              <tr data-part="xy"><td><kbd>X / Y</kbd></td><td>Star the left or right team</td></tr>
+              <tr data-part="l1r1"><td><kbd>L1 / R1</kbd></td><td>Switch tabs</td></tr>
+              <tr data-part="l2r2"><td><kbd>L2 / R2</kbd></td><td>Switch leagues</td></tr>
+              <tr data-part="rs"><td><kbd>R stick</kbd></td><td>Previous or next day</td></tr>
+              <tr data-part="r3"><td><kbd>R3</kbd></td><td>Two-screen mode on or off</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+
+
+    </div>
+  </section>
+
+  <section class="sec goal" id="goal" aria-labelledby="goal-h" data-scope>
+    <div class="wrap grid goal__grid">
+      <div class="goal__copy">
+        <h2 class="h2" id="goal-h">Try the goal screen</h2>
+        <fieldset class="picker">
+          <legend class="sr-only">Your team</legend>
+          <div class="picker__opts">
+            <label class="pick" style="--c:#e8323f"><input type="radio" name="team" value="mtl" id="t-mtl" checked><span><i class="logo lg-mtl"></i><span class="sr-only">Montréal</span></span></label>
+            <label class="pick" style="--c:#2f6bff"><input type="radio" name="team" value="tor" id="t-tor"><span><i class="logo lg-tor"></i><span class="sr-only">Toronto</span></span></label>
+            <label class="pick" style="--c:#ffb81c"><input type="radio" name="team" value="bos" id="t-bos"><span><i class="logo lg-bos"></i><span class="sr-only">Boston</span></span></label>
+            <label class="pick" style="--c:#ff6a1f"><input type="radio" name="team" value="edm" id="t-edm"><span><i class="logo lg-edm"></i><span class="sr-only">Edmonton</span></span></label>
+            <label class="pick" style="--c:#19c46e"><input type="radio" name="team" value="dal" id="t-dal"><span><i class="logo lg-dal"></i><span class="sr-only">Dallas</span></span></label>
+            <label class="pick" style="--c:#5fd6e0"><input type="radio" name="team" value="sea" id="t-sea"><span><i class="logo lg-sea"></i><span class="sr-only">Seattle</span></span></label>
+          </div>
+        </fieldset>
+        <div class="goal__act">
+          <button class="goal-btn" id="goalBtn" type="button"><span class="goal-btn__label">GOAL!</span><span class="goal-btn__sub">Press to score</span></button>
+          <div class="goal__opts">
+            <label class="toggle"><input class="sw" type="checkbox" role="switch" id="snd" checked>Goal horn</label>
+          </div>
+        </div>
+      </div>
+      <div class="goal__stage">
+        <div class="dev-wrap" data-device="goal" role="img" aria-label="An AYN Thor with the ThorSport Board on the bottom screen. It shows the goal screen and swaps the stick light colors when you press the goal button."></div>
+      </div>
+    </div>
+    <p class="sr-only" id="announce" aria-live="assertive"></p>
+  </section>
+
+  <section class="sec" id="install" aria-labelledby="install-h">
+    <div class="wrap">
+      <div class="sec__head">
+        <h2 class="h2" id="install-h">Install ThorSport</h2>
+        
+      </div>
+      <ol class="steps">
+        <li>
+          <p class="steps__n">Step 1</p>
+          <h3 class="h3">Download</h3>
+          <p>Tap <b>Download APK</b>. GitHub serves <b>ThorSport.apk</b> from the latest release.</p>
+          <a class="btn btn--primary btn--sm" href="https://github.com/CHINW3/ThorSport/releases/latest" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#i-download"/></svg>Download APK<span class="sr-only"> (opens GitHub in a new tab)</span></a>
+        </li>
+        <li>
+          <p class="steps__n">Step 2</p>
+          <h3 class="h3">Allow installs from your browser</h3>
+          <p>Open the file. When Android asks, tap <b>Settings</b>, turn on <b>Allow from this source</b> for your browser, then go back.</p>
+        </li>
+        <li>
+          <p class="steps__n">Step 3</p>
+          <h3 class="h3">Open ThorSport</h3>
+          <p>Tap <b>Install</b>, then <b>Open</b>. On a Thor, if it opens on the top screen, long-press the icon and choose <b>Screen Launch → Bottom Screen</b>.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="sec" id="faq" aria-labelledby="faq-h">
+    <div class="wrap">
+      <div class="sec__head">
+        <h2 class="h2" id="faq-h">Questions</h2>
+      </div>
+      <div class="faq">
+        <details>
+          <summary>What is ThorSport?</summary>
+          <p>An Android app for live sports. On a dual-screen handheld it runs on the bottom screen with scores, standings, the Board and goal alerts, so the top screen stays free for the game you're watching.</p>
+        </details>
+        <details>
+          <summary>Which devices does it work on?</summary>
+          <p>It's built for the AYN Thor (bottom screen 1240×1080) and the Retroid Pocket Duo (1280×960), and draws to fit those screens exactly. It also works on a single-screen Android device.</p>
+        </details>
+        <details>
+          <summary>Which leagues and sports are covered?</summary>
+          <p>NHL, AHL, PWHL, NBA, WNBA, NFL, MLB, F1, the Premier League, MLS, the Champions League, La Liga, the Bundesliga, Serie A, Ligue 1 and the EFL, college football, basketball and hockey, international soccer and hockey, cricket (Test, One-day, T20, women's and domestic) and esports (League of Legends, CS2, Valorant, Dota 2 and Rainbow Six Siege).</p>
+        </details>
+        <details>
+          <summary>Where do the scores come from?</summary>
+          <p>ESPN's public feeds for scores, standings and odds, the NHL's and MLB's own live feeds for faster goals and runs, HockeyTech for the PWHL, Jolpica for F1, lolesports.com for League of Legends and Polymarket for win chances.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot__cta">
+      <div>
+        <h2 class="h2">Download ThorSport</h2>
+      </div>
+      <a class="btn btn--primary" href="https://github.com/CHINW3/ThorSport/releases/latest" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#i-download"/></svg>Download APK<span class="sr-only"> (opens GitHub in a new tab)</span></a>
+    </div>
+    <div class="foot__row">
+      <p class="foot__made"><img class="brand__icon" src="<!--ICON-->" alt="" width="28" height="28">Made for the Thor.</p>
+      <ul class="foot__links">
+        <li><a href="https://github.com/CHINW3/ThorSport" target="_blank" rel="noopener">GitHub</a></li>
+        <li><a href="https://github.com/CHINW3/ThorSport/releases" target="_blank" rel="noopener">Releases</a></li>
+        <li><a href="#faq">FAQ</a></li>
+        <li><a href="#top">Back to top</a></li>
+      </ul>
+    </div>
+    <p class="foot__legal">ThorSport is an independent app. It isn't affiliated with AYN, Retroid, ESPN, Polymarket, or the leagues and teams shown. Team and league logos belong to their owners.</p>
+  </div>
+</footer>
+
+<div class="takeover" id="takeover" aria-hidden="true"><div class="takeover__flash"></div><div class="takeover__beams"></div><p class="takeover__word">GOAL!</p></div>
+<canvas class="confetti" id="confetti" aria-hidden="true"></canvas>
